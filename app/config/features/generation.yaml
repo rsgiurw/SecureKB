@@ -75,8 +75,8 @@ generation:
   # Google Gemini를 기본값으로 사용 (Quickstart 호환, 무료 API 키)
   # OpenRouter 사용 시: GENERATION_PROVIDER=openrouter 환경변수 설정
 
-  # 기본 프로바이더 (모든 환경에서 google 사용)
-  default_provider: "google"
+  # [MOD] 改造①：智谱 GLM（OpenAI 兼容端点）——国内直连，默认走 openai 分支
+  default_provider: "openai"
 
   # Fallback은 모델 레벨에서 처리
   auto_fallback: true
@@ -89,6 +89,12 @@ generation:
   # ========================================
   # OpenRouter 설정
   # ========================================
+  # [MOD] 改造①：OpenAI 兼容段接入智谱 GLM
+  openai:
+    api_key: "${OPENAI_API_KEY:-}"
+    base_url: "https://open.bigmodel.cn/api/paas/v4/"
+    default_model: "glm-4-flash"
+
   openrouter:
     # API 설정
     api_key: "${OPENROUTER_API_KEY:-}"

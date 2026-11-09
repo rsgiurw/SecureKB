@@ -20,6 +20,7 @@ Note:
 from __future__ import annotations
 
 import asyncio
+import os
 import uuid
 from abc import ABC, abstractmethod
 from typing import Any
@@ -120,7 +121,8 @@ class QdrantVectorStore(IVectorStore):
         self.collection_name = collection_name
         self.grpc_port = grpc_port
         self.prefer_grpc = prefer_grpc
-        self.path = path
+        # [MOD] 环境变量回退：QDRANT_PATH 设置时强制本地嵌入式模式（工厂透传配置不含 path 也可用）
+        self.path = path or os.getenv("QDRANT_PATH", "") or None
 
         # 클라이언트 초기화 (지연 로딩 또는 Mock)
         self._client: Any = _client

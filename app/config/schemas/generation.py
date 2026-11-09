@@ -19,8 +19,9 @@ class GenerationConfig(BaseConfig):
     # 기본 LLM 설정
     default_provider: str = Field(
         default="google",
-        pattern="^(google|openrouter|ollama)$",
-        description="기본 답변 생성 제공자 (google, openrouter, ollama)",
+        # [MOD] 改造①：加入 openai（智谱 GLM 走 OpenAI 兼容端点）
+        pattern="^(google|openrouter|ollama|openai)$",
+        description="기본 답변 생성 제공자 (google, openrouter, ollama, openai)",
     )
 
     default_model: str = Field(

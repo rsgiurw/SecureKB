@@ -163,3 +163,4 @@ temp_*.md
 .pip-audit-requirements.txt
 pip-audit-report.md
 easy_start/.qdrant_data/
+easy_start/.kb_config.json

@@ -68,6 +68,8 @@ class EnvValidator:
         },
         "generation": {
             "google": ("GOOGLE_API_KEY",),
+            # [MOD] 改造①：加入 openai（智谱 GLM 走 OpenAI 兼容端点）
+            "openai": ("OPENAI_API_KEY",),
             "openrouter": ("OPENROUTER_API_KEY",),
             "ollama": (),
         },

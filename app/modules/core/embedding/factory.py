@@ -380,11 +380,13 @@ class EmbedderFactory:
             f"✅ OpenAI 임베더 생성: model={model_name}, dim={output_dim}"
         )
 
+        # [MOD] 改造①：透传 base_url，支持智谱等 OpenAI 兼容端点
         return OpenAIEmbedder(
             openai_api_key=api_key,
             model_name=model_name,
             output_dimensionality=output_dim,
             batch_size=batch_size,
+            openai_base_url=openai_config.get("base_url"),
         )
 
     @staticmethod
