@@ -97,7 +97,7 @@ dependencies = [
     # Rate Limiting
     "slowapi==0.1.9",
     # System monitoring
-    "psutil==5.9.0",
+    "psutil>=5.9.0,<8",
     "dependency-injector==4.49.0",
     # Vector Databases
     "weaviate-client>=4.0.0", # 4.4.0 → 4.18.0: AssertionError phone_value 버그 수정
@@ -120,6 +120,7 @@ dependencies = [
     "tavily-python>=0.7.18",
     "duckduckgo-search>=8.1.1",
     "rouge-score>=0.1.2",
+    "qdrant-client>=1.12",
 ]
 
 [project.optional-dependencies]

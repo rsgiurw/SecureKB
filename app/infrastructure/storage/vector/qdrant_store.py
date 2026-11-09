@@ -91,6 +91,7 @@ class QdrantVectorStore(IVectorStore):
         collection_name: str = "documents",
         grpc_port: int | None = None,
         prefer_grpc: bool = False,
+        path: str | None = None,  # [MOD] 本地嵌入式模式：设置后忽略 host/port，无需启动 Qdrant 服务
         _client: Any | None = None,  # 테스트용 Mock 주입
     ) -> None:
         """
@@ -104,6 +105,9 @@ class QdrantVectorStore(IVectorStore):
             collection_name: 기본 컬렉션 이름 (기본값: "documents")
             grpc_port: gRPC 포트 (선택적)
             prefer_grpc: gRPC 프로토콜 우선 사용 (기본값: False)
+            path: [MOD] qdrant-client 로컬 임베디드 모드 저장 경로.
+                  설정 시 서버 없이 동작(host/port/url 무시).
+                  배경: 개발 머신에서 chromadb 네이티브 크래시로 Qdrant 임베디드로 대체.
             _client: 테스트용 Mock 클라이언트 (내부 사용)
 
         Note:
@@ -116,6 +120,7 @@ class QdrantVectorStore(IVectorStore):
         self.collection_name = collection_name
         self.grpc_port = grpc_port
         self.prefer_grpc = prefer_grpc
+        self.path = path
 
         # 클라이언트 초기화 (지연 로딩 또는 Mock)
         self._client: Any = _client
@@ -150,7 +155,10 @@ class QdrantVectorStore(IVectorStore):
             try:
                 from qdrant_client import QdrantClient
 
-                if self.url:
+                if self.path:
+                    # [MOD] 로컬 임베디드 모드 (서버 불필요, 데이터는 path에 영속화)
+                    self._client = QdrantClient(path=self.path)
+                elif self.url:
                     # Qdrant Cloud 연결
                     self._client = QdrantClient(
                         url=self.url,
