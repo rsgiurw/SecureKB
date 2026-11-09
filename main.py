@@ -798,6 +798,8 @@ if static_path.exists():
 app.include_router(health.router)
 app.include_router(analytics.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
+from app.api.auth_routes import router as auth_router
+app.include_router(auth_router, prefix="/api")
 app.include_router(upload.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 app.include_router(image_chat.router, prefix="/api")  # 이미지 채팅 API

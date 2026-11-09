@@ -12,6 +12,7 @@ Phase 3.3: chat.py에서 추출한 검증된 라우팅 로직
 - Rate limiting, 요청 검증, 에러 핸들링
 """
 
+import hmac
 import json
 import os
 import time
@@ -42,7 +43,25 @@ from ...lib.errors import (
     wrap_exception,
 )
 from ...lib.logger import get_logger
+from ...security.users import verify_token, visible_departments
 from ..analytics_event_store import get_analytics_event_store
+
+
+# [MOD] 登录认证：解析请求身份（Bearer 令牌优先，管理员 X-API-Key 兼容通道）
+def _resolve_principal(request):
+    h = request.headers
+    bearer = h.get("Authorization", "")
+    if bearer.startswith("Bearer "):
+        user = verify_token(bearer[7:])
+        if user:
+            return user
+
+    api_key = h.get("X-API-Key")
+    auth = get_api_key_auth()
+    if auth.api_key and api_key and hmac.compare_digest(api_key, auth.api_key):
+        return {"username": "api-admin", "display_name": "管理员（API 密钥）",
+                "role": "admin", "department": "全部"}
+    return None
 from ..schemas.chat_schemas import (
     ChatHistoryResponse,
     ChatRequest,
@@ -250,6 +269,11 @@ async def chat(
     lang = _resolve_request_language(request)
     _ensure_service_initialized(lang)  # Fail-Fast: 서비스 초기화 확인
     start_time = time.time()
+
+    # [MOD] 登录验证：未携带有效凭证一律 401（管理员 X-API-Key 通道兼容）
+    principal = _resolve_principal(request)
+    if principal is None:
+        raise HTTPException(status_code=401, detail="请先登录后使用（未提供有效凭证）")
     session_id = None
     try:
         context = get_request_context(request)
@@ -271,6 +295,12 @@ async def chat(
         # Self-RAG는 RAGPipeline 내부에서 자동으로 처리됨 (중복 실행 제거)
         # Agent 모드 옵션 병합 (use_agent 필드를 options에 포함)
         options = _apply_admin_ai_defaults(chat_request.options)
+
+        # [MOD] Security Trimming：员工只检索"全员"+本部门文档（服务端强制，忽略客户端伪造）
+        if principal["role"] != "admin":
+            options = {**options, "filters": {"departments": visible_departments(principal)}}
+        else:
+            options.pop("filters", None)
         if chat_request.use_agent:
             options["use_agent"] = True
         if chat_request.enable_debug_trace:
