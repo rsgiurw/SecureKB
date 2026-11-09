@@ -880,6 +880,20 @@ async def chat_stream(request: Request, chat_request: StreamChatRequest) -> Stre
 
     _ensure_service_initialized(error_lang)  # Fail-Fast: 서비스 초기화 확인
 
+    # [MOD] 登录验证：SSE 与非流式 /api/chat 同权——未携带有效凭证一律 401。
+    # 此前该端点无鉴权，未登录用户可借流式接口拿到全库检索结果（EXP-007 教训：
+    # 权限过滤必须覆盖每条召回路，流式路径也不例外）。
+    principal = _resolve_principal(request)
+    if principal is None:
+        raise HTTPException(status_code=401, detail="请先登录后使用（未提供有效凭证）")
+
+    # [MOD] Security Trimming：员工只检索"全员"+本部门文档（服务端强制，与 /api/chat 同一模式）
+    stream_options = _apply_admin_ai_defaults(chat_request.options)
+    if principal["role"] != "admin":
+        stream_options = {**stream_options, "filters": {"departments": visible_departments(principal)}}
+    else:
+        stream_options.pop("filters", None)
+
     async def event_generator():
         """
         SSE 이벤트 생성기
@@ -891,7 +905,7 @@ async def chat_stream(request: Request, chat_request: StreamChatRequest) -> Stre
             async for event in chat_service.stream_rag_pipeline(
                 message=chat_request.message,
                 session_id=chat_request.session_id,
-                options=_apply_admin_ai_defaults(chat_request.options),
+                options=stream_options,
             ):
                 # 이벤트 타입 추출 (기본값: chunk)
                 event_type = event.get("event", "chunk")
