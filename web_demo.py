@@ -125,9 +125,32 @@ async def chat(req: ChatRequest):
     # 应答模式：请求级设置（演示层直接写环境变量；单用户场景无并发竞争问题）
     os.environ["KB_ANSWER_MODE"] = req.mode if req.mode in MODES else "strict"
 
-    # [FIX] 改造②：检索级部门过滤必须按请求应用（不能走全局变量，否则身份过滤失效）
-    # [MOD] 改造⑥：多轮指代消解——带历史时先改写为独立问题再检索
-    rewritten = await _rewrite_query(req.question, req.history)
+    # ═══ [MOD] 改造⑦ 安全防护链 ═══
+    from app.security.input_guard import scan_document, scan_input
+    from app.security.output_guard import check_output, safe_answer
+
+    security: dict[str, Any] = {"events": []}
+
+    # 1. 输入侧扫描：block 直接拒绝（不调 LLM）；warn 剥离可疑句后继续
+    guard = scan_input(req.question)
+    if guard.hits:
+        security["events"].append(
+            {"type": guard.level, "category": "、".join(h.category for h in guard.hits)}
+        )
+    if guard.level == "block":
+        return {
+            "answer": "🛡️ 安全拦截：检测到疑似提示注入攻击"
+                      f"（类型：{'、'.join(h.category for h in guard.hits)}），该请求已被拒绝并记录。",
+            "mode": os.environ.get("KB_ANSWER_MODE", "strict"),
+            "visible_as": f"{req.role}:{req.dept}",
+            "rewritten": None,
+            "citations": [],
+            "security": security,
+        }
+    effective_question = guard.cleaned if guard.level == "warn" else req.question
+
+    # 改造⑥：多轮指代消解——带历史时先改写为独立问题再检索
+    rewritten = await _rewrite_query(effective_question, req.history)
 
     # [FIX] 改造②：检索级部门过滤必须按请求应用（不能走全局变量，否则身份过滤失效）
     # [MOD] 改造⑤：过滤后的 Dense 结果 + BM25 结果做 RRF 融合（复用 chat 的融合器）
@@ -146,7 +169,7 @@ async def chat(req: ChatRequest):
     if bm25_index is not None:
         bm25_docs = [
             {"content": d.get("content", ""), "source": d.get("id", ""), "metadata": d.get("metadata", {})}
-            for d in bm25_index.search(req.question, top_k=req.top_k)
+            for d in bm25_index.search(rewritten, top_k=req.top_k)
         ]
         # [FIX] Security Trimming 同样覆盖 BM25 路（dense 与 bm25 每条召回路都要过滤）
         if filters and "departments" in filters:
@@ -158,7 +181,36 @@ async def chat(req: ChatRequest):
         docs = _rrf_fuse(dense_docs, bm25_docs, req.top_k)
     else:
         docs = dense_docs
-    answer = await generate_answer(req.question, docs)
+
+    # 2. 间接注入扫描：剔除携带 AI 指令的可疑文档
+    clean_docs = []
+    flagged_docs = 0
+    for d in docs:
+        doc_guard = scan_document(d["content"])
+        if doc_guard.level == "pass":
+            clean_docs.append(d)
+        else:
+            flagged_docs += 1
+    if flagged_docs:
+        security["events"].append({"type": "indirect", "category": f"剔除 {flagged_docs} 篇含可疑指令的文档"})
+    docs = clean_docs
+    if not docs:
+        return {
+            "answer": "知识库中没有相关内容。（提示：检索结果均未通过安全扫描）",
+            "mode": os.environ.get("KB_ANSWER_MODE", "strict"),
+            "visible_as": f"{req.role}:{req.dept}",
+            "rewritten": rewritten,
+            "citations": [],
+            "security": security,
+        }
+
+    answer = await generate_answer(rewritten, docs)
+
+    # 3. 输出侧检测：最后一道闸
+    leaked, leak_types = check_output(answer)
+    if leaked:
+        security["events"].append({"type": "output", "category": "、".join(leak_types)})
+        answer = safe_answer()
 
     return {
         "answer": answer,
@@ -173,6 +225,7 @@ async def chat(req: ChatRequest):
             }
             for d in docs
         ],
+        "security": security,
     }
 
 
