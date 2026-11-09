@@ -117,7 +117,7 @@ export const SettingsPage: React.FC = () => {
     }
   }, [runtimeConfig]);
 
-  // 프리셋 id별 카탈로그 라벨/설명을 조회한다(미등록 id는 상수의 한국어 값으로 폴백 → 회귀 0).
+  // 프리셋 id별 카탈로그 라벨/설명을 조회한다(미등록 id는 상수의 韩语 값으로 폴백 → 회귀 0).
   const presetMessages = (presetId: string) =>
     messages.themePresets[presetId as keyof typeof messages.themePresets];
 

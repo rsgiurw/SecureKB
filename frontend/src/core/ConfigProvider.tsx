@@ -56,14 +56,14 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
             features: parsed.features ?? operatorRuntimeConfig.features,
           };
         }
-        logger.debug('[ConfigProvider] 저장된 설정 로드 완료');
+        logger.debug('[ConfigProvider] 저장된 설정 로드 完成');
 
         setRuntimeConfig(runtime);
 
         // 설정 적용
         applyRuntimeConfig(runtime);
       } catch (error) {
-        logger.error('[ConfigProvider] 런타임 설정 로드 실패:', error);
+        logger.error('[ConfigProvider] 런타임 설정 로드 失败:', error);
       }
     };
 
@@ -86,7 +86,7 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
         const mergedColors = mergeConfig(updatedConfig.colors, presetColors);
         updatedConfig = { ...updatedConfig, colors: mergedColors };
       } else {
-        logger.error(`[ConfigProvider] 프리셋 "${runtime.preset}" 찾을 수 없음`);
+        logger.error(`[ConfigProvider] 프리셋 "${runtime.preset}" 찾을 수 无`);
       }
     }
 
@@ -119,9 +119,9 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
       localStorage.setItem('customSettings', JSON.stringify(newConfig));
       setRuntimeConfig(newConfig);
       applyRuntimeConfig(newConfig);
-      logger.debug('[ConfigProvider] 설정 업데이트 완료');
+      logger.debug('[ConfigProvider] 설정 업데이트 完成');
     } catch (error) {
-      logger.error('[ConfigProvider] 설정 업데이트 실패:', error);
+      logger.error('[ConfigProvider] 설정 업데이트 失败:', error);
     }
   };
 
@@ -130,9 +130,9 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
       localStorage.removeItem('customSettings');
       setRuntimeConfig(null);
       setConfig(APP_CONFIG);
-      logger.debug('[ConfigProvider] 설정 초기화 완료');
+      logger.debug('[ConfigProvider] 설정 초기화 完成');
     } catch (error) {
-      logger.error('[ConfigProvider] 설정 초기화 실패:', error);
+      logger.error('[ConfigProvider] 설정 초기화 失败:', error);
     }
   };
 

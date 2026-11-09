@@ -32,7 +32,7 @@ export const LazyImage: React.FC<LazyImageProps> = ({
   const [isInView, setIsInView] = useState(false);
   const [hasError, setHasError] = useState(false);
   const imgRef = useRef<HTMLDivElement>(null);
-  // i18n: 이미지 로드 실패 메시지
+  // i18n: 이미지 로드 失败 메시지
   const { messages } = useMenuMessages();
 
   useEffect(() => {

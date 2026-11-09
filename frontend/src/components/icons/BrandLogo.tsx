@@ -9,7 +9,7 @@ interface BrandLogoProps {
   width?: number | string;
   height?: number | string;
   className?: string;
-  variant?: 'main' | 'icon'; // 'main': 메인 로고, 'icon': 아이콘만
+  variant?: 'main' | 'icon'; // 'main': 主标志， 'icon': 아이콘만
 }
 
 const SVGLogoFallback: React.FC<{

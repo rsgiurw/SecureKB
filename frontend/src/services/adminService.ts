@@ -127,7 +127,7 @@ class AdminService {
       logger.log('✅ API 응답:', endpoint, data);
       return data;
     } catch (error) {
-      logger.error(`❌ API 호출 실패 ${endpoint}:`, error);
+      logger.error(`❌ API 호출 失败 ${endpoint}:`, error);
       throw error;
     }
   }
@@ -174,7 +174,7 @@ class AdminService {
         this.emit('error', error);
       };
     } catch (error) {
-      logger.error('❌ WebSocket 연결 실패:', error);
+      logger.error('❌ WebSocket 连接失败:', error);
       if (error instanceof MissingAdminKeyError) {
         this.emit('error', error);
         return;
@@ -391,7 +391,7 @@ class AdminService {
 
       return response.blob();
     } catch (error) {
-      logger.error('❌ 로그 다운로드 실패:', error);
+      logger.error('❌ 로그 다운로드 失败:', error);
       throw error;
     }
   }
@@ -430,7 +430,7 @@ class AdminService {
 
   /**
    * 인덱스 재구축 요청
-   * (백엔드에 해당 엔드포인트가 아직 없으면 HTTP 오류로 실패하며, 호출 측에서 실패 토스트를 표시한다)
+   * (백엔드에 해당 엔드포인트가 아직 없으면 HTTP 오류로 失败하며, 호출 측에서 失败 토스트를 표시한다)
    */
   async rebuildIndex() {
     return this.apiCall('/index/rebuild', { method: 'POST' });

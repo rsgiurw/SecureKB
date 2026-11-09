@@ -24,14 +24,14 @@ const SSE_TYPEWRITER_INTERVAL_MS = 20;
 const SSE_TYPEWRITER_MIN_CHARS = 4;
 const SSE_TYPEWRITER_MAX_CHARS = 28;
 
-/** RAG 진행 단계별 한국어 라벨(범용 처리 — i18n 카탈로그 미사용). */
+/** RAG 진행 단계별 韩语 라벨(범용 처리 — i18n 카탈로그 미사용). */
 const RAG_PROGRESS_LABELS: Record<RagProgressPhase, string> = {
     idle: '',
-    searching: '문서를 검색하고 있습니다...',
-    retrieval_done: '검색을 완료하고 답변을 준비합니다...',
-    generating: '답변을 생성하고 있습니다...',
-    completed: '완료',
-    error: '오류가 발생했습니다.',
+    searching: '正在搜索文档...',
+    retrieval_done: '搜索完成，正在准备回答...',
+    generating: '正在生成回答...',
+    completed: '完成',
+    error: '发生了错误。',
 };
 
 /** phase에 맞는 라벨을 채워 RagProgressState를 만든다. */
@@ -103,7 +103,7 @@ export const useChatMessages = ({
     const isStreamingEnabled = useIsFeatureEnabled('chatbot', 'streaming');
 
     /**
-     * 스트리밍 메시지 완료 콜백
+     * 스트리밍 메시지 完成 콜백
      */
     const handleStreamingComplete = useCallback((message: ChatMessage) => {
         isStreamingSendActiveRef.current = false;
@@ -113,19 +113,19 @@ export const useChatMessages = ({
         // 세션 정보 갱신 (refreshSessionInfo가 제공된 경우에만)
         if (refreshSessionInfo) {
             refreshSessionInfo(sessionId).catch((error) => {
-                logger.warn('세션 정보 갱신 실패:', error);
+                logger.warn('세션 정보 갱신 失败:', error);
             });
         }
 
-        logger.log('✅ 스트리밍 메시지 완료:', message.id);
+        logger.log('✅ 스트리밍 메시지 完成:', message.id);
     }, [sessionId, refreshSessionInfo]);
 
     /**
      * 스트리밍 에러 콜백
      */
     const handleStreamingError = useCallback((error: string) => {
-        // 백그라운드 WebSocket 연결 실패는 사용자에게 표시하지 않음
-        // (스트리밍 전송 중이 아닌 경우 = 백그라운드 재연결 실패)
+        // 백그라운드 WebSocket 连接失败는 사용자에게 표시하지 않음
+        // (스트리밍 전송 중이 아닌 경우 = 백그라운드 재연결 失败)
         if (!isStreamingSendActiveRef.current) {
             logger.warn('백그라운드 스트리밍 연결 에러 (무시):', error);
             return;
@@ -139,7 +139,7 @@ export const useChatMessages = ({
         const errorMsg: ChatMessage = {
             id: createClientId('msg-error'),
             role: 'assistant',
-            content: '죄송합니다. 오류가 발생했습니다. 다시 시도해주세요.',
+            content: '抱歉，发生了错误。请重试。',
             timestamp: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, errorMsg]);
@@ -169,7 +169,7 @@ export const useChatMessages = ({
         // 스트리밍 활성화 + 유효한 세션 ID + fallback 세션이 아닐 때만 연결
         if (isStreamingEnabled && sessionId && !sessionId.startsWith('fallback-')) {
             streaming.connect().catch((error) => {
-                logger.warn('스트리밍 연결 실패, REST API로 폴백:', error);
+                logger.warn('스트리밍 연결 失败, REST API로 폴백:', error);
             });
         }
 
@@ -207,7 +207,7 @@ export const useChatMessages = ({
 
             // 세션 ID 동기화
             const backendSessionId = response.data.session_id;
-            synchronizeSessionId(backendSessionId, '메시지 응답 불일치 감지');
+            synchronizeSessionId(backendSessionId, '检测到消息响应不一致');
 
             // API 응답 로그
             const responseLog: ApiLog = {
@@ -243,7 +243,7 @@ export const useChatMessages = ({
                 try {
                     await refreshSessionInfo(currentSessionId);
                 } catch (sessionInfoError) {
-                    logger.warn('세션 정보 갱신 실패 (Fallback 적용):', sessionInfoError);
+                    logger.warn('세션 정보 갱신 失败 (Fallback 적용):', sessionInfoError);
 
                     // 백엔드에서 세션 정보를 가져올 수 없으면 기존 방식 사용 (Fallback logic)
                     if (setSessionInfo) {
@@ -282,7 +282,7 @@ export const useChatMessages = ({
             };
             setApiLogs((prev) => [...prev, errorLog]);
 
-            const errorMessage = apiError?.response?.data?.message || '메시지 전송에 실패했습니다.';
+            const errorMessage = apiError?.response?.data?.message || '消息发送失败。';
 
             showToast({
                 type: 'error',
@@ -293,7 +293,7 @@ export const useChatMessages = ({
             const errorMsg: ChatMessage = {
                 id: createClientId('msg-error'),
                 role: 'assistant',
-                content: '죄송합니다. 오류가 발생했습니다. 다시 시도해주세요.',
+                content: '抱歉，发生了错误。请重试。',
                 timestamp: new Date().toISOString(),
             };
 
@@ -371,7 +371,7 @@ export const useChatMessages = ({
                 return;
             }
             if (pendingContent.length === 0) {
-                // 모든 청크를 수신·표시 완료했다면 visualDrain 해제
+                // 모든 청크를 수신·표시 完成했다면 visualDrain 해제
                 if (doneReceived) {
                     resolveVisualDrainOnce();
                 }
@@ -448,14 +448,14 @@ export const useChatMessages = ({
                     }
                     // 세션 ID 동기화
                     if (event.session_id) {
-                        synchronizeSessionId(event.session_id, 'SSE done 이벤트 세션 동기화');
+                        synchronizeSessionId(event.session_id, 'SSE done 事件会话同步');
                     }
                 },
                 onError: (event) => {
                     if (sseAbortedRef.current) return;
                     logger.error('SSE 스트리밍 에러:', event);
                     setRagProgress(withProgressLabel({ phase: 'error' }));
-                    throw new Error(event.message || 'SSE 스트리밍 오류');
+                    throw new Error(event.message || 'SSE 流式错误');
                 },
             });
 
@@ -484,7 +484,7 @@ export const useChatMessages = ({
             // 세션 정보 갱신
             if (refreshSessionInfo) {
                 refreshSessionInfo(sessionId).catch((error) => {
-                    logger.warn('세션 정보 갱신 실패(SSE):', error);
+                    logger.warn('세션 정보 갱신 失败(SSE):', error);
                 });
             }
             return true;
@@ -497,8 +497,8 @@ export const useChatMessages = ({
             if (sseAbortedRef.current) {
                 return true;
             }
-            logger.warn('SSE 전송 실패, REST 폴백 예정:', error);
-            // 실패 시 placeholder 제거 후 false 반환(호출부가 REST 폴백)
+            logger.warn('SSE 전송 失败, REST 폴백 예정:', error);
+            // 失败 시 placeholder 제거 후 false 반환(호출부가 REST 폴백)
             setMessages((prev) => prev.filter((m) => m.id !== placeholderId));
             setRagProgress(withProgressLabel({ phase: 'error' }));
             return false;
@@ -539,7 +539,7 @@ export const useChatMessages = ({
         // SSE는 스트리밍이 켜져 있으나 WS가 연결되지 않은 경우의 중간 티어.
         const canUseSSE = isStreamingEnabled && !streaming.isConnected && !isFallbackSession;
 
-        // SSE/REST 폴백 공통: SSE 실패 시 REST로, 단 abort된 경우는 폴백 금지.
+        // SSE/REST 폴백 공통: SSE 失败 시 REST로, 단 abort된 경우는 폴백 금지.
         const runSseThenRestFallback = async () => {
             const sseOk = await sendViaSSE(messageContent);
             // 사용자가 중단했다면 통짜 답변 재생성을 막는다.
@@ -574,9 +574,9 @@ export const useChatMessages = ({
             const messageId = streaming.sendStreamingMessage(messageContent);
 
             if (!messageId) {
-                // WS 전송 실패 시 SSE → REST 폴백 체인으로 진행
+                // WS 전송 失败 시 SSE → REST 폴백 체인으로 진행
                 isStreamingSendActiveRef.current = false;
-                logger.warn('WebSocket 전송 실패, SSE/REST로 폴백');
+                logger.warn('WebSocket 전송 失败, SSE/REST로 폴백');
                 await runSseThenRestFallback();
                 setLoading(false);
             }

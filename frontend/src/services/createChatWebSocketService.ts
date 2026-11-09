@@ -135,7 +135,7 @@ const getSessionWebSocketToken = (sessionId: string): string | null => {
       storage.getItem('chatWsToken')
     );
   } catch (error) {
-    logger.warn('WebSocket 세션 토큰 조회 실패:', error);
+    logger.warn('WebSocket 세션 토큰 조회 失败:', error);
     return null;
   }
 };
@@ -201,13 +201,13 @@ export function createChatWebSocketService(
       mergedConfig.reconnectInterval * Math.pow(2, reconnectAttempts - 1);
 
     logger.log(
-      `🔄 Chat WebSocket 재연결 시도 ${reconnectAttempts}/${mergedConfig.maxReconnectAttempts} (${delay}ms 후)`
+      `🔄 Chat WebSocket 重连尝试 ${reconnectAttempts}/${mergedConfig.maxReconnectAttempts}（${delay}ms 后）`
     );
 
     reconnectTimeoutId = window.setTimeout(() => {
       if (sessionId) {
         connect(sessionId).catch((error) => {
-          logger.error('재연결 실패:', error);
+          logger.error('재연결 失败:', error);
         });
       }
     }, delay);
@@ -254,7 +254,7 @@ export function createChatWebSocketService(
 
       // 기존 연결 정리
       if (ws) {
-        ws.close(1000, '새 세션 연결');
+        ws.close(1000, '新建会话连接');
         ws = null;
       }
 
@@ -275,7 +275,7 @@ export function createChatWebSocketService(
       }
       const wsUrl = `${wsBaseUrl}/chat-ws?${query.toString()}`;
       logger.log(
-        '🔗 Chat WebSocket 연결 시도:',
+        '🔗 Chat WebSocket 连接尝试：',
         `${wsBaseUrl}/chat-ws?session_id=${encodeURIComponent(newSessionId)}${wsToken ? '&ws_token=***' : ''}`
       );
 
@@ -300,7 +300,7 @@ export function createChatWebSocketService(
         // 연결 종료
         ws.onclose = (event) => {
           logger.log(
-            '🔌 Chat WebSocket 연결 해제:',
+            '🔌 Chat WebSocket 连接断开：',
             event.code,
             event.reason
           );
@@ -318,10 +318,10 @@ export function createChatWebSocketService(
           logger.error('❌ Chat WebSocket 오류:', error);
           state = 'error';
           emit('error', { error });
-          reject(new Error('WebSocket 연결 실패'));
+          reject(new Error('WebSocket 连接失败'));
         };
       } catch (error) {
-        logger.error('❌ Chat WebSocket 연결 실패:', error);
+        logger.error('❌ Chat WebSocket 连接失败:', error);
         state = 'error';
         reject(error);
       }
@@ -333,11 +333,11 @@ export function createChatWebSocketService(
    */
   const sendMessage = (content: string): string => {
     if (ws?.readyState !== WebSocketReadyState.OPEN) {
-      throw new Error('WebSocket이 연결되지 않았습니다.');
+      throw new Error('WebSocket 未连接。');
     }
 
     if (!sessionId) {
-      throw new Error('세션 ID가 설정되지 않았습니다.');
+      throw new Error('未设置会话 ID。');
     }
 
     // 고유한 메시지 ID 생성
@@ -396,7 +396,7 @@ export function createChatWebSocketService(
 
     if (ws) {
       logger.log('🔌 Chat WebSocket 연결 해제 (전체 정리)');
-      ws.close(1000, '클라이언트 연결 해제');
+      ws.close(1000, '客户端断开连接');
       ws = null;
     }
 
@@ -419,7 +419,7 @@ export function createChatWebSocketService(
 
     if (ws) {
       logger.log('⏹️ Chat WebSocket 연결 중단 (이벤트 리스너 보존)');
-      ws.close(1000, '스트리밍 중단');
+      ws.close(1000, '停止流式');
       ws = null;
     }
 

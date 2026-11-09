@@ -54,13 +54,13 @@ const mockChatResponse: ChatResponse = {
 
 const mockChatEmptyStateSettings = {
   ko: {
-    mainMessage: '무엇을 도와드릴까요?',
-    subMessage: 'AI가 참고 문서를 분석하여 정확한 답변을 제공합니다',
+    mainMessage: '有什么可以帮您吗？',
+    subMessage: 'AI 分析参考文档以提供准确的回答',
     suggestions: [
-      '이 문서에서 핵심 내용을 요약해주세요',
-      '기본 질문 설정1',
-      '기본 질문 설정2',
-      '기본 질문 설정3',
+      '请总结这份文档的重点',
+      '默认问题 1',
+      '默认问题 2',
+      '默认问题 3',
     ],
   },
   en: {
@@ -183,7 +183,7 @@ export const handlers = [
     return HttpResponse.json({
       messages: [
         { role: 'user', content: '안녕하세요', timestamp: new Date().toISOString() },
-        { role: 'assistant', content: '안녕하세요! 무엇을 도와드릴까요?', timestamp: new Date().toISOString() },
+        { role: 'assistant', content: '안녕하세요! 有什么可以帮您吗？', timestamp: new Date().toISOString() },
       ],
     });
   }),

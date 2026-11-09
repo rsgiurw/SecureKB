@@ -55,7 +55,7 @@ class PromptService {
     return response.data;
   }
 
-  // 새 프롬프트 생성
+  // 新建提示词
   async createPrompt(promptData: CreatePromptRequest): Promise<Prompt> {
     const response = await api.post<Prompt>('/api/prompts', promptData, {
       headers: getRequiredAdminAuthHeaders(),
@@ -78,7 +78,7 @@ class PromptService {
     });
   }
 
-  // 프롬프트 활성화/비활성화 토글
+  // 启用提示词/비활성화 토글
   async togglePrompt(id: string, is_active: boolean): Promise<Prompt> {
     return this.updatePrompt(id, { is_active });
   }
@@ -105,7 +105,7 @@ class PromptService {
     return this.createPrompt({
       name: newName,
       content: original.content,
-      description: `${original.description} (복사본)`,
+      description: `${original.description}（副本）`,
       category: original.category === 'system' ? 'custom' : original.category,
       is_active: false, // 복사본은 기본적으로 비활성화
       ...(original.metadata !== undefined ? { metadata: original.metadata } : {}),
@@ -118,22 +118,22 @@ class PromptService {
 
     if ('name' in promptData) {
       if (!promptData.name || promptData.name.trim().length < 2) {
-        errors.push('프롬프트 이름은 2자 이상이어야 합니다.');
+        errors.push('提示词名称至少 2 个字符。');
       }
       if (promptData.name.includes(' ')) {
-        errors.push('프롬프트 이름에는 공백을 포함할 수 없습니다.');
+        errors.push('提示词名称不能包含空格。');
       }
     }
 
     if ('content' in promptData) {
       if (!promptData.content || promptData.content.trim().length < 10) {
-        errors.push('프롬프트 내용은 10자 이상이어야 합니다.');
+        errors.push('提示词内容至少 10 个字符。');
       }
     }
 
     if ('description' in promptData) {
       if (!promptData.description || promptData.description.trim().length < 5) {
-        errors.push('프롬프트 설명은 5자 이상이어야 합니다.');
+        errors.push('提示词说明至少 5 个字符。');
       }
     }
 

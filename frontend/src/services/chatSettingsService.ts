@@ -29,17 +29,17 @@ export { MissingAdminKeyError } from './authHeaders';
 export type AllEmptyStateSettings = Record<MenuLocale, ChatEmptyStateSettings>;
 
 // 로케일별 기본값 — 오프라인/첫 렌더 폴백.
-// OneRAG 범용 한국어 기본을 유지하며, 일본어 등 도메인/언어 특화 문자열은 차용하지 않는다.
+// OneRAG 범용 韩语 기본을 유지하며, 일본어 등 도메인/언어 특화 문자열은 차용하지 않는다.
 // (백엔드 _empty_state_defaults.py의 코드 기본값과 의미적으로 일치)
 const DEFAULTS: AllEmptyStateSettings = {
   ko: {
-    mainMessage: '무엇을 도와드릴까요?',
-    subMessage: 'AI가 참고 문서를 분석하여 정확한 답변을 제공합니다',
+    mainMessage: '有什么可以帮您吗？',
+    subMessage: 'AI 分析参考文档以提供准确的回答',
     suggestions: [
-      '이 문서에서 핵심 내용을 요약해주세요',
-      '기본 질문 설정1',
-      '기본 질문 설정2',
-      '기본 질문 설정3',
+      '请总结这份文档的重点',
+      '默认问题 1',
+      '默认问题 2',
+      '默认问题 3',
     ],
   },
   en: {
@@ -103,7 +103,7 @@ const SUB_MAX = 200;
 const SUGGESTION_MAX = 200;
 const SUGGESTIONS_MAX = 10;
 
-/** 클라이언트 사전 검증 실패 에러 (한국어 메시지 배열 보유) */
+/** 클라이언트 사전 검증 失败 에러 (韩语 메시지 배열 보유) */
 export class ChatSettingsValidationError extends Error {
   errors: string[];
   constructor(errors: string[]) {
@@ -117,12 +117,12 @@ class ChatSettingsService {
   // 동기 즉시 렌더용 메모리 캐시 (localStorage보다 빠른 1차 캐시).
   private memoryCache: AllEmptyStateSettings | null = null;
 
-  /** 단일 로케일 기본값 (복사본). */
+  /** 단일 로케일 기본값 （副本）. */
   getDefaults(locale: MenuLocale): ChatEmptyStateSettings {
     return this.cloneSettings(DEFAULTS[locale]);
   }
 
-  /** 전 로케일 기본값 (복사본). */
+  /** 전 로케일 기본값 （副本）. */
   private allDefaults(): AllEmptyStateSettings {
     const result = {} as AllEmptyStateSettings;
     for (const locale of MENU_LOCALES) {
@@ -157,7 +157,7 @@ class ChatSettingsService {
         return merged;
       }
     } catch (error) {
-      logger.error('빈 화면 설정 캐시 로드 실패:', error);
+      logger.error('빈 화면 설정 캐시 로드 失败:', error);
     }
     return this.allDefaults();
   }
@@ -169,7 +169,7 @@ class ChatSettingsService {
 
   /**
    * 서버에서 전 로케일 설정을 가져온다 (공개 GET).
-   * 실패(오프라인/서버 미응답 등) 시 캐시/기본값으로 graceful 폴백한다.
+   * 失败(오프라인/서버 미응답 등) 시 캐시/기본값으로 graceful 폴백한다.
    */
   async fetchAll(): Promise<AllEmptyStateSettings> {
     try {
@@ -183,14 +183,14 @@ class ChatSettingsService {
       this.writeCache(merged);
       return merged;
     } catch (error) {
-      logger.error('빈 화면 설정 서버 조회 실패 (캐시/기본값 사용):', error);
+      logger.error('빈 화면 설정 서버 조회 失败 (캐시/기본값 사용):', error);
       return this.getCachedAll();
     }
   }
 
   /**
    * 관리자 저장 (PUT). X-API-Key가 필요하다.
-   * @throws ChatSettingsValidationError 클라이언트 사전 검증 실패
+   * @throws ChatSettingsValidationError 클라이언트 사전 검증 失败
    * @throws MissingAdminKeyError 관리자 키 미설정
    * @throws Error HTTP/네트워크 오류
    */
@@ -292,7 +292,7 @@ class ChatSettingsService {
     try {
       localStorage.setItem(CACHE_KEY, JSON.stringify(all));
     } catch (error) {
-      logger.error('빈 화면 설정 캐시 저장 실패:', error);
+      logger.error('빈 화면 설정 캐시 저장 失败:', error);
     }
   }
 
@@ -305,7 +305,7 @@ class ChatSettingsService {
 
   /**
    * 설정 유효성 검사 (클라이언트 사전 검증).
-   * OneRAG 기존 구조를 보존하여 사용자에게 보여줄 한국어 메시지를 직접 반환한다.
+   * OneRAG 기존 구조를 보존하여 사용자에게 보여줄 韩语 메시지를 직접 반환한다.
    *
    * @returns 에러 메시지 배열 (빈 배열이면 유효함)
    */
@@ -317,47 +317,47 @@ class ChatSettingsService {
     // mainMessage 검사
     if ('mainMessage' in settings) {
       if (!settings.mainMessage || typeof settings.mainMessage !== 'string') {
-        errors.push('메인 메시지는 필수입니다');
+        errors.push('主要消息为必填项');
       } else if (settings.mainMessage.trim().length === 0) {
-        errors.push('메인 메시지는 비어있을 수 없습니다');
+        errors.push('主要消息不能为空');
       } else if (settings.mainMessage.length > MAIN_MAX) {
-        errors.push(`메인 메시지는 ${MAIN_MAX}자를 초과할 수 없습니다`);
+        errors.push(`主要消息不能超过 ${MAIN_MAX} 字`);
       }
     }
 
     // subMessage 검사
     if ('subMessage' in settings) {
       if (!settings.subMessage || typeof settings.subMessage !== 'string') {
-        errors.push('보조 메시지는 필수입니다');
+        errors.push('次要消息为必填项');
       } else if (settings.subMessage.trim().length === 0) {
-        errors.push('보조 메시지는 비어있을 수 없습니다');
+        errors.push('次要消息不能为空');
       } else if (settings.subMessage.length > SUB_MAX) {
-        errors.push(`보조 메시지는 ${SUB_MAX}자를 초과할 수 없습니다`);
+        errors.push(`次要消息不能超过 ${SUB_MAX} 字`);
       }
     }
 
     // suggestions 검사
     if ('suggestions' in settings) {
       if (!Array.isArray(settings.suggestions)) {
-        errors.push('추천 질문은 배열이어야 합니다');
+        errors.push('推荐问题必须是数组');
       } else if (settings.suggestions.length === 0) {
-        errors.push('최소 1개의 추천 질문이 필요합니다');
+        errors.push('至少需要 1 个推荐问题');
       } else if (settings.suggestions.length > SUGGESTIONS_MAX) {
-        errors.push(`추천 질문은 최대 ${SUGGESTIONS_MAX}개까지 가능합니다`);
+        errors.push(`推荐问题最多 ${SUGGESTIONS_MAX} 个`);
       } else {
         settings.suggestions.forEach((suggestion, index) => {
           if (typeof suggestion !== 'string') {
-            errors.push(`추천 질문 ${index + 1}은 문자열이어야 합니다`);
+            errors.push(`推荐问题 ${index + 1} 必须是字符串`);
           } else if (suggestion.trim().length === 0) {
-            errors.push(`추천 질문 ${index + 1}은 비어있을 수 없습니다`);
+            errors.push(`推荐问题 ${index + 1} 不能为空`);
           } else if (suggestion.length > SUGGESTION_MAX) {
-            errors.push(`추천 질문 ${index + 1}은 ${SUGGESTION_MAX}자를 초과할 수 없습니다`);
+            errors.push(`推荐问题 ${index + 1} 不能超过 ${SUGGESTION_MAX} 字`);
           }
         });
 
         const uniqueSuggestions = new Set(settings.suggestions.map((s) => s.trim()));
         if (uniqueSuggestions.size !== settings.suggestions.length) {
-          errors.push('중복된 추천 질문이 있습니다');
+          errors.push('存在重复的推荐问题');
         }
       }
     }

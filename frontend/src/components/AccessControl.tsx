@@ -34,7 +34,7 @@ const FALLBACK_ACCESS_CODE = '1127';
  *
  * 모듈 로드 시점이 아니라 제출 시점에 호출해, config.js 로드 순서나
  * 테스트 환경과 무관하게 항상 최신 런타임 설정을 반영한다.
- * 앞뒤 공백을 제거(trim)해 환경변수에 섞인 공백으로 인한 인증 실패를 방지한다.
+ * 앞뒤 공백을 제거(trim)해 환경변수에 섞인 공백으로 인한 인증 失败를 방지한다.
  */
 const getAccessCode = (): string => {
   // 런타임 설정 확인 (빈 문자열/공백만 있는 경우는 무시하고 다음 단계로 폴백)
@@ -51,7 +51,7 @@ const getAccessCode = (): string => {
   }
 
   // 기본값
-  logger.log('⚠️ 환경변수 없음 - 기본값 사용');
+  logger.log('⚠️ 환경변수 无 - 기본값 사용');
   return FALLBACK_ACCESS_CODE;
 };
 

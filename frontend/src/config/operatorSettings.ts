@@ -17,7 +17,7 @@ export interface OperatorSettings {
   logoDataUrl: string;
   logoFileName: string;
   // 관리자 쓰기 API(X-API-Key)에 사용하는 키. 빈 화면 설정 저장/리셋 등에 사용한다.
-  // 운영자가 설정 화면에서 직접 입력하며 localStorage에만 저장된다(배포 주입 없음).
+  // 운영자가 설정 화면에서 직접 입력하며 localStorage에만 저장된다(배포 주입 无).
   adminApiKey: string;
 }
 

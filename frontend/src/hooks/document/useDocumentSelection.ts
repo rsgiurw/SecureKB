@@ -63,7 +63,7 @@ export const useDocumentSelection = ({
   const toggleSelect = useCallback(
     (id: string) => {
       if (!isValidDocumentId(id)) {
-        showToast({ type: 'warning', message: '선택할 수 없는 문서입니다.' });
+        showToast({ type: 'warning', message: '无法选中该文档。' });
         return;
       }
       setSelectedDocuments((prev) => {

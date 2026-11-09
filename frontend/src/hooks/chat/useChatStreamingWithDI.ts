@@ -9,7 +9,7 @@
  * const { isConnected, connect, sendStreamingMessage, streamingMessage } =
  *   useChatStreamingWithDI({
  *     sessionId: 'session-123',
- *     onMessageComplete: (msg) => console.log('완료:', msg),
+ *     onMessageComplete: (msg) => console.log('完成:', msg),
  *     onError: (err) => console.error('오류:', err),
  *   });
  *

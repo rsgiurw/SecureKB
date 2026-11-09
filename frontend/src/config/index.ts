@@ -93,7 +93,7 @@ export async function loadCustomerConfig(customerId: string): Promise<Partial<Ap
   try {
     const response = await fetch(`/config/${customerId}.json`);
     if (!response.ok) {
-      console.warn(`고객사 설정 로드 실패: ${customerId}`);
+      console.warn(`고객사 설정 로드 失败: ${customerId}`);
       return {};
     }
     return await response.json();
@@ -143,7 +143,7 @@ export function mergeConfig<T extends object>(target: T, source: DeepPartial<T>)
     }
   }
 
-  console.log('✅ [mergeConfig] 병합 완료:', result);
+  console.log('✅ [mergeConfig] 병합 完成:', result);
   return result as T;
 }
 

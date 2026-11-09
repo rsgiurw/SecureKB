@@ -44,7 +44,7 @@ import { readOperatorSettings, writeOperatorSettings } from '../config/operatorS
 
 // 편집 언어 탭 라벨 (각 로케일의 자국어 표기 — UI 로케일과 무관하게 고정).
 const LOCALE_LABELS: Record<MenuLocale, string> = {
-  ko: '한국어',
+  ko: '韩语',
   en: 'English',
   ja: '日本語',
   es: 'Español',
@@ -77,7 +77,7 @@ export const ChatSettingsManager: React.FC<ChatSettingsManagerProps> = ({ onSave
   const [keyInput, setKeyInput] = useState('');
   const [pendingAction, setPendingAction] = useState<'save' | 'reset' | null>(null);
 
-  // 마운트 시 1회 서버에서 전 로케일 설정 로드 (실패 시 캐시/기본값 유지 — graceful).
+  // 마운트 시 1회 서버에서 전 로케일 설정 로드 (失败 시 캐시/기본값 유지 — graceful).
   useEffect(() => {
     let active = true;
     chatSettingsService
@@ -165,7 +165,7 @@ export const ChatSettingsManager: React.FC<ChatSettingsManagerProps> = ({ onSave
     setErrors([]);
   };
 
-  // 저장/리셋 실패 처리 (공통)
+  // 저장/리셋 失败 처리 (공통)
   const handleActionError = (error: unknown) => {
     if (error instanceof ChatSettingsValidationError) {
       setErrors(error.errors);

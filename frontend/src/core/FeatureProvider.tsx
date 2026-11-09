@@ -92,7 +92,7 @@ export function FeatureGuard({ module, feature, children, fallback = null }: Fea
   const context = React.useContext(FeatureContext);
 
   if (!context) {
-    throw new Error('FeatureGuard는 FeatureProvider 내부에서만 사용할 수 있습니다.');
+    throw new Error('FeatureGuard 只能在 FeatureProvider 内部使用。');
   }
 
   // 특정 기능 확인

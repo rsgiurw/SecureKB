@@ -30,11 +30,11 @@ export interface ThemePreset {
  * 테마 프리셋 목록
  */
 export const THEME_PRESETS: Record<string, ThemePreset> = {
-  // 기본 모노톤 (현재 설정)
+  // 기본 单色 (현재 설정)
   monotone: {
     id: 'monotone',
-    name: '모노톤',
-    description: '깔끔한 흑백 디자인으로 전문적인 느낌',
+    name: '单色',
+    description: '简洁的黑白设计，呈现专业感',
     colors: {
       brand: {
         primary: {
@@ -58,11 +58,11 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
     },
   },
 
-  // 모던 블루
+  // 现代蓝
   modernBlue: {
     id: 'modernBlue',
-    name: '모던 블루',
-    description: '신뢰감 있는 블루 톤으로 기업 이미지에 적합',
+    name: '现代蓝',
+    description: '值得信赖的蓝色调，适合企业形象',
     colors: {
       brand: {
         primary: {
@@ -100,11 +100,11 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
     },
   },
 
-  // 코퍼레이트 그린
+  // 商务绿
   corporateGreen: {
     id: 'corporateGreen',
-    name: '코퍼레이트 그린',
-    description: '친환경적이고 안정적인 그린 톤',
+    name: '商务绿',
+    description: '环保且稳定的绿色调',
     colors: {
       brand: {
         primary: {
@@ -142,11 +142,11 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
     },
   },
 
-  // 엘레강트 퍼플
+  // 典雅紫
   elegantPurple: {
     id: 'elegantPurple',
-    name: '엘레강트 퍼플',
-    description: '고급스럽고 창의적인 퍼플 톤',
+    name: '典雅紫',
+    description: '高贵且富有创意的紫色调',
     colors: {
       brand: {
         primary: {
@@ -184,11 +184,11 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
     },
   },
 
-  // 웜 오렌지
+  // 暖橙
   warmOrange: {
     id: 'warmOrange',
-    name: '웜 오렌지',
-    description: '따뜻하고 활기찬 오렌지 톤',
+    name: '暖橙',
+    description: '温暖活泼的橙色调',
     colors: {
       brand: {
         primary: {
@@ -226,11 +226,11 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
     },
   },
 
-  // 프로페셔널 그레이
+  // 专业灰
   professionalGray: {
     id: 'professionalGray',
-    name: '프로페셔널 그레이',
-    description: '차분하고 전문적인 그레이 톤',
+    name: '专业灰',
+    description: '沉稳专业的灰色调',
     colors: {
       brand: {
         primary: {
@@ -268,11 +268,11 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
     },
   },
 
-  // 바이브런트 레드
+  // 活力红
   vibrantRed: {
     id: 'vibrantRed',
-    name: '바이브런트 레드',
-    description: '강렬하고 열정적인 레드 톤',
+    name: '活力红',
+    description: '强烈热情的红色调',
     colors: {
       brand: {
         primary: {
@@ -310,11 +310,11 @@ export const THEME_PRESETS: Record<string, ThemePreset> = {
     },
   },
 
-  // 틸 시안
+  // 青碧
   tealCyan: {
     id: 'tealCyan',
-    name: '틸 시안',
-    description: '시원하고 현대적인 틸 톤',
+    name: '青碧',
+    description: '清新现代的青色调',
     colors: {
       brand: {
         primary: {

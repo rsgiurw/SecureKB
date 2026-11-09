@@ -2,11 +2,11 @@
 //
 // 설계 원칙(OneRAG 범용화):
 //   - 특정 언어/도메인 특화 문자열을 차용하지 않는다.
-//   - OneRAG 현 UI의 기존 한국어 문자열을 기준으로 카탈로그를 구성하고, 영어를 함께 제공한다.
+//   - OneRAG 현 UI의 기존 韩语 문자열을 기준으로 카탈로그를 구성하고, 영어를 함께 제공한다.
 //   - MenuMessages 인터페이스로 모든 로케일이 동일한 키 집합을 갖도록 컴파일 타임에 강제한다.
 //   - 인프라 + 채팅 핵심 UI + PDF 인용 뷰어부터 우선 마이그레이션한다(전 컴포넌트 일괄 번역 아님).
 //
-// 지원 로케일: 한국어(ko) / 영어(en) / 일본어(ja) / 스페인어(es) / 번체중국어(zhHant) / 간체중국어(zhHans). [MOD] zhHans 추가
+// 지원 로케일: 韩语(ko) / 영어(en) / 일본어(ja) / 스페인어(es) / 번체중국어(zhHant) / 간체중국어(zhHans). [MOD] zhHans 추가
 // ko/en은 이 파일에 인라인, 그 외 로케일은 src/i18n/locales/* 모듈에서 합성한다.
 import { ja } from "./locales/ja";
 import { es } from "./locales/es";
@@ -25,7 +25,7 @@ type LocaleLabels = Record<MenuLocale, string> & {
 
 /**
  * MenuMessages - 번역 사전의 키 구조 정의.
- * 모든 로케일은 이 인터페이스를 만족해야 하므로 키 누락 시 빌드가 실패한다.
+ * 모든 로케일은 이 인터페이스를 만족해야 하므로 키 누락 시 빌드가 失败한다.
  */
 export interface MenuMessages {
   // 언어 셀렉터
@@ -765,10 +765,10 @@ export interface MenuMessages {
   };
 }
 
-// 한국어 카탈로그(OneRAG 현 UI 기준 기본 로케일).
+// 韩语 카탈로그(OneRAG 현 UI 기준 기본 로케일).
 const ko: MenuMessages = {
   language: {
-    ko: "한국어",
+    ko: "韩语",
     en: "English",
     ja: "日本語",
     es: "Español",
@@ -782,13 +782,13 @@ const ko: MenuMessages = {
       // 브랜드명은 ChatHeader가 BRAND_CONFIG.appName을 앞에 붙입니다.
       // 여기서는 접미 라벨만 보관 → 기본 출력 "OneRAG Chat" 유지, 리브랜딩 시 브랜드명만 교체.
       title: "Chat",
-      subtitle: "- 궁금한 것을 질문해주세요!",
-      showDevTools: "개발자 도구 보기",
-      newSession: "새 대화 시작",
+      subtitle: "- 欢迎提出您的任何问题！",
+      showDevTools: "查看开发者工具",
+      newSession: "开始新对话",
       sessionPrefix: "세션",
     },
     input: {
-      placeholder: "메시지를 입력하세요...",
+      placeholder: "请输入消息...",
       offlinePlaceholder: "서버 연결 대기 중...",
       offlineNotice: "백엔드 서버와 연결이 끊어졌습니다. 채팅이 불가능합니다.",
       sendMessage: "메시지 보내기",
@@ -799,15 +799,15 @@ const ko: MenuMessages = {
     },
     message: {
       copyAnswer: "답변 복사",
-      copiedNotice: "답변이 복사되었습니다",
-      scrollToBottom: "맨 아래로 이동",
+      copiedNotice: "답변이 已复制",
+      scrollToBottom: "滚动到底部",
       preparingResponse: "응답을 준비하고 있습니다...",
       sourcesCount: "참고한 문서 ({count}개)",
     },
   },
   chatStream: {
     streaming: "스트리밍 중...",
-    generating: "답변을 생성하고 있습니다...",
+    generating: "正在生成回答...",
   },
   chatSidebar: {
     defaultTitle: "새 대화",
@@ -838,7 +838,7 @@ const ko: MenuMessages = {
     startNewSession: "새 세션 시작",
     noApiCalls: "API 호출 내역이 없습니다.",
     copyLog: "로그 복사",
-    logCopiedNotice: "로그가 복사되었습니다",
+    logCopiedNotice: "로그가 已复制",
     copy: "복사",
   },
   ragTrace: {
@@ -903,7 +903,7 @@ const ko: MenuMessages = {
   },
   errorBoundary: {
     title: "오류가 발생했습니다",
-    description: "예상치 못한 오류가 발생했습니다. 아래 버튼을 클릭하여 다시 시도해주세요.",
+    description: "예상치 못한 发生了错误。 아래 버튼을 클릭하여 다시 시도해주세요.",
     resetTitle: "현재 화면을 초기화하고 다시 로드합니다",
     reset: "화면 새로고침 (초기화)",
     goBack: "이전으로 돌아가기",
@@ -930,7 +930,7 @@ const ko: MenuMessages = {
     adminKeyPlaceholder: "X-API-Key (관리자 키)",
     errorTitle: "오류가 발생했습니다",
     mainMessageLabel: "메인 메시지",
-    mainMessagePlaceholder: "무엇을 도와드릴까요?",
+    mainMessagePlaceholder: "有什么可以帮您吗？",
     mainMessageCounter: "{count} / 100자",
     subMessageLabel: "보조 메시지",
     subMessagePlaceholder: "RAG 기반 AI가 문서를 분석하여 정확한 답변을 제공합니다",
@@ -943,11 +943,11 @@ const ko: MenuMessages = {
     resetToDefault: "기본값으로 초기화",
     saveSettings: "설정 저장",
     maxSuggestions: "추천 질문은 최대 10개까지 추가할 수 있습니다",
-    minSuggestions: "최소 1개의 추천 질문이 필요합니다",
+    minSuggestions: "至少需要 1 个推荐问题",
     adminKeyRequired: "관리자 API 키가 필요합니다",
-    saveFailedTitle: "저장 실패",
+    saveFailedTitle: "저장 失败",
     saveErrorFallback: "설정 저장 중 오류가 발생했습니다",
-    saveSuccessTitle: "설정 저장 완료",
+    saveSuccessTitle: "설정 저장 完成",
     saveSuccessDescription: "대화 시작 화면 설정이 저장되었습니다.",
     resetSuccessTitle: "설정 초기화",
     resetSuccessDescription: "기본 설정으로 복원되었습니다.",
@@ -960,7 +960,7 @@ const ko: MenuMessages = {
     toastError: "오류",
     toastSuccess: "성공",
     toastInfo: "알림",
-    imageLoadFailed: "이미지 로드 실패",
+    imageLoadFailed: "이미지 로드 失败",
     loading: "로딩 중...",
   },
   landing: {
@@ -982,22 +982,22 @@ const ko: MenuMessages = {
     custom: { label: "커스텀", description: "사용자 정의 프롬프트" },
   },
   themePresets: {
-    monotone: { name: "모노톤", description: "깔끔한 흑백 디자인으로 전문적인 느낌" },
-    modernBlue: { name: "모던 블루", description: "신뢰감 있는 블루 톤으로 기업 이미지에 적합" },
-    corporateGreen: { name: "코퍼레이트 그린", description: "친환경적이고 안정적인 그린 톤" },
-    elegantPurple: { name: "엘레강트 퍼플", description: "고급스럽고 창의적인 퍼플 톤" },
-    warmOrange: { name: "웜 오렌지", description: "따뜻하고 활기찬 오렌지 톤" },
-    professionalGray: { name: "프로페셔널 그레이", description: "차분하고 전문적인 그레이 톤" },
-    vibrantRed: { name: "바이브런트 레드", description: "강렬하고 열정적인 레드 톤" },
-    tealCyan: { name: "틸 시안", description: "시원하고 현대적인 틸 톤" },
+    monotone: { name: "单色", description: "简洁的黑白设计，呈现专业感" },
+    modernBlue: { name: "现代蓝", description: "值得信赖的蓝色调，适合企业形象" },
+    corporateGreen: { name: "商务绿", description: "环保且稳定的绿色调" },
+    elegantPurple: { name: "典雅紫", description: "高贵且富有创意的紫色调" },
+    warmOrange: { name: "暖橙", description: "温暖活泼的橙色调" },
+    professionalGray: { name: "专业灰", description: "沉稳专业的灰色调" },
+    vibrantRed: { name: "活力红", description: "强烈热情的红色调" },
+    tealCyan: { name: "青碧", description: "清新现代的青色调" },
   },
   virtualDocList: {
     sizeLabel: "크기: {size}",
     uploadLabel: "업로드: {date}",
-    statusCompleted: "완료",
+    statusCompleted: "完成",
     statusProcessing: "처리중",
-    statusFailed: "실패",
-    statusUnknown: "알 수 없음",
+    statusFailed: "失败",
+    statusUnknown: "알 수 无",
   },
   chatTab: {
     documentId: "문서 ID",
@@ -1019,19 +1019,19 @@ const ko: MenuMessages = {
     loading: "문서 목록을 불러오는 중...",
     emptyTitle: "문서가 없습니다",
     emptyDescription: "검색어를 바꾸거나 새 문서를 업로드해 보세요",
-    downloadFailed: "다운로드 실패",
+    downloadFailed: "다운로드 失败",
   },
   uploadTab: {
     unsupportedFormat: "지원되지 않는 형식입니다. PDF, TXT, Markdown, DOCX, PPTX, Excel, HTML, JSON만 가능합니다.",
     fileSizeExceeded: "파일 크기는 {limit}를 초과할 수 없습니다.",
-    uploadError: "업로드 중 오류가 발생했습니다.",
-    processingFailed: "문서 처리에 실패했습니다.",
+    uploadError: "업로드 중 发生了错误。",
+    processingFailed: "문서 처리에 失败했습니다.",
     processingError: "처리 오류",
     timeout: "시간 초과",
     networkError: "네트워크 상의 문제로 상태 확인 중단",
-    jobIdFailed: "작업 ID 생성 실패",
-    uploadCompleted: "업로드 완료: {count}개 청크",
-    uploadFailed: "{name} 실패: {message}",
+    jobIdFailed: "작업 ID 생성 失败",
+    uploadCompleted: "업로드 完成: {count}개 청크",
+    uploadFailed: "{name} 失败: {message}",
     settingsTitle: "업로드 설정",
     splitterLabel: "스플리터",
     splitterPlaceholder: "스플리터 선택",
@@ -1048,8 +1048,8 @@ const ko: MenuMessages = {
     uploadFileAria: "업로드 파일",
     uploadListTitle: "업로드 목록",
     removeFileAria: "{name} 제거",
-    statusCompleted: "완료",
-    statusFailed: "실패",
+    statusCompleted: "完成",
+    statusFailed: "失败",
     statusReady: "준비됨",
     statusUploading: "업로드 중",
     statusProcessing: "처리 중",
@@ -1107,9 +1107,9 @@ const ko: MenuMessages = {
     bulkDescriptionLine2: "정말 진행하시겠습니까?",
     bulkConfirm: "삭제 승인",
     allTitle: "전체 문서 삭제",
-    allWarning: "위험! DB의 모든 문서 데이터가 영구적으로 삭제됩니다. 이 작업은 즉시 실행되며 복구가 불가능합니다.",
+    allWarning: "위험! DB의 모든 문서 데이터가 영구적으로 삭제됩니다. 이 작업은 즉시 실행되며 恢复가 불가능합니다.",
     allTypingGuide: "실행하시려면 아래 문구를 정확히 입력하세요:",
-    allConfirmPhrase: "문서 삭제에 동의합니다.",
+    allConfirmPhrase: "我同意删除该文档。",
     allTypingPlaceholder: "문구를 입력하세요",
     allConfirmStep: "네, 정말 모두 삭제합니다",
     allExecuteStep: "전체 삭제 실행",
@@ -1189,7 +1189,7 @@ const ko: MenuMessages = {
   },
   promptEdit: {
     editTitle: "프롬프트 편집",
-    createTitle: "새 프롬프트 생성",
+    createTitle: "新建提示词",
     editDescription: "기존 프롬프트를 수정합니다.",
     createDescription: "새로운 시스템 프롬프트를 생성합니다.",
     inputErrorTitle: "입력 오류",
@@ -1236,7 +1236,7 @@ const ko: MenuMessages = {
     custom: "커스텀",
   },
   adminDashboard: {
-    loadFailedToastTitle: "데이터 로딩 실패",
+    loadFailedToastTitle: "데이터 로딩 失败",
     loadFailedToastDesc: "대시보드 데이터를 불러오지 못했습니다.",
     connectedToastTitle: "연결 성공",
     connectedToastDesc: "실시간 모니터링 연결됨",
@@ -1246,24 +1246,24 @@ const ko: MenuMessages = {
     newSessionToastDesc: "세션 생성: {id}",
     rebuildIndexToastTitle: "인덱스 재구축",
     rebuildIndexToastDesc: "인덱스 재구축이 시작되었습니다.",
-    rebuildIndexFailToastTitle: "인덱스 재구축 실패",
+    rebuildIndexFailToastTitle: "인덱스 재구축 失败",
     rebuildIndexFailToastDesc: "작업을 시작할 수 없습니다.",
-    logDownloadToastTitle: "로그 다운로드 완료",
+    logDownloadToastTitle: "로그 다운로드 完成",
     logDownloadToastDesc: "로그 파일이 생성되었습니다.",
-    downloadFailToastTitle: "다운로드 실패",
+    downloadFailToastTitle: "다운로드 失败",
     downloadFailToastDesc: "로그를 다운로드할 수 없습니다.",
-    sessionLoadFailToastTitle: "로딩 실패",
+    sessionLoadFailToastTitle: "로딩 失败",
     sessionLoadFailToastDesc: "세션 정보를 불러올 수 없습니다.",
     sessionDeleteToastTitle: "세션 삭제",
     sessionDeleteToastDesc: "세션이 삭제되었습니다.",
-    deleteFailToastTitle: "삭제 실패",
+    deleteFailToastTitle: "删除失败",
     sessionDeleteFailToastDesc: "세션을 삭제할 수 없습니다.",
     documentDeleteToastTitle: "문서 삭제",
     documentDeleteToastDesc: "문서가 삭제되었습니다.",
     documentDeleteFailToastDesc: "문서를 삭제할 수 없습니다.",
     reprocessToastTitle: "재처리 시작",
     reprocessToastDesc: "문서 재처리가 시작되었습니다.",
-    reprocessFailToastTitle: "재처리 실패",
+    reprocessFailToastTitle: "재처리 失败",
     reprocessFailToastDesc: "작업을 시작할 수 없습니다.",
     rebuildIndexConfirm: "전체 인덱스를 재구축하시겠습니까? 이 작업은 시간이 오래 걸릴 수 있습니다.",
     sessionDeleteConfirm: "이 세션을 삭제하시겠습니까?",
@@ -1335,7 +1335,7 @@ const ko: MenuMessages = {
     maintenanceBack: "대시보드로 돌아가기",
   },
   globalSettings: {
-    saveToastTitle: "글로벌 설정 저장 완료",
+    saveToastTitle: "글로벌 설정 저장 完成",
     saveToastDesc: "운영 설정이 저장되었고 앱 런타임 설정에 반영되었습니다.",
     resetToastTitle: "글로벌 설정 초기화",
     resetToastDesc: "운영 설정이 기본값으로 초기화되었습니다.",
@@ -1368,11 +1368,11 @@ const ko: MenuMessages = {
   adminSettings: {
     presetChangeToastTitle: "프리셋 변경",
     presetChangeToastDesc: "프리셋 \"{name}\"이(가) 선택되었습니다.",
-    saveToastTitle: "설정 저장 완료",
+    saveToastTitle: "설정 저장 完成",
     saveToastDesc: "✅ 설정이 저장되었습니다! 페이지를 새로고침하면 적용됩니다.",
     resetToastTitle: "설정 초기화",
     resetToastDesc: "✅ 설정이 초기화되었습니다. 페이지를 새로고침하면 적용됩니다.",
-    exportFailToastTitle: "내보내기 실패",
+    exportFailToastTitle: "导出失败",
     exportFailToastDesc: "프리셋을 내보낼 수 없습니다.",
     exportSuccessToastTitle: "내보내기 성공",
     exportSuccessToastDesc: "설정이 JSON 파일로 다운로드되었습니다.",
@@ -1405,9 +1405,9 @@ const ko: MenuMessages = {
     logoInvalidFileToastTitle: "로고 파일을 사용할 수 없습니다",
     logoInvalidFileToastDesc: "PNG, JPG, SVG, WebP 형식의 이미지만 업로드할 수 있습니다.",
     logoTooLargeToastDesc: "로고 파일은 512KB 이하로 업로드해 주세요.",
-    logoReadFailToastTitle: "로고 읽기 실패",
-    logoReadFailToastDesc: "파일을 읽는 중 오류가 발생했습니다. 다른 이미지를 선택해 주세요.",
-    logoSelectedToastTitle: "로고 선택 완료",
+    logoReadFailToastTitle: "로고 읽기 失败",
+    logoReadFailToastDesc: "파일을 읽는 중 发生了错误。 다른 이미지를 선택해 주세요.",
+    logoSelectedToastTitle: "로고 선택 完成",
     logoSelectedToastDesc: "\"{name}\" 파일이 선택되었습니다. 저장 후 새로고침하면 적용됩니다.",
     colorsHeading: "🎨 테마 프리셋 선택",
     colorsDescription: "데이터 플랫폼의 무드를 결정하는 8가지 공식 프리셋 중 하나를 선택하세요.",
@@ -1440,7 +1440,7 @@ const ko: MenuMessages = {
 // 영어 카탈로그.
 const en: MenuMessages = {
   language: {
-    ko: "한국어",
+    ko: "韩语",
     en: "English",
     ja: "日本語",
     es: "Español",

@@ -21,7 +21,7 @@ import { logger } from '../../utils/logger';
 interface UseDocumentDeleteOptions {
   /** 토스트 메시지 표시 콜백 */
   showToast: (message: Omit<ToastMessage, 'id'>) => void;
-  /** 삭제 완료 후 호출되는 콜백 (목록 새로고침 등) */
+  /** 삭제 完成 후 호출되는 콜백 (목록 새로고침 등) */
   onDeleted: () => Promise<void> | void;
   /** 선택 초기화 콜백 */
   clearSelection: () => void;
@@ -126,14 +126,14 @@ export const useDocumentDelete = ({
     setDeleteLoading(true);
     try {
       await documentAPI.deleteDocument(documentToDelete);
-      showToast({ type: 'success', message: '문서 삭제 완료' });
+      showToast({ type: 'success', message: '文档删除成功' });
       await onDeleted();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
       logger.error('Document delete error:', error);
       showToast({
         type: 'error',
-        message: err.response?.data?.message || '삭제 실패',
+        message: err.response?.data?.message || '删除失败',
       });
     } finally {
       setDeleteLoading(false);
@@ -172,7 +172,7 @@ export const useDocumentDelete = ({
         if (documentIds.length === 0) {
           showToast({
             type: 'warning',
-            message: '삭제할 수 있는 유효한 문서가 없습니다.',
+            message: '没有可删除的有效文档。',
           });
           return;
         }
@@ -180,7 +180,7 @@ export const useDocumentDelete = ({
         await documentAPI.deleteDocuments(documentIds);
         showToast({
           type: 'success',
-          message: `${documentIds.length}개 문서 삭제 완료`,
+          message: `已删除 ${documentIds.length} 份文档`,
         });
         clearSelection();
         await onDeleted();
@@ -189,7 +189,7 @@ export const useDocumentDelete = ({
         logger.error('Bulk delete error:', error);
         showToast({
           type: 'error',
-          message: err.response?.data?.message || '일괄 삭제 실패',
+          message: err.response?.data?.message || '批量删除失败',
         });
       } finally {
         setBulkDeleteLoading(false);
@@ -229,16 +229,16 @@ export const useDocumentDelete = ({
     }
 
     // 2단계: 문구 검증
-    if (deleteAllTyping !== '문서 삭제에 동의합니다.') {
-      showToast({ type: 'error', message: '문구를 정확히 입력해주세요.' });
+    if (deleteAllTyping !== '我同意删除该文档。') {
+      showToast({ type: 'error', message: '请准确输入确认短语。' });
       return;
     }
 
     // 삭제 실행
     setDeleteAllLoading(true);
     try {
-      await documentAPI.deleteAllDocuments('DELETE_ALL_DOCUMENTS', '사용자 요청', false);
-      showToast({ type: 'success', message: '모든 문서 삭제 완료' });
+      await documentAPI.deleteAllDocuments('DELETE_ALL_DOCUMENTS', '用户请求', false);
+      showToast({ type: 'success', message: '全部文档删除完成' });
       clearSelection();
       await onDeleted();
       // 성공 시 상태 초기화
@@ -248,7 +248,7 @@ export const useDocumentDelete = ({
       logger.error('Delete all documents error:', error);
       showToast({
         type: 'error',
-        message: err.response?.data?.message || '실패',
+        message: err.response?.data?.message || '失败',
       });
     } finally {
       setDeleteAllLoading(false);

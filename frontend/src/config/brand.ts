@@ -1,8 +1,8 @@
 /* eslint-disable no-restricted-syntax */
 /**
- * 모노톤 브랜드 설정 파일
+ * 单色 브랜드 설정 파일
  *
- * ⚠️ 완전한 모노톤 디자인 시스템
+ * ⚠️ 완전한 单色 디자인 시스템
  * ⚠️ 모든 색상은 COLORS (colors.ts)에서 관리
  * ⚠️ 이 파일은 브랜드 메타데이터만 포함 (보라색 사용 금지)
  */
@@ -61,7 +61,7 @@ export const BRAND_CONFIG: BrandConfig = {
     fallback: '/chatbot.svg',
   },
 
-  // 그림자 설정 - 모노톤
+  // 그림자 설정 - 单色
   shadows: {
     default: {
       light: '0 2px 8px rgba(0, 0, 0, 0.04)',

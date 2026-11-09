@@ -24,7 +24,7 @@ export interface IWebSocket {
   /**
    * 연결 상태
    * - 0: CONNECTING - 연결 시도 중
-   * - 1: OPEN - 연결 완료
+   * - 1: OPEN - 연결 完成
    * - 2: CLOSING - 종료 중
    * - 3: CLOSED - 종료됨
    */
@@ -70,7 +70,7 @@ export interface IWebSocket {
 export const WebSocketReadyState = {
   /** 연결 시도 중 */
   CONNECTING: 0,
-  /** 연결 완료, 통신 가능 */
+  /** 연결 完成, 통신 가능 */
   OPEN: 1,
   /** 종료 진행 중 */
   CLOSING: 2,

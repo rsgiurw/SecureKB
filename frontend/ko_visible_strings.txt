@@ -1,0 +1,133 @@
+${documentIds.length}개 문서 삭제 완료	src\hooks\document\useDocumentDelete.ts:183
+${message}\n해결 방법: ${solutions.join(	src\hooks\chat\useChatStreamingCore.ts:241
+${original.description} (복사본)	src\services\promptService.ts:108
+${result.imported}개의 프롬프트를 가져왔습니다.	src\hooks\prompt\usePromptManager.ts:410
+: 메인 로고,	src\components\icons\BrandLogo.tsx:12
+AI 설정 저장 완료	src\pages\Admin\GlobalSettingsPage.tsx:105
+AI 설정 점검 통과	src\pages\Admin\GlobalSettingsPage.tsx:139
+AI 설정 점검 필요	src\pages\Admin\GlobalSettingsPage.tsx:139
+AI가 참고 문서를 분석하여 정확한 답변을 제공합니다	src\services\chatSettingsService.ts:37
+API 키 교체 완료	src\pages\Admin\GlobalSettingsPage.tsx:124
+API 키를 입력하세요	src\pages\Admin\GlobalSettingsPage.tsx:508
+FeatureGuard는 FeatureProvider 내부에서만 사용할 수 있습니다.	src\core\FeatureProvider.tsx:95
+Provider 변경은 서버 재시작 후 완전히 반영됩니다.	src\pages\Admin\GlobalSettingsPage.tsx:106
+SSE done 이벤트 세션 동기화	src\hooks\chat\useChatMessages.ts:451
+SSE 스트리밍 오류	src\hooks\chat\useChatMessages.ts:458
+WebSocket 연결 실패	src\services\createChatWebSocketService.ts:321
+WebSocket이 연결되지 않았습니다.	src\services\createChatWebSocketService.ts:336
+source_id 또는 document_id가 없어 상세 조회를 할 수 없습니다.	src\services\api.ts:874
+useFeatures는 FeatureProvider 내부에서만 사용할 수 있습니다.	src\core\useFeature.ts:29
+useIsFeatureEnabled는 FeatureProvider 내부에서만 사용할 수 있습니다.	src\core\useFeature.ts:97
+useIsModuleEnabled는 FeatureProvider 내부에서만 사용할 수 있습니다.	src\core\useFeature.ts:72
+· 먼저 서버 설정을 저장하세요	src\pages\Admin\GlobalSettingsPage.tsx:515
+강렬하고 열정적인 레드 톤	src\config\presets\index.ts:275
+검색을 완료하고 답변을 준비합니다...	src\hooks\chat\useChatMessages.ts:31
+고급스럽고 창의적인 퍼플 톤	src\config\presets\index.ts:149
+기록 로드 시 불일치	src\hooks\chat\useChatSessionCore.ts:291
+기본 질문 설정1	src\services\chatSettingsService.ts:40
+기본 질문 설정2	src\services\chatSettingsService.ts:41
+기본 질문 설정3	src\services\chatSettingsService.ts:42
+깔끔한 흑백 디자인으로 전문적인 느낌	src\config\presets\index.ts:37
+내보내기 실패	src\hooks\prompt\usePromptManager.ts:363
+내보내기 완료	src\hooks\prompt\usePromptManager.ts:384
+내보낼 프롬프트가 없습니다.	src\hooks\prompt\usePromptManager.ts:364
+답변을 생성하고 있습니다...	src\hooks\chat\useChatMessages.ts:32
+대화 기록을 불러오지 못했습니다. 메시지를 보내면 이어서 복원됩니다.	src\hooks\chat\useChatSessionCore.ts:324
+데이터 가져오기 성공	src\hooks\prompt\usePromptManager.ts:409
+따뜻하고 활기찬 오렌지 톤	src\config\presets\index.ts:191
+메시지 응답 불일치 감지	src\hooks\chat\useChatMessages.ts:210
+메시지 전송에 실패했습니다.	src\hooks\chat\useChatMessages.ts:285
+메인 메시지는 ${MAIN_MAX}자를 초과할 수 없습니다	src\services\chatSettingsService.ts:324
+메인 메시지는 비어있을 수 없습니다	src\services\chatSettingsService.ts:322
+메인 메시지는 필수입니다	src\services\chatSettingsService.ts:320
+모노톤	src\config\presets\index.ts:36
+모던 블루	src\config\presets\index.ts:64
+모델 설정이 채팅 요청에 반영됩니다.	src\pages\Admin\GlobalSettingsPage.tsx:106
+모든 문서 삭제 완료	src\hooks\document\useDocumentDelete.ts:241
+무엇을 도와드릴까요?	src\services\chatSettingsService.ts:36
+문구를 정확히 입력해주세요.	src\hooks\document\useDocumentDelete.ts:233
+문서 목록 로드 실패	src\hooks\document\useDocumentList.ts:153
+문서 삭제 완료	src\hooks\document\useDocumentDelete.ts:129
+문서 삭제에 동의합니다.	src\hooks\document\useDocumentDelete.ts:232
+문서를 검색하고 있습니다...	src\hooks\chat\useChatMessages.ts:30
+바이브런트 레드	src\config\presets\index.ts:274
+백엔드 연결 실패. 오프라인 모드로 동작합니다.	src\hooks\chat\useChatSessionCore.ts:385
+백엔드 연결 실패. 오프라인 모드로 새 세션을 시작합니다.	src\hooks\chat\useChatSessionCore.ts:437
+보조 메시지는 ${SUB_MAX}자를 초과할 수 없습니다	src\services\chatSettingsService.ts:335
+보조 메시지는 비어있을 수 없습니다	src\services\chatSettingsService.ts:333
+보조 메시지는 필수입니다	src\services\chatSettingsService.ts:331
+복구	src\hooks\chat\useChatSessionCore.ts:185
+복사되었습니다	src\hooks\chat\useChatInteraction.ts:83
+복사에 실패했습니다	src\hooks\chat\useChatInteraction.ts:94
+불일치	src\hooks\chat\useChatSessionCore.ts:185
+사용자 요청	src\hooks\document\useDocumentDelete.ts:240
+삭제 실패	src\hooks\document\useDocumentDelete.ts:136
+삭제할 수 있는 유효한 문서가 없습니다.	src\hooks\document\useDocumentDelete.ts:175
+새 세션 연결	src\services\createChatWebSocketService.ts:257
+새 키 입력 시 교체됩니다	src\pages\Admin\GlobalSettingsPage.tsx:508
+새 프롬프트 생성	src\hooks\prompt\usePromptManager.ts:287
+새로운 대화를 시작합니다.	src\hooks\chat\useChatSessionCore.ts:426
+서버 연결이 끊어졌습니다. 페이지를 새로고침해주세요.	src\hooks\chat\useChatStreamingCore.ts:258
+선택한 대화 기록을 불러올 수 없습니다.	src\hooks\chat\useChatSessionCore.ts:241
+선택할 수 없는 문서입니다.	src\hooks\document\useDocumentSelection.ts:66
+설정됨	src\hooks\chat\useChatSessionCore.ts:142
+세션 ID가 설정되지 않았습니다.	src\services\createChatWebSocketService.ts:340
+세션이 동기화되었습니다. (${context})	src\hooks\chat\useChatSessionCore.ts:188
+스트리밍 중단	src\services\createChatWebSocketService.ts:422
+시원하고 현대적인 틸 톤	src\config\presets\index.ts:317
+신뢰감 있는 블루 톤으로 기업 이미지에 적합	src\config\presets\index.ts:65
+실패	src\hooks\document\useDocumentDelete.ts:251
+없음	src\services\api.ts:146
+없음 (새 세션 생성이므로 정상)	src\services\api.ts:256
+엘레강트 퍼플	src\config\presets\index.ts:148
+오류가 발생했습니다.	src\hooks\chat\useChatMessages.ts:34
+완료	src\hooks\chat\useChatMessages.ts:33
+웜 오렌지	src\config\presets\index.ts:190
+의 복제본이 생성되었습니다.	src\hooks\prompt\usePromptManager.ts:427
+이 문서에서 핵심 내용을 요약해주세요	src\services\chatSettingsService.ts:39
+이 비활성화되어 기본 시스템 프롬프트로 전환되었습니다.	src\hooks\prompt\usePromptManager.ts:334
+일괄 삭제 실패	src\hooks\document\useDocumentDelete.ts:192
+전체 원문을 불러올 수 없어 미리보기를 표시합니다.	src\hooks\chat\useChatInteraction.ts:126
+죄송합니다. 오류가 발생했습니다. 다시 시도해주세요.	src\hooks\chat\useChatMessages.ts:142
+중복된 추천 질문이 있습니다	src\services\chatSettingsService.ts:360
+차분하고 전문적인 그레이 톤	src\config\presets\index.ts:233
+최소 1개의 추천 질문이 필요합니다	src\services\chatSettingsService.ts:344
+최소 하나의 프롬프트는 활성화되어 있어야 합니다.	src\hooks\prompt\usePromptManager.ts:338
+추천 질문 ${index + 1}은 ${SUGGESTION_MAX}자를 초과할 수 없습니다	src\services\chatSettingsService.ts:354
+추천 질문 ${index + 1}은 문자열이어야 합니다	src\services\chatSettingsService.ts:350
+추천 질문 ${index + 1}은 비어있을 수 없습니다	src\services\chatSettingsService.ts:352
+추천 질문은 배열이어야 합니다	src\services\chatSettingsService.ts:342
+추천 질문은 최대 ${SUGGESTIONS_MAX}개까지 가능합니다	src\services\chatSettingsService.ts:346
+친환경적이고 안정적인 그린 톤	src\config\presets\index.ts:107
+코퍼레이트 그린	src\config\presets\index.ts:106
+클라이언트 연결 해제	src\services\createChatWebSocketService.ts:399
+키 원문은 저장 후 화면 상태에서 제거되었습니다. 클라이언트 재초기화에는 서버 재시작이 필요할 수 있습니다.	src\pages\Admin\GlobalSettingsPage.tsx:125
+틸 시안	src\config\presets\index.ts:316
+파일이 다운로드되었습니다.	src\hooks\prompt\usePromptManager.ts:385
+프로페셔널 그레이	src\config\presets\index.ts:232
+프롬프트 가져오기에 실패했습니다.	src\hooks\prompt\usePromptManager.ts:416
+프롬프트 기본값 전환	src\hooks\prompt\usePromptManager.ts:333
+프롬프트 내보내기에 실패했습니다.	src\hooks\prompt\usePromptManager.ts:389
+프롬프트 내용은 10자 이상이어야 합니다.	src\services\promptService.ts:130
+프롬프트 복제 성공	src\hooks\prompt\usePromptManager.ts:426
+프롬프트 복제에 실패했습니다.	src\hooks\prompt\usePromptManager.ts:432
+프롬프트 비활성화	src\hooks\prompt\usePromptManager.ts:345
+프롬프트 삭제 완료	src\hooks\prompt\usePromptManager.ts:254
+프롬프트 삭제에 실패했습니다.	src\hooks\prompt\usePromptManager.ts:260
+프롬프트 상태 변경에 실패했습니다.	src\hooks\prompt\usePromptManager.ts:354
+프롬프트 설명은 5자 이상이어야 합니다.	src\services\promptService.ts:136
+프롬프트 수정 완료	src\hooks\prompt\usePromptManager.ts:280
+프롬프트 이름에는 공백을 포함할 수 없습니다.	src\services\promptService.ts:124
+프롬프트 이름은 2자 이상이어야 합니다.	src\services\promptService.ts:121
+프롬프트 저장에 실패했습니다.	src\hooks\prompt\usePromptManager.ts:298
+프롬프트 활성화	src\hooks\prompt\usePromptManager.ts:317
+프롬프트가 비활성화되었습니다.	src\hooks\prompt\usePromptManager.ts:346
+프롬프트가 성공적으로 생성되었습니다.	src\hooks\prompt\usePromptManager.ts:288
+프롬프트가 성공적으로 수정되었습니다.	src\hooks\prompt\usePromptManager.ts:281
+프롬프트가 영구적으로 삭제되었습니다.	src\hooks\prompt\usePromptManager.ts:255
+프롬프트가 이제 시스템에 적용됩니다.	src\hooks\prompt\usePromptManager.ts:318
+프롬프트를 불러오는데 실패했습니다.	src\hooks\prompt\usePromptManager.ts:189
+한국어	src\components\ChatSettingsManager.tsx:47
+🔄 Chat WebSocket 재연결 시도 ${reconnectAttempts}/${mergedConfig.maxReconnectAttempts} (${delay}ms 후)	src\services\createChatWebSocketService.ts:204
+🔌 Chat WebSocket 연결 해제:	src\services\createChatWebSocketService.ts:303
+🔗 Chat WebSocket 연결 시도:	src\services\createChatWebSocketService.ts:278

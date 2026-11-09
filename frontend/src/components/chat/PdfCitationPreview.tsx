@@ -9,7 +9,7 @@
 //   - 백엔드가 bbox(citation_regions/page_dimensions)를 제공하지 않으면 boxes가 비어
 //     컴포넌트는 null을 반환한다(하이라이트만 생략, 기존 동작 보존).
 //   - PDF가 아니거나 documentId가 없으면 미리보기를 시도하지 않는다.
-//   - PDF 로드/렌더 실패 시 좌표 가이드(좌표 비율 박스)로 폴백한다.
+//   - PDF 로드/렌더 失败 시 좌표 가이드(좌표 비율 박스)로 폴백한다.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FileText, MapPin, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
@@ -150,7 +150,7 @@ export const PdfCitationPreview: React.FC<PdfCitationPreviewProps> = ({
                 setPdfBlob(response.data);
             })
             .catch(() => {
-                // 다운로드 실패 시 좌표 가이드(폴백)로 graceful degradation
+                // 다운로드 失败 시 좌표 가이드(폴백)로 graceful degradation
                 if (active) setFailed(true);
             })
             .finally(() => {
@@ -264,7 +264,7 @@ export const PdfCitationPreview: React.FC<PdfCitationPreviewProps> = ({
                 });
                 await renderTask.promise;
             } catch (error) {
-                // 렌더 취소(정상 흐름)는 무시하고, 실제 실패만 폴백 처리.
+                // 렌더 취소(정상 흐름)는 무시하고, 실제 失败만 폴백 처리.
                 if (active && !isRenderingCancelled(error)) {
                     setFailed(true);
                 }
@@ -397,7 +397,7 @@ export const PdfCitationPreview: React.FC<PdfCitationPreviewProps> = ({
                         <MapPin className="h-4 w-4 text-primary" />
                         {messages.pdfViewer.citationBox}
                     </div>
-                    {/* PDF 렌더 실패 시 좌표 비율 기반 가이드로 폴백 */}
+                    {/* PDF 렌더 失败 시 좌표 비율 기반 가이드로 폴백 */}
                     {failed && (
                         <div
                             className="relative w-full overflow-hidden rounded-lg border bg-background shadow-inner"

@@ -6,7 +6,7 @@
 //   - 탭 간 동기화: storage 이벤트로 다른 탭의 변경을 감지한다.
 //   - MenuMessages 인터페이스로 누락 키를 컴파일 타임에 검출한다(타입 안전 사전).
 //
-// OneRAG 범용화: 기본 로케일은 'ko'(한국어)이며 빌드 시 VITE_DEFAULT_LOCALE로 재정의 가능하다.
+// OneRAG 범용화: 기본 로케일은 'ko'(韩语)이며 빌드 시 VITE_DEFAULT_LOCALE로 재정의 가능하다.
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { type MenuLocale, menuMessages } from "./menuMessages";

@@ -185,8 +185,8 @@ export const usePromptManager = (): UsePromptManagerReturn => {
 
       setError(null);
     } catch (err) {
-      logger.error('프롬프트 로딩 실패:', err);
-      setError('프롬프트를 불러오는데 실패했습니다.');
+      logger.error('프롬프트 로딩 失败:', err);
+      setError('加载提示词失败。');
     } finally {
       setLoading(false);
     }
@@ -197,7 +197,7 @@ export const usePromptManager = (): UsePromptManagerReturn => {
     loadPrompts();
   }, [loadPrompts]);
 
-  /** 새 프롬프트 생성 다이얼로그 열기 */
+  /** 新建提示词 다이얼로그 열기 */
   const handleCreateNew = useCallback(() => {
     setEditingPrompt({
       name: '',
@@ -251,13 +251,13 @@ export const usePromptManager = (): UsePromptManagerReturn => {
       setSelectedPrompt(null);
       toast({
         variant: 'destructive',
-        title: '프롬프트 삭제 완료',
-        description: `'${name}' 프롬프트가 영구적으로 삭제되었습니다.`,
+        title: '提示词删除成功',
+        description: `'${name}' 提示词已永久删除。`,
       });
       await loadPrompts();
     } catch (err: unknown) {
-      logger.error('프롬프트 삭제 실패:', err);
-      setError(getErrorMessage(err, '프롬프트 삭제에 실패했습니다.'));
+      logger.error('프롬프트 删除失败:', err);
+      setError(getErrorMessage(err, '删除提示词失败。'));
     }
   }, [selectedPrompt, loadPrompts, toast]);
 
@@ -277,15 +277,15 @@ export const usePromptManager = (): UsePromptManagerReturn => {
         // 수정
         await promptService.updatePrompt(selectedPrompt.id, editingPrompt as UpdatePromptRequest);
         toast({
-          title: '프롬프트 수정 완료',
-          description: `'${editingPrompt.name}' 프롬프트가 성공적으로 수정되었습니다.`,
+          title: '提示词修改成功',
+          description: `'${editingPrompt.name}' 提示词修改成功。`,
         });
       } else {
         // 생성
         await promptService.createPrompt(editingPrompt as CreatePromptRequest);
         toast({
-          title: '새 프롬프트 생성',
-          description: `'${editingPrompt.name}' 프롬프트가 성공적으로 생성되었습니다.`,
+          title: '新建提示词',
+          description: `'${editingPrompt.name}' 提示词创建成功。`,
         });
       }
 
@@ -294,8 +294,8 @@ export const usePromptManager = (): UsePromptManagerReturn => {
       setModalError(null);
       await loadPrompts();
     } catch (err: unknown) {
-      logger.error('프롬프트 저장 실패:', err);
-      setModalError(getErrorMessage(err, '프롬프트 저장에 실패했습니다.'));
+      logger.error('프롬프트 저장 失败:', err);
+      setModalError(getErrorMessage(err, '保存提示词失败。'));
     }
   }, [editingPrompt, isEditMode, selectedPrompt, loadPrompts, toast]);
 
@@ -311,11 +311,11 @@ export const usePromptManager = (): UsePromptManagerReturn => {
           await promptService.togglePrompt(activePrompt.id, false);
         }
 
-        // 현재 프롬프트 활성화
+        // 현재 启用提示词
         await promptService.togglePrompt(prompt.id, true);
         toast({
-          title: '프롬프트 활성화',
-          description: `'${prompt.name}' 프롬프트가 이제 시스템에 적용됩니다.`,
+          title: '启用提示词',
+          description: `'${prompt.name}' 提示词现已应用到系统。`,
         });
       } else {
         // 비활성화하려는 경우
@@ -330,28 +330,28 @@ export const usePromptManager = (): UsePromptManagerReturn => {
             await promptService.togglePrompt(prompt.id, false);
             await promptService.togglePrompt(systemPrompt.id, true);
             toast({
-              title: '프롬프트 기본값 전환',
-              description: `'${prompt.name}'이 비활성화되어 기본 시스템 프롬프트로 전환되었습니다.`,
+              title: '切换提示词默认值',
+              description: `'${prompt.name}'已停用并切换为默认系统提示词。`,
             });
           } else {
             // 시스템 프롬프트가 없거나, 현재 프롬프트가 시스템 프롬프트인 경우
-            setError('최소 하나의 프롬프트는 활성화되어 있어야 합니다.');
+            setError('至少需要一个启用的提示词。');
             return;
           }
         } else {
           // 다른 활성 프롬프트가 있는 경우 단순히 비활성화
           await promptService.togglePrompt(prompt.id, false);
           toast({
-            title: '프롬프트 비활성화',
-            description: `'${prompt.name}' 프롬프트가 비활성화되었습니다.`,
+            title: '停用提示词',
+            description: `'${prompt.name}' 提示词已停用。`,
           });
         }
       }
 
       await loadPrompts();
     } catch (err: unknown) {
-      logger.error('프롬프트 상태 변경 실패:', err);
-      setError(getErrorMessage(err, '프롬프트 상태 변경에 실패했습니다.'));
+      logger.error('프롬프트 상태 변경 失败:', err);
+      setError(getErrorMessage(err, '变更提示词状态失败。'));
     }
   }, [prompts, loadPrompts, toast]);
 
@@ -360,8 +360,8 @@ export const usePromptManager = (): UsePromptManagerReturn => {
     if (prompts.length === 0) {
       toast({
         variant: 'destructive',
-        title: '내보내기 실패',
-        description: '내보낼 프롬프트가 없습니다.',
+        title: '导出失败',
+        description: '没有可导出的提示词。',
       });
       return;
     }
@@ -381,12 +381,12 @@ export const usePromptManager = (): UsePromptManagerReturn => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast({
-        title: '내보내기 완료',
-        description: `'${fileName}' 파일이 다운로드되었습니다.`,
+        title: '导出完成',
+        description: `'${fileName}' 文件已下载。`,
       });
     } catch (err: unknown) {
-      logger.error('프롬프트 내보내기 실패:', err);
-      setError('프롬프트 내보내기에 실패했습니다.');
+      logger.error('프롬프트 导出失败:', err);
+      setError('导出提示词失败。');
     }
   }, [prompts, toast]);
 
@@ -394,7 +394,7 @@ export const usePromptManager = (): UsePromptManagerReturn => {
    * 프롬프트 가져오기 (JSON 파싱 + API 호출)
    *
    * 버그 수정: promptService.importPrompts 반환 타입에 imported 필드만 존재.
-   * 기존 PromptManager.tsx에서 result.updated를 참조하던 타입 불일치를 수정하여
+   * 기존 PromptManager.tsx에서 result.updated를 참조하던 타입 不一致를 수정하여
    * imported 필드만 사용하도록 변경.
    */
   const handleImportPrompts = useCallback(async () => {
@@ -406,14 +406,14 @@ export const usePromptManager = (): UsePromptManagerReturn => {
       setImportOverwrite(false);
 
       toast({
-        title: '데이터 가져오기 성공',
-        description: `${result.imported}개의 프롬프트를 가져왔습니다.`,
+        title: '数据导入成功',
+        description: `已导入 ${result.imported} 个提示词。`,
       });
 
       await loadPrompts();
     } catch (err: unknown) {
-      logger.error('프롬프트 가져오기 실패:', err);
-      setError(getErrorMessage(err, '프롬프트 가져오기에 실패했습니다.'));
+      logger.error('프롬프트 가져오기 失败:', err);
+      setError(getErrorMessage(err, '导入提示词失败。'));
     }
   }, [importData, importOverwrite, loadPrompts, toast]);
 
@@ -423,13 +423,13 @@ export const usePromptManager = (): UsePromptManagerReturn => {
       const newName = `${prompt.name}_copy_${Date.now()}`;
       await promptService.duplicatePrompt(prompt.id, newName);
       toast({
-        title: '프롬프트 복제 성공',
-        description: `'${prompt.name}'의 복제본이 생성되었습니다.`,
+        title: '提示词复制成功',
+        description: `'${prompt.name}'的副本已创建。`,
       });
       await loadPrompts();
     } catch (err: unknown) {
-      logger.error('프롬프트 복제 실패:', err);
-      setError(getErrorMessage(err, '프롬프트 복제에 실패했습니다.'));
+      logger.error('프롬프트 복제 失败:', err);
+      setError(getErrorMessage(err, '复制提示词失败。'));
     }
   }, [loadPrompts, toast]);
 

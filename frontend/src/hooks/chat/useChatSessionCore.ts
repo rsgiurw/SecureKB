@@ -51,7 +51,7 @@ export interface UseChatSessionCoreOptions {
 export interface UseChatSessionCoreReturn {
   /** 현재 세션 ID */
   sessionId: string;
-  /** 세션 초기화 완료 여부 */
+  /** 세션 초기화 完成 여부 */
   isSessionInitialized: boolean;
   /** 세션 ID 동기화 함수 */
   synchronizeSessionId: (newSessionId: string, context?: string) => boolean;
@@ -87,7 +87,7 @@ function isStoredChatSessionRestorable(createdAtValue: string | null): boolean {
 
 /**
  * 세션 ID와 생성 시각을 함께 저장한다(복원 TTL 윈도우 기준점 갱신).
- * 히스토리 로드 성공/실패와 무관하게 '활성 세션'을 표시하는 용도로 호출한다.
+ * 히스토리 로드 성공/失败와 무관하게 '활성 세션'을 표시하는 용도로 호출한다.
  */
 function persistChatSessionId(newSessionId: string): void {
   localStorage.setItem(CHAT_SESSION_ID_STORAGE_KEY, newSessionId);
@@ -122,7 +122,7 @@ function persistWebSocketToken(sessionId: string, token?: string | null): void {
     localStorage.setItem(`chatWsToken:${sessionId}`, token);
     localStorage.setItem('chatWsToken', token);
   } catch (error) {
-    logger.warn('WebSocket 세션 토큰 저장 실패:', error);
+    logger.warn('WebSocket 세션 토큰 저장 失败:', error);
   }
 }
 
@@ -139,8 +139,8 @@ function persistSessionAccessTokens(sessionId: string, response: ChatAPISessionR
 function redactSessionTokenPayload(data: ChatAPISessionResponse): Record<string, unknown> {
   return {
     ...data,
-    ws_token: data.ws_token ? '설정됨' : data.ws_token,
-    upload_token: data.upload_token ? '설정됨' : data.upload_token,
+    ws_token: data.ws_token ? '已设置' : data.ws_token,
+    upload_token: data.upload_token ? '已设置' : data.upload_token,
   };
 }
 
@@ -182,10 +182,10 @@ export function useChatSessionCore(
       setSessionId(newSessionId);
       persistChatSessionId(newSessionId);
 
-      if (context.includes('불일치') || context.includes('복구')) {
+      if (context.includes('不一致') || context.includes('恢复')) {
         showToast({
           type: 'info',
-          message: `세션이 동기화되었습니다. (${context})`,
+          message: `会话已同步（${context}）`,
         });
       }
       return true;
@@ -238,7 +238,7 @@ export function useChatSessionCore(
       setMessages([]);
       showToast({
         type: 'warning',
-        message: '선택한 대화 기록을 불러올 수 없습니다.',
+        message: '无法加载所选聊天记录。',
       });
     }
   }, [chatAPI, sessionId, setMessages, setSessionInfo, setApiLogs, showToast]);
@@ -249,7 +249,7 @@ export function useChatSessionCore(
    */
   const initializeSession = useCallback(async () => {
     if (isSessionInitialized) {
-      logger.log('세션 초기화 이미 완료됨, 스킵');
+      logger.log('세션 초기화 이미 完成됨, 스킵');
       return;
     }
 
@@ -277,7 +277,7 @@ export function useChatSessionCore(
 
     try {
       if (storedSessionId) {
-        // 기존 세션 복구 시도
+        // 기존 세션 恢复 시도
         logger.log('저장된 세션 ID로 초기화:', storedSessionId);
         setSessionId(storedSessionId);
 
@@ -288,7 +288,7 @@ export function useChatSessionCore(
             const historySessionId = lastMessage?.session_id;
 
             if (historySessionId) {
-              synchronizeSessionId(historySessionId, '기록 로드 시 불일치');
+              synchronizeSessionId(historySessionId, '记录加载不一致');
             }
           }
 
@@ -301,7 +301,7 @@ export function useChatSessionCore(
           persistChatSessionId(storedSessionId);
           setIsSessionInitialized(true);
         } catch (historyError) {
-          // [대화방 소실 방지] 히스토리 로드 실패를 '세션 폐기'로 승격하지 않는다.
+          // [대화방 소실 방지] 히스토리 로드 失败를 '세션 폐기'로 승격하지 않는다.
           //
           // 과거에는 일시적 네트워크/타임아웃/5xx/멀티 인스턴스 미스 한 번에도
           // 곧바로 새 세션을 생성해 localStorage의 session_id를 덮어썼다.
@@ -312,7 +312,7 @@ export function useChatSessionCore(
           // 세션을 복원하므로(진실원본은 PG), 여기서는 저장된 세션을 그대로
           // 유지하고 빈 화면으로 진입한다. 사용자가 메시지를 보내면 백엔드가
           // 같은 대화방으로 이어주고, 다음 진입 시 이력도 정상 복원된다.
-          logger.warn('채팅 기록 로드 실패 — 세션 유지(전송 시 복원):', historyError);
+          logger.warn('채팅 기록 로드 失败 — 세션 유지(전송 시 복원):', historyError);
           setSessionId(storedSessionId);
           setMessages([]);
           // 생성 시각(TTL)을 갱신해 활성 세션으로 유지한다(일시 오류로 만료시키지 않음).
@@ -321,7 +321,7 @@ export function useChatSessionCore(
 
           showToast({
             type: 'warning',
-            message: '대화 기록을 불러오지 못했습니다. 메시지를 보내면 이어서 복원됩니다.',
+            message: '聊天记录加载失败。发送消息后将自动恢复。',
           });
         }
       } else {
@@ -382,18 +382,18 @@ export function useChatSessionCore(
 
           showToast({
             type: 'warning',
-            message: '백엔드 연결 실패. 오프라인 모드로 동작합니다.',
+            message: '后端连接失败，已切换为离线模式。',
           });
         }
       }
     } catch (error) {
-      logger.error('세션 초기화 실패:', error);
+      logger.error('세션 초기화 失败:', error);
       const fallbackSessionId = generateFallbackSessionId();
       setSessionId(fallbackSessionId);
       setIsSessionInitialized(true);
       showToast({
         type: 'warning',
-        message: '백엔드 연결 실패. 오프라인 모드로 동작합니다.',
+        message: '后端连接失败，已切换为离线模式。',
       });
     }
   }, [chatAPI, showToast, synchronizeSessionId, isSessionInitialized, setMessages, setApiLogs]);
@@ -423,10 +423,10 @@ export function useChatSessionCore(
 
       showToast({
         type: 'success',
-        message: '새로운 대화를 시작합니다.',
+        message: '已开始新的对话。',
       });
     } catch (error) {
-      logger.error('새 세션 시작 실패:', error);
+      logger.error('새 세션 시작 失败:', error);
       const fallbackSessionId = generateFallbackSessionId();
       setSessionId(fallbackSessionId);
       setMessages([]);
@@ -434,7 +434,7 @@ export function useChatSessionCore(
 
       showToast({
         type: 'warning',
-        message: '백엔드 연결 실패. 오프라인 모드로 새 세션을 시작합니다.',
+        message: '后端连接失败，已以离线模式开始新会话。',
       });
     }
   }, [chatAPI, showToast, setMessages, setSessionInfo]);

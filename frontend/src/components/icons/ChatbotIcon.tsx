@@ -3,9 +3,9 @@ import React from 'react';
 import { useIsDarkMode } from '../../hooks/useIsDarkMode';
 
 /**
- * 모노톤 챗봇 아이콘 컴포넌트
+ * 单色 챗봇 아이콘 컴포넌트
  *
- * 현대적이고 미니멀한 모노톤 디자인의 챗봇 아이콘
+ * 현대적이고 미니멀한 单色 디자인의 챗봇 아이콘
  * 다크모드를 지원하며 보라색 사용하지 않음
  */
 interface ChatbotIconProps {

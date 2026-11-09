@@ -14,7 +14,7 @@
  * 지원 형식:
  * - 010-1234-5678 (하이픈 구분)
  * - 010.1234.5678 (점 구분)
- * - 01012345678 (구분자 없음, 11자리)
+ * - 01012345678 (구분자 无, 11자리)
  *
  * False Positive 방지:
  * - 단어 경계(\b)를 사용하여 숫자가 더 긴 패턴의 일부가 아닌 경우만 매칭
@@ -28,7 +28,7 @@ const PHONE_NUMBER_PATTERNS = {
   // 010.XXXX.XXXX 형식 (점 구분)
   withDot: /\b010\.\d{4}\.\d{4}\b/g,
 
-  // 010XXXXXXXX 형식 (구분자 없음, 정확히 11자리)
+  // 010XXXXXXXX 형식 (구분자 无, 정확히 11자리)
   withoutSeparator: /\b010\d{8}\b/g,
 };
 
@@ -69,10 +69,10 @@ export interface MaskingOptions {
  * False Positive 방지 테스트:
  * ```typescript
  * maskPhoneNumber("2010년 1234월 5678일");
- * // => "2010년 1234월 5678일" (변경 없음)
+ * // => "2010년 1234월 5678일" (변경 无)
  *
  * maskPhoneNumber("사업자등록번호: 010-12-34567");
- * // => "사업자등록번호: 010-12-34567" (변경 없음)
+ * // => "사업자등록번호: 010-12-34567" (변경 无)
  * ```
  */
 export function maskPhoneNumber(

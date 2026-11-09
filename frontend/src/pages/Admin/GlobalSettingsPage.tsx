@@ -102,8 +102,8 @@ export default function GlobalSettingsPage() {
       const response = await adminService.updateAISettings({ provider: aiProvider, model: aiModel }) as AISettingsResponse;
       setAISettings(response);
       toast({
-        title: 'AI 설정 저장 완료',
-        description: response.restartRequired ? 'Provider 변경은 서버 재시작 후 완전히 반영됩니다.' : '모델 설정이 채팅 요청에 반영됩니다.',
+        title: 'AI 设置保存成功',
+        description: response.restartRequired ? '提供商变更将在服务器重启后完全生效。' : '모델 설정이 채팅 요청에 반영됩니다.',
       });
       await loadAISettings();
     } catch {
@@ -121,8 +121,8 @@ export default function GlobalSettingsPage() {
       setAIKeyDraft('');
       await loadAISettings();
       toast({
-        title: 'API 키 교체 완료',
-        description: '키 원문은 저장 후 화면 상태에서 제거되었습니다. 클라이언트 재초기화에는 서버 재시작이 필요할 수 있습니다.',
+        title: 'API 密钥更换成功',
+        description: '密钥原文已从页面状态中移除。客户端重新初始化可能需要重启服务器。',
       });
     } catch {
       toast({ title: 'API 密钥更换失败', description: '请检查密钥格式或管理员认证。', variant: 'destructive' });
@@ -136,7 +136,7 @@ export default function GlobalSettingsPage() {
     try {
       const response = await adminService.testAISettings({ provider: aiProvider, model: aiModel }) as { ok: boolean; message: string };
       toast({
-        title: response.ok ? 'AI 설정 점검 통과' : 'AI 설정 점검 필요',
+        title: response.ok ? 'AI 设置检查通过' : '需要检查 AI 设置',
         description: response.message,
         variant: response.ok ? 'default' : 'destructive',
       });
@@ -505,14 +505,14 @@ export default function GlobalSettingsPage() {
                     type="password"
                     value={aiKeyDraft}
                     onChange={(event) => setAIKeyDraft(event.target.value)}
-                    placeholder={selectedAIProvider?.key?.configured ? '새 키 입력 시 교체됩니다' : 'API 키를 입력하세요'}
+                    placeholder={selectedAIProvider?.key?.configured ? '输入新密钥后将替换' : '请输入 API 密钥'}
                     className="rounded-2xl"
                     autoComplete="off"
                   />
                   <p className="text-xs text-muted-foreground">
                     현재 상태: {selectedAIProvider?.key?.configured ? `configured (${selectedAIProvider.key.storage})` : 'not configured'}
                     {selectedAIProvider?.key?.persisted === false ? ' · runtime-only' : ''}
-                    {!aiSettings?.settings.configured ? ' · 먼저 서버 설정을 저장하세요' : ''}
+                    {!aiSettings?.settings.configured ? ' · 请先保存服务器设置' : ''}
                   </p>
                 </div>
                 <Button

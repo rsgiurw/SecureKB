@@ -3,7 +3,7 @@
  *
  * 모든 문서를 삭제하는 위험한 작업이므로 2단계 확인 프로세스를 거칩니다:
  * 1단계 (confirm): "네, 정말 모두 삭제합니다" 버튼 클릭
- * 2단계 (typing): "문서 삭제에 동의합니다." 문구 입력 후 "전체 삭제 실행"
+ * 2단계 (typing): "我同意删除该文档。" 문구 입력 후 "전체 삭제 실행"
  */
 import React from 'react';
 import { AlertTriangle, RotateCw } from 'lucide-react';

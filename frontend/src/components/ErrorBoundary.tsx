@@ -32,16 +32,16 @@ class ErrorBoundary extends Component<Props, State> {
     logger.error('ErrorBoundary caught an error:', error, errorInfo);
     this.setState({ error, errorInfo });
 
-    // Chunk load 실패 감지 (Code Splitting 오류)
+    // Chunk load 失败 감지 (Code Splitting 오류)
     const isChunkLoadError =
       error.name === 'ChunkLoadError' ||
       error.message.includes('Loading chunk') ||
       error.message.includes('Failed to fetch dynamically imported module');
 
-    // Chunk load 실패 시 자동 새로고침 (최대 1회)
+    // Chunk load 失败 시 자동 새로고침 (최대 1회)
     if (isChunkLoadError && !sessionStorage.getItem('chunk-load-retry')) {
       sessionStorage.setItem('chunk-load-retry', 'true');
-      logger.warn('⚠️ Chunk load 실패 감지 - 페이지 새로고침 시도');
+      logger.warn('⚠️ Chunk load 失败 감지 - 페이지 새로고침 시도');
       window.location.reload();
       return;
     }
@@ -65,7 +65,7 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   handleReset = () => {
-    // 단순 상태 리셋보다는 전체 페이지 새로고침이 런타임 오류(상수 미정의 등) 복구에 더 효과적입니다.
+    // 단순 상태 리셋보다는 전체 페이지 새로고침이 런타임 오류(상수 미정의 등) 恢复에 더 효과적입니다.
     window.location.reload();
   };
 

@@ -92,7 +92,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           {/* 브랜드 타이틀 */}
           <div className="flex-1 flex items-center min-w-0 group cursor-default">
             <div className="relative mr-3 shrink-0">
-              <BrandLogo width={30} height={30} className="relative z-10 transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110" />
+              <BrandLogo variant="icon" width={30} height={30} className="relative z-10 transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110" />
               <div className="absolute inset-x-0 inset-y-0 bg-primary/20 blur-lg rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             </div>
             <h1 className="text-xl font-black tracking-tighter text-gradient truncate leading-none pt-0.5">

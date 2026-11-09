@@ -8,7 +8,7 @@
  * // Core 훅 직접 사용 (테스트 또는 특수 케이스)
  * const streaming = useChatStreamingCore(mockService, {
  *   sessionId: 'session-123',
- *   onMessageComplete: (msg) => console.log('완료:', msg),
+ *   onMessageComplete: (msg) => console.log('完成:', msg),
  *   onError: (err) => console.error('오류:', err),
  * });
  *
@@ -41,7 +41,7 @@ export type WebSocketEventHandler = (data: unknown) => void;
 export interface UseChatStreamingCoreProps {
   /** 채팅 세션 ID */
   sessionId: string;
-  /** 메시지 스트리밍 완료 시 호출되는 콜백 */
+  /** 메시지 스트리밍 完成 시 호출되는 콜백 */
   onMessageComplete: (message: ChatMessage) => void;
   /** 에러 발생 시 호출되는 콜백 */
   onError: (error: string) => void;
@@ -61,7 +61,7 @@ export interface UseChatStreamingCoreReturn {
   connect: () => Promise<void>;
   /** WebSocket 연결 해제 */
   disconnect: () => void;
-  /** 스트리밍 메시지 전송 (메시지 ID 반환, 실패 시 null) */
+  /** 스트리밍 메시지 전송 (메시지 ID 반환, 失败 시 null) */
   sendStreamingMessage: (content: string) => string | null;
 }
 
@@ -111,7 +111,7 @@ export function useChatStreamingCore(
       await service.connect(sessionId);
       setIsConnected(true);
     } catch (error) {
-      logger.error('WebSocket 연결 실패:', error);
+      logger.error('WebSocket 连接失败:', error);
       setIsConnected(false);
     }
   }, [sessionId, service]);
@@ -130,7 +130,7 @@ export function useChatStreamingCore(
    * 스트리밍 메시지 전송
    *
    * @param content - 전송할 메시지 내용
-   * @returns 메시지 ID (성공 시) 또는 null (실패 시)
+   * @returns 메시지 ID (성공 시) 또는 null (失败 시)
    */
   const sendStreamingMessage = useCallback(
     (content: string): string | null => {
@@ -149,8 +149,8 @@ export function useChatStreamingCore(
         setStreamingState('streaming');
         return messageId;
       } catch (error) {
-        logger.error('메시지 전송 실패:', error);
-        onErrorRef.current('메시지 전송에 실패했습니다.');
+        logger.error('메시지 전송 失败:', error);
+        onErrorRef.current('消息发送失败。');
         return null;
       }
     },
@@ -206,14 +206,14 @@ export function useChatStreamingCore(
     };
 
     /**
-     * 스트리밍 완료 처리
+     * 스트리밍 完成 처리
      */
     const handleStreamEnd = (data: unknown) => {
       const { message_id } = data as StreamEndMessage;
       setStreamingMessage((prev) => {
         if (!prev || prev.id !== message_id) return prev;
 
-        // 완료된 메시지 객체 생성
+        // 完成된 메시지 객체 생성
         const completedMessage: ChatMessage = {
           id: prev.id,
           role: 'assistant',
@@ -238,7 +238,7 @@ export function useChatStreamingCore(
     const handleStreamError = (data: unknown) => {
       const { message_id, message, solutions } = data as StreamErrorMessage;
       const errorMessage = solutions?.length
-        ? `${message}\n해결 방법: ${solutions.join(', ')}`
+        ? `${message}\n解决方法： ${solutions.join(', ')}`
         : message;
 
       setStreamingMessage((prev) => {
@@ -251,11 +251,11 @@ export function useChatStreamingCore(
     };
 
     /**
-     * 재연결 실패 처리
+     * 재연결 失败 처리
      */
     const handleReconnectFailed = () => {
       onErrorRef.current(
-        '서버 연결이 끊어졌습니다. 페이지를 새로고침해주세요.'
+        '服务器连接已断开，请刷新页面。'
       );
     };
 

@@ -26,7 +26,7 @@ export function useFeatures(): FeatureConfig {
   const context = useContext(FeatureContext);
 
   if (!context) {
-    throw new Error('useFeatures는 FeatureProvider 내부에서만 사용할 수 있습니다.');
+    throw new Error('useFeatures 只能在 FeatureProvider 内部使用。');
   }
 
   return context.features;
@@ -69,7 +69,7 @@ export function useIsModuleEnabled(module: keyof FeatureConfig): boolean {
   const context = useContext(FeatureContext);
 
   if (!context) {
-    throw new Error('useIsModuleEnabled는 FeatureProvider 내부에서만 사용할 수 있습니다.');
+    throw new Error('useIsModuleEnabled 只能在 FeatureProvider 内部使用。');
   }
 
   return context.isModuleEnabled(module);
@@ -94,7 +94,7 @@ export function useIsFeatureEnabled(module: keyof FeatureConfig, feature: string
   const context = useContext(FeatureContext);
 
   if (!context) {
-    throw new Error('useIsFeatureEnabled는 FeatureProvider 내부에서만 사용할 수 있습니다.');
+    throw new Error('useIsFeatureEnabled 只能在 FeatureProvider 内部使用。');
   }
 
   return context.isFeatureEnabled(module, feature);

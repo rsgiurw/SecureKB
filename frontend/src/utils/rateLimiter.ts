@@ -69,7 +69,7 @@ export class RateLimiter {
         return JSON.parse(stored);
       }
     } catch (error) {
-      logger.error('⚠️ Rate limit 레코드 조회 실패:', error);
+      logger.error('⚠️ Rate limit 레코드 조회 失败:', error);
     }
 
     return {
@@ -90,7 +90,7 @@ export class RateLimiter {
     try {
       localStorage.setItem(this.getStorageKey(key), JSON.stringify(record));
     } catch (error) {
-      logger.error('⚠️ Rate limit 레코드 저장 실패:', error);
+      logger.error('⚠️ Rate limit 레코드 저장 失败:', error);
     }
   }
 
@@ -103,7 +103,7 @@ export class RateLimiter {
     try {
       localStorage.setItem(this.getStorageKey(key), JSON.stringify(record));
     } catch (error) {
-      logger.error('⚠️ Rate limit 레코드 업데이트 실패:', error);
+      logger.error('⚠️ Rate limit 레코드 업데이트 失败:', error);
     }
   }
 
@@ -152,7 +152,7 @@ export class RateLimiter {
       localStorage.removeItem(this.getStorageKey(key));
       logger.info(`✅ Rate limit 리셋: ${key}`);
     } catch (error) {
-      logger.error('⚠️ Rate limit 리셋 실패:', error);
+      logger.error('⚠️ Rate limit 리셋 失败:', error);
     }
   }
 
@@ -170,9 +170,9 @@ export class RateLimiter {
         }
       });
 
-      logger.info('✅ 모든 Rate limit 레코드 정리 완료');
+      logger.info('✅ 모든 Rate limit 레코드 정리 完成');
     } catch (error) {
-      logger.error('⚠️ Rate limit 정리 실패:', error);
+      logger.error('⚠️ Rate limit 정리 失败:', error);
     }
   }
 }

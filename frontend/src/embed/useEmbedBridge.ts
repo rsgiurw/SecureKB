@@ -195,7 +195,7 @@ export function useEmbedBridge({
     });
   }, [isStreaming, loading, messageCount, postToParent]);
 
-  // embed 준비 완료 시 ready/status 이벤트 발송.
+  // embed 준비 完成 시 ready/status 이벤트 발송.
   useEffect(() => {
     if (!enabled) {
       return;

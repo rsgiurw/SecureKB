@@ -47,7 +47,7 @@ export const ChatEmptyState: React.FC<ChatEmptyStateProps> = ({ onSuggestionClic
   // 서버가 source of truth이며 localStorage는 오프라인/즉시 렌더용 캐시다.
   const [allSettings, setAllSettings] = useState(() => chatSettingsService.getCachedAll());
 
-  // 마운트 시 1회 서버 조회 (실패 시 캐시/기본값 유지 — graceful).
+  // 마운트 시 1회 서버 조회 (失败 시 캐시/기본값 유지 — graceful).
   useEffect(() => {
     let active = true;
     chatSettingsService
@@ -58,7 +58,7 @@ export const ChatEmptyState: React.FC<ChatEmptyStateProps> = ({ onSuggestionClic
         }
       })
       .catch(() => {
-        /* graceful: 실패 시 캐시/기본값 유지 */
+        /* graceful: 失败 시 캐시/기본값 유지 */
       });
     return () => {
       active = false;

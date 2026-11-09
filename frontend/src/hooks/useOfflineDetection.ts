@@ -15,7 +15,7 @@ export const useOfflineDetection = (onOffline?: () => void, onOnline?: () => voi
 
   useEffect(() => {
     const handleOnline = () => {
-      logger.info('✅ 네트워크 연결 복구');
+      logger.info('✅ 네트워크 연결 恢复');
       setIsOnline(true);
       setWasOffline(false);
       onOnline?.();

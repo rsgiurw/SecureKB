@@ -62,8 +62,8 @@ export interface StreamSourcesMessage {
 }
 
 /**
- * 스트리밍 완료 메시지
- * 응답 생성이 완료되었음을 알림
+ * 스트리밍 完成 메시지
+ * 응답 생성이 完成되었음을 알림
  *
  * 백엔드 스키마: app/api/schemas/websocket.py::StreamEndEvent
  */
@@ -123,7 +123,7 @@ export interface StreamChunkEvent {
   chunk_index: number;
 }
 
-/** 완료 이벤트: 토큰 수/처리 시간/소스 등 (백엔드 StreamDoneEvent) */
+/** 完成 이벤트: 토큰 수/처리 시간/소스 등 (백엔드 StreamDoneEvent) */
 export interface StreamDoneEvent {
   event: 'done';
   session_id: string;
@@ -167,7 +167,7 @@ export interface StreamChatClientOptions {
   onError?: (event: SseStreamErrorEvent) => void;
 }
 
-/** RAG 진행 단계 (검색 → 재순위 → 생성 → 완료) */
+/** RAG 진행 단계 (검색 → 재순위 → 생성 → 完成) */
 export type RagProgressPhase =
   | 'idle'
   | 'searching'
@@ -203,7 +203,7 @@ export interface StreamingMessage {
   id: string;
   /** 누적된 응답 텍스트 */
   content: string;
-  /** RAG 소스 (스트리밍 완료 전에 수신 가능) */
+  /** RAG 소스 (스트리밍 完成 전에 수신 가능) */
   sources?: Source[];
   /** 현재 스트리밍 상태 */
   state: StreamingState;
@@ -223,7 +223,7 @@ export interface ConnectionEventData {
 }
 
 /**
- * 재연결 실패 이벤트 데이터
+ * 재연결 失败 이벤트 데이터
  */
 export interface ReconnectFailedEventData {
   attempts: number;

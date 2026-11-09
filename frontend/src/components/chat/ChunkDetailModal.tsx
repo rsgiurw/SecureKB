@@ -81,7 +81,7 @@ interface ChunkDetailModalProps {
     sourceDetail?: SourceDetail | null;
     /** 상세 조회 로딩 상태 */
     sourceDetailLoading?: boolean;
-    /** 상세 조회 실패 메시지(있어도 미리보기로 graceful degradation) */
+    /** 상세 조회 失败 메시지(있어도 미리보기로 graceful degradation) */
     sourceDetailError?: string | null;
 }
 
@@ -113,7 +113,7 @@ export const ChunkDetailModal: React.FC<ChunkDetailModalProps> = ({
         previewDocumentId && isPdfSource(selectedChunk?.file_type, previewDocumentName)
     );
 
-    // PDF blob을 받아 만든 object URL과 로딩/실패 상태.
+    // PDF blob을 받아 만든 object URL과 로딩/失败 상태.
     // 원본 다운로드 API가 인증을 요구하므로 iframe src에 원격 URL을 직접 넣지 않고,
     // axios(인증 인터셉터 적용)로 blob을 받아 URL.createObjectURL로 만든 로컬 URL을
     // 사용한다(#page=N 프래그먼트로 페이지 점프).
@@ -147,9 +147,9 @@ export const ChunkDetailModal: React.FC<ChunkDetailModalProps> = ({
                 setPdfObjectUrl(createdUrl);
             })
             .catch((error) => {
-                // 다운로드 실패 시 좌표 텍스트 목록(폴백)만 표시(graceful degradation).
+                // 다운로드 失败 시 좌표 텍스트 목록(폴백)만 표시(graceful degradation).
                 if (active) {
-                    logger.warn('PDF 미리보기 다운로드 실패:', error);
+                    logger.warn('PDF 미리보기 다운로드 失败:', error);
                     setPdfPreviewFailed(true);
                 }
             })
@@ -249,7 +249,7 @@ export const ChunkDetailModal: React.FC<ChunkDetailModalProps> = ({
                                 {/*
                                   PDF 인라인 미리보기(#56).
                                   PDF 문서면 blob URL + #page=N으로 브라우저 내장 뷰어를 inline iframe으로 띄운다.
-                                  다운로드 실패/비PDF면 graceful하게 생략된다.
+                                  다운로드 失败/비PDF면 graceful하게 생략된다.
                                 */}
                                 {canPreviewPdf && (
                                     <>
@@ -363,7 +363,7 @@ export const ChunkDetailModal: React.FC<ChunkDetailModalProps> = ({
                                         <div className="h-4 w-1 bg-primary rounded-full" />
                                         {messages.chunkDetail.chunkContent}
                                     </h3>
-                                    {/* 상세 조회 실패 시 미리보기로 대체한다는 안내(graceful degradation) */}
+                                    {/* 상세 조회 失败 시 미리보기로 대체한다는 안내(graceful degradation) */}
                                     {sourceDetailError && (
                                         <p className="text-xs font-medium text-muted-foreground">
                                             {sourceDetailError}

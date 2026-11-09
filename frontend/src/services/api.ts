@@ -143,7 +143,7 @@ const getHeaderValue = (headers: unknown, headerName: string): unknown => {
 };
 
 const summarizeSensitiveHeader = (headers: unknown, headerName: string): string => {
-  return getHeaderValue(headers, headerName) ? '설정됨' : '없음';
+  return getHeaderValue(headers, headerName) ? '已设置' : '无';
 };
 
 const summarizePayloadForLog = (payload: unknown): string | null => {
@@ -181,7 +181,7 @@ const summarizeHeadersForLog = (headers: unknown) => ({
   csrfToken: summarizeSensitiveHeader(headers, 'X-XSRF-TOKEN'),
   sessionId: summarizeSensitiveHeader(headers, 'X-Session-Id'),
   uploadSessionId: summarizeSensitiveHeader(headers, 'X-OneRAG-Session-Id'),
-  contentType: getHeaderValue(headers, 'Content-Type') ? '설정됨' : '없음',
+  contentType: getHeaderValue(headers, 'Content-Type') ? '已设置' : '无',
 });
 
 const redactSessionResponseData = (data: unknown): unknown => {
@@ -191,8 +191,8 @@ const redactSessionResponseData = (data: unknown): unknown => {
   const record = data as Record<string, unknown>;
   return {
     ...record,
-    ws_token: record.ws_token ? '설정됨' : record.ws_token,
-    upload_token: record.upload_token ? '설정됨' : record.upload_token,
+    ws_token: record.ws_token ? '已设置' : record.ws_token,
+    upload_token: record.upload_token ? '已设置' : record.upload_token,
   };
 };
 
@@ -252,9 +252,9 @@ api.interceptors.request.use(
         method: config.method,
         data: config.data,
         headers: {
-          'Authorization': config.headers.Authorization ? '설정됨' : '없음',
-          'X-Session-Id': config.headers['X-Session-Id'] || '없음 (새 세션 생성이므로 정상)',
-          'Content-Type': config.headers['Content-Type'] || '없음',
+          'Authorization': config.headers.Authorization ? '已设置' : '无',
+          'X-Session-Id': config.headers['X-Session-Id'] || '无（新建会话属正常情况）',
+          'Content-Type': config.headers['Content-Type'] || '无',
         },
         timeout: config.timeout,
       });
@@ -269,7 +269,7 @@ api.interceptors.request.use(
           config.headers.Authorization = `Bearer ${accessToken}`;
         }
       } catch (error) {
-        logger.warn('JWT 토큰 파싱 실패:', error);
+        logger.warn('JWT 토큰 파싱 失败:', error);
       }
     }
 
@@ -335,8 +335,8 @@ api.interceptors.response.use(
       try {
         response.data = maskPhoneNumberDeep(response.data);
       } catch (maskingError) {
-        // 마스킹 실패 시 원본 데이터 유지 (안전 장치)
-        logger.warn('전화번호 마스킹 실패, 원본 데이터 반환:', maskingError);
+        // 마스킹 失败 시 원본 데이터 유지 (안전 장치)
+        logger.warn('전화번호 마스킹 失败, 원본 데이터 반환:', maskingError);
       }
     }
 
@@ -362,21 +362,21 @@ api.interceptors.response.use(
           timeout: originalRequest.timeout,
         },
       };
-      logger.error('세션 생성 응답 실패:', errorDetails);
+      logger.error('세션 생성 응답 失败:', errorDetails);
     }
 
     // 401 에러는 백엔드에 존재하지 않는 JWT refresh API로 재시도하지 않는다.
     if (error.response?.status === 401) {
-      logger.warn('인증 실패 (401 Unauthorized):', {
+      logger.warn('인증 失败 (401 Unauthorized):', {
         url: originalRequest?.url,
         method: originalRequest?.method,
         requestHeaders: summarizeHeadersForLog(originalRequest?.headers),
       });
     }
 
-    // 403 에러: 권한 없음
+    // 403 에러: 권한 无
     if (error.response?.status === 403) {
-      logger.warn('접근 권한 없음 (403 Forbidden)');
+      logger.warn('접근 권한 无 (403 Forbidden)');
     }
 
     // CORS 오류 상세 로깅
@@ -488,15 +488,15 @@ type ChunkedUploadChunkResponse = {
  *    → {job_id, chunk_size, ...}. chunk_size는 서버 권장 조각 크기(8MB).
  * 2) POST /api/upload/chunked/{job_id}/chunk — multipart(form-data): 파일 필드 `chunk` + 폼 필드 `offset`(정수).
  *    offset은 서버가 지금까지 수신한 누적 바이트(received_size)와 정확히 일치해야 하며(순차성),
- *    불일치 시 409를 반환한다. 응답의 received_size를 다음 offset으로 사용한다.
+ *    不一致 시 409를 반환한다. 응답의 received_size를 다음 offset으로 사용한다.
  * 3) POST /api/upload/chunked/{job_id}/complete — JSON 바디 {metadata?}
  *    → 단일 업로드와 동일한 UploadResponse({job_id, message, filename, ...}). 별도 정규화 불필요.
  *
  * 단일테넌트(OneRAG)이므로 멀티테넌트 operator-scoping(company_id 등)은 포함하지 않는다.
  *
  * @param file 업로드 대상 파일
- * @param metadata 시작/완료 요청에 함께 전달할 메타데이터(없으면 undefined)
- * @param onProgress 진행률 콜백(조각 단위 1~99%, 완료 시 100%)
+ * @param metadata 시작/完成 요청에 함께 전달할 메타데이터(없으면 undefined)
+ * @param onProgress 진행률 콜백(조각 단위 1~99%, 完成 시 100%)
  */
 const uploadDocumentInChunks = async (
   file: File,
@@ -539,12 +539,12 @@ const uploadDocumentInChunks = async (
     // 서버가 기록한 누적 수신 크기를 다음 offset으로 사용해 순차성을 보장한다.
     offset = chunkResponse.data.received_size;
     if (onProgress) {
-      // 조각 진행률은 1~99% 구간으로 환산한다(완료 단계 100%와 분리).
+      // 조각 진행률은 1~99% 구간으로 환산한다(完成 단계 100%와 분리).
       onProgress(Math.max(1, Math.min(99, Math.round((offset * 100) / file.size))));
     }
   }
 
-  // 3) 완료: 백엔드가 3중 검증(선언/수신/실측 크기 일치) 후 단일 업로드와 동일한 처리 경로로 합류한다.
+  // 3) 完成: 백엔드가 3중 검증(선언/수신/실측 크기 일치) 후 단일 업로드와 동일한 처리 경로로 합류한다.
   // complete 응답은 단일 업로드와 동일한 UploadResponse 형태이므로 호출부에서 추가 정규화가 필요 없다.
   const completeResponse = await api.post<UploadResponse>(
     `/api/upload/chunked/${jobId}/complete`,
@@ -806,7 +806,7 @@ export const chatAPI = {
           headers.Authorization = `Bearer ${accessToken}`;
         }
       } catch (error) {
-        logger.warn('JWT 토큰 파싱 실패:', error);
+        logger.warn('JWT 토큰 파싱 失败:', error);
       }
     }
 
@@ -864,14 +864,14 @@ export const chatAPI = {
    * content_preview([:300] 절단본) 대신 전체 원문을 받아오기 위한 호출.
    * source_id/document_id가 없으면 호출 자체를 거부한다.
    *
-   * 백엔드 상세 엔드포인트가 실패하면 호출부(useChatInteraction)에서
+   * 백엔드 상세 엔드포인트가 失败하면 호출부(useChatInteraction)에서
    * content_preview로 graceful fallback 처리한다.
    */
   getSourceDetail: (source: Pick<Source, 'source_id' | 'document_id' | 'page' | 'chunk'>) => {
     const documentId = source.document_id;
     const sourceId = source.source_id;
     if (!documentId || !sourceId) {
-      return Promise.reject(new Error('source_id 또는 document_id가 없어 상세 조회를 할 수 없습니다.'));
+      return Promise.reject(new Error('缺少 source_id 或 document_id，无法查询详情。'));
     }
     return api.get<SourceDetail>(
       `/api/upload/documents/${encodeURIComponent(documentId)}/sources/${encodeURIComponent(sourceId)}`,

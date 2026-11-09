@@ -80,7 +80,7 @@ export const useChatInteraction = ({ messages, showToast }: UseChatInteractionPr
     }, [messages]);
 
     // 클립보드 복사
-    const copyToClipboard = useCallback(async (text: string, successMessage: string = '복사되었습니다') => {
+    const copyToClipboard = useCallback(async (text: string, successMessage: string = '已复制') => {
         try {
             await navigator.clipboard.writeText(text);
             showToast({
@@ -88,10 +88,10 @@ export const useChatInteraction = ({ messages, showToast }: UseChatInteractionPr
                 message: successMessage,
             });
         } catch (err) {
-            logger.error('복사 실패:', err);
+            logger.error('복사 失败:', err);
             showToast({
                 type: 'error',
-                message: '복사에 실패했습니다',
+                message: '复制失败',
             });
         }
     }, [showToast]);
@@ -122,8 +122,8 @@ export const useChatInteraction = ({ messages, showToast }: UseChatInteractionPr
         } catch (error) {
             if (sourceDetailRequestIdRef.current !== requestId) return;
             // 백엔드 미지원/오류 시: 에러를 기록하되 모달은 content_preview로 graceful fallback.
-            logger.warn('소스 상세 조회 실패 (미리보기로 대체):', error);
-            setSourceDetailError('전체 원문을 불러올 수 없어 미리보기를 표시합니다.');
+            logger.warn('소스 상세 조회 失败 (미리보기로 대체):', error);
+            setSourceDetailError('无法加载全文，已显示预览。');
         } finally {
             if (sourceDetailRequestIdRef.current === requestId) {
                 setSourceDetailLoading(false);

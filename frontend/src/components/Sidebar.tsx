@@ -116,7 +116,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
             open ? "flex-1" : "justify-center"
           )}>
             <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center">
-              <BrandLogo width={22} height={22} className="shrink-0" />
+              <BrandLogo variant="icon" width={22} height={22} className="shrink-0" />
             </div>
             {open && (
               <span className="font-bold text-sm text-foreground truncate animate-in fade-in slide-in-from-left-2 duration-300">

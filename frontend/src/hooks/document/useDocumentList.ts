@@ -150,7 +150,7 @@ export const useDocumentList = ({
       setTotalPages(Math.max(1, Math.ceil(sorted.length / PAGE_SIZE)));
     } catch {
       setFetchError(true);
-      showToast({ type: 'error', message: '문서 목록 로드 실패' });
+      showToast({ type: 'error', message: '文档列表加载失败' });
     } finally {
       setLoading(false);
     }
