@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 cd /d %~dp0
 echo ===== KB Admin Console =====
 echo   1) Show status (mode / doc count)
