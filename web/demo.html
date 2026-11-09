@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>企业知识库问答 · Demo</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, "Microsoft YaHei", sans-serif; background: #f0f2f5; color: #1f2937; }
+  header { background: #fff; padding: 14px 24px; border-bottom: 1px solid #e5e7eb;
+           display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 17px; }
+  header .ctrl { display: flex; gap: 10px; align-items: center; font-size: 13px; margin-left: auto; }
+  header select { padding: 5px 8px; border: 1px solid #d1d5db; border-radius: 6px; }
+  .mode-badge { font-size: 12px; padding: 3px 10px; border-radius: 99px; background: #dbeafe; color: #1d4ed8; }
+  .layout { display: grid; grid-template-columns: 300px 1fr; gap: 16px; max-width: 1100px;
+            margin: 16px auto; padding: 0 16px; align-items: start; }
+  @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+  .card { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .card h2 { font-size: 14px; margin-bottom: 10px; color: #111827; }
+  .doc-item { padding: 7px 9px; border: 1px solid #e5e7eb; border-radius: 7px; margin-top: 6px; font-size: 12.5px; }
+  .doc-item.locked { opacity: .45; }
+  .tag { font-size: 11px; background: #ecfdf5; color: #047857; border-radius: 4px; padding: 1px 6px; margin-left: 4px; }
+  .tag.own { background: #dbeafe; color: #1d4ed8; }
+  .chat-box { height: 430px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 2px; }
+  .bubble { max-width: 88%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
+  .bubble.user { align-self: flex-end; background: #2563eb; color: #fff; border-bottom-right-radius: 4px; }
+  .bubble.bot { align-self: flex-start; background: #f3f4f6; border-bottom-left-radius: 4px; }
+  .cite { margin-top: 10px; border-left: 3px solid #93c5fd; background: #eff6ff; padding: 6px 10px;
+          border-radius: 0 6px 6px 0; font-size: 12px; color: #1e40af; }
+  .ask-row { display: flex; gap: 8px; margin-top: 12px; }
+  textarea { flex: 1; resize: none; border: 1px solid #d1d5db; border-radius: 8px; padding: 10px;
+             font-size: 14px; font-family: inherit; height: 64px; }
+  textarea:focus { outline: 2px solid #bfdbfe; border-color: #2563eb; }
+  button { border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; cursor: pointer; background: #2563eb; color: #fff; }
+  button:disabled { background: #93c5fd; cursor: not-allowed; }
+  .tip { font-size: 12px; color: #9ca3af; margin-top: 6px; }
+  .empty { color: #9ca3af; font-size: 13px; text-align: center; padding: 40px 0; }
+  .error { color: #b91c1c; font-size: 13px; margin-top: 6px; }
+  .timing { font-size: 11px; color: #9ca3af; margin-top: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>企业知识库问答 · Demo</h1>
+  <span class="mode-badge" id="modeBadge">模式: -</span>
+  <div class="ctrl">
+    <label>角色 <select id="roleSel">
+      <option value="employee" selected>普通员工</option>
+      <option value="admin">管理员</option>
+    </select></label>
+    <label>部门 <select id="deptSel"></select></label>
+    <label>应答模式 <select id="modeSel">
+      <option value="strict" selected>严谨</option>
+      <option value="friendly">通俗</option>
+    </select></label>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="card">
+    <h2>📚 可见文档（按身份过滤）</h2>
+    <div class="tip">切换身份/部门后自动刷新，灰色的为你无权查看的文档</div>
+    <div id="docList"></div>
+  </div>
+  <div class="card">
+    <h2>💬 知识库问答</h2>
+    <div id="chat" class="chat-box">
+      <div class="empty">切换左侧身份和应答模式，然后提问。<br>试试："离职要办哪些手续？" / "合同审批流程"（不同身份答案不同）</div>
+    </div>
+    <div class="ask-row">
+      <textarea id="question" placeholder="输入问题，Enter 发送&#10;例如：年假有几天？"></textarea>
+      <button id="askBtn" onclick="ask()">提问</button>
+    </div>
+    <div id="askError" class="error"></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const chat = $('chat');
+
+const DOCS = [
+  ["员工考勤与请假制度", "全员"], ["薪酬福利制度", "全员"], ["招聘与入职管理制度", "全员"],
+  ["会议管理规定", "全员"], ["差旅费报销细则", "全员"], ["信息安全管理制度", "全员"],
+  ["大模型使用管理规范", "全员"], ["客户信息保护规范", "全员"], ["保密协议与竞业限制管理办法", "全员"],
+  ["数据安全事件应急响应手册", "全员"], ["访客与外包人员管理办法", "全员"],
+  ["AI产品研发流程规范", "技术部"], ["数据备份与恢复规程", "技术部"], ["网络安全管理规定", "技术部"],
+  ["IT设备与账号管理办法", "技术部+行政部"], ["合同审批流程管理办法", "法务部"], ["印章与证照管理办法", "法务部+行政部"]
+];
+
+function currentView() {
+  const role = $('roleSel').value;
+  const dept = $('deptSel').value;
+  $('deptSel').disabled = (role === 'admin');
+  const allowed = d => role === 'admin' || d === '全员' || d.split('+').includes(dept);
+  return DOCS.filter(([_, tag]) => allowed(tag));
+}
+
+function renderDocs() {
+  const rows = currentView();
+  const isAdmin = $('roleSel').value === 'admin';
+  $('docList').innerHTML = rows.map(([name, tag]) =>
+    `<div class="doc-item">${name}<span class="tag own">${tag}</span></div>`).join('')
+    + `<div class="tip">共 ${rows.length} / ${DOCS.length} 篇可见${isAdmin ? '（管理员视角）' : ''}</div>`;
+}
+
+$('roleSel').addEventListener('change', () => { renderDocs(); addNotice('身份已切换，可见文档已更新'); });
+$('deptSel').addEventListener('change', () => { renderDocs(); addNotice('部门已切换，可见文档已更新'); });
+$('modeSel').addEventListener('change', () => { addNotice('应答模式已切换为「' + $('modeSel').selectedOptions[0].text + '」'); });
+
+function addNotice(text) {
+  chat.querySelector('.empty')?.remove();
+  const div = document.createElement('div');
+  div.className = 'bubble bot';
+  div.style.fontSize = '12px';
+  div.style.color = '#6b7280';
+  div.textContent = 'ℹ️ ' + text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function ask() {
+  const q = $('question').value.trim();
+  const btn = $('askBtn'), err = $('askError');
+  err.textContent = '';
+  if (!q) { err.textContent = '请输入问题'; return; }
+  addBubble('user', q);
+  $('question').value = '';
+  btn.disabled = true;
+  const thinking = addBubble('bot', '正在检索知识库并思考…');
+  const t0 = performance.now();
+  try {
+    const r = await fetch('/api/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question: q,
+        role: $('roleSel').value,
+        dept: $('deptSel').value,
+        mode: $('modeSel').value,
+        top_k: 3
+      })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || r.status);
+    const secs = ((performance.now() - t0) / 1000).toFixed(1);
+    const cites = (data.citations || []).map(c => `
+      <div class="cite"><b>📄 ${escapeHtml(c.source)}</b> · 相似度 ${c.score}
+        <div class="txt">${escapeHtml(c.text.slice(0, 60))}…</div></div>`).join('');
+    thinking.innerHTML = escapeHtml(data.answer).replace(/\n/g, '<br>')
+      + `<div class="timing">模式:${data.mode} · 身份:${data.visible_as} · 耗时 ${secs}s</div>` + cites;
+  } catch (e) {
+    thinking.textContent = '出错了：' + e.message;
+  }
+  btn.disabled = false;
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function addBubble(role, text) {
+  chat.querySelector('.empty')?.remove();
+  const div = document.createElement('div');
+  div.className = 'bubble ' + (role === 'user' ? 'user' : 'bot');
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return div;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+$('question').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(); }
+});
+
+fetch('/api/meta').then(r => r.json()).then(m => {
+  $('modeBadge').textContent = '配置默认模式: ' + (m.modes[m.current_mode] || m.current_mode);
+});
+renderDocs();
+</script>
+</body>
+</html>

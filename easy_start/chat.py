@@ -348,6 +348,16 @@ async def search_documents(
         {"content": d.get("content", ""), "source": d.get("id", ""), "metadata": d.get("metadata", {})}
         for d in bm25_results
     ]
+
+    # [FIX] 改造②⑤：Security Trimming 必须覆盖**每一条召回路**——
+    # BM25 路也要按部门过滤，否则员工经 BM25 仍能看到受限文档（权限泄露）
+    if _SEARCH_FILTERS and "departments" in _SEARCH_FILTERS:
+        allowed = set(_SEARCH_FILTERS["departments"])
+        bm25_docs = [
+            d for d in bm25_docs
+            if set(d["metadata"].get("departments", ["全员"])) & allowed
+        ]
+
     return _rrf_fuse(dense_docs, bm25_docs, top_k)
 
 
