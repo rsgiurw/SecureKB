@@ -34,11 +34,7 @@ def build_docs(kb_dir: Path) -> list[dict]:
 
 
 async def main(kb_dir: Path, reset: bool) -> None:
-    from easy_start.load_data import (
-        load_to_chroma,
-        prepare_documents,
-        reset_chroma_collection,
-    )
+    from easy_start.load_data import COLLECTION_NAME, prepare_documents
 
     raw_docs = build_docs(kb_dir)
     if not raw_docs:
@@ -48,11 +44,22 @@ async def main(kb_dir: Path, reset: bool) -> None:
 
     docs = prepare_documents(raw_docs)
 
+    # [FIX] 先物理清空存储（廉价且确定），再调嵌入 API——避免 API 失败时残留旧数据
+    import shutil
+
+    persist_dir = project_root / "easy_start" / ".qdrant_data"
+    if reset and persist_dir.exists():
+        print("🗑️ 物理删除向量存储目录...")
+        shutil.rmtree(persist_dir, ignore_errors=True)
+
     api_key = os.getenv("ZHIPU_API_KEY")
     if not api_key:
         print("❌ 缺少 ZHIPU_API_KEY 环境变量")
         sys.exit(1)
     from app.modules.core.embedding.openai_embedder import OpenAIEmbedder
+    from qdrant_client.models import Distance, VectorParams
+
+    from app.infrastructure.storage.vector.qdrant_store import QdrantVectorStore
 
     embedder = OpenAIEmbedder(
         openai_api_key=api_key,
@@ -66,11 +73,34 @@ async def main(kb_dir: Path, reset: bool) -> None:
     embeddings = embedder.embed_documents(texts)
     print(f"✅ {len(embeddings)} 个向量（维度 {len(embeddings[0])}）")
 
-    if reset:
-        print("🗑️ 清空旧集合...")
-        reset_chroma_collection()
-    count = await load_to_chroma(docs, embeddings)
-    print(f"✅ 入库完成：{count} 条 → easy_start/.qdrant_data")
+    # [FIX] qdrant 本地模式的 delete_collection 存在旧点复活问题，
+    # 改为物理删除整个存储目录（上面已执行），这里直接重建集合。
+    store = QdrantVectorStore(
+        path=str(persist_dir),
+        collection_name=COLLECTION_NAME,
+    )
+    client = store._ensure_client()
+    client.create_collection(
+        collection_name=COLLECTION_NAME,
+        vectors_config=VectorParams(
+            size=len(embeddings[0]) if embeddings else 1024,
+            distance=Distance.COSINE,
+        ),
+    )
+
+    qdrant_docs = [
+        {
+            "id": d["id"],
+            "embedding": v,
+            "content": d["content"],
+            "metadata": d["metadata"],
+        }
+        for d, v in zip(docs, embeddings, strict=True)
+    ]
+    count = await store.add_documents(collection=COLLECTION_NAME, documents=qdrant_docs)
+
+    total = client.count(COLLECTION_NAME).count
+    print(f"✅ 入库完成：本次 {count} 条，集合共 {total} 条（应为 {len(docs)}）")
 
 
 if __name__ == "__main__":
