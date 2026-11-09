@@ -9,16 +9,12 @@
 // OneRAG 범용화: 기본 로케일은 'ko'(한국어)이며 빌드 시 VITE_DEFAULT_LOCALE로 재정의 가능하다.
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { MENU_LOCALES, type MenuLocale, menuMessages } from "./menuMessages";
+import { type MenuLocale, menuMessages } from "./menuMessages";
 
 // 환경변수 값이 지원 로케일인지 검증하여 기본 로케일을 결정한다.
 const resolveDefaultLocale = (): MenuLocale => {
-  const fromEnv = import.meta.env.VITE_DEFAULT_LOCALE;
-  if (typeof fromEnv === "string" && MENU_LOCALES.includes(fromEnv as MenuLocale)) {
-    return fromEnv as MenuLocale;
-  }
-  // OSS 범용 기본값은 한국어(OneRAG 현 UI 기준).
-  return "ko";
+  // [MOD] 产品决定：仅中文（zhHans），移除多语言切换
+  return "zhHans";
 };
 
 // 기본 로케일(빌드 시 VITE_DEFAULT_LOCALE로 재정의 가능)
@@ -29,10 +25,8 @@ export const MENU_LOCALE_STORAGE_KEY = "onerag_menu_locale";
 export const MENU_LOCALE_CHANGE_EVENT = "onerag-menu-locale-change";
 
 // 임의의 값을 지원되는 로케일로 정규화한다(미지원 값은 기본 로케일로 폴백).
-export function resolveMenuLocale(value: unknown): MenuLocale {
-  if (typeof value === "string" && MENU_LOCALES.includes(value as MenuLocale)) {
-    return value as MenuLocale;
-  }
+export function resolveMenuLocale(_value: unknown): MenuLocale {
+  // [MOD] 仅中文：任何存储/输入值都归一为 zhHans
   return DEFAULT_MENU_LOCALE;
 }
 

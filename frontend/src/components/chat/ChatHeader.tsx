@@ -8,8 +8,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useMenuMessages, resolveMenuLocale } from '../../i18n/useMenuLocale';
-import { MENU_LOCALES } from '../../i18n/menuMessages';
+import { useMenuMessages } from '../../i18n/useMenuLocale';
 import { BRAND_CONFIG } from '../../config/brand';
 
 interface ChatHeaderProps {
@@ -26,7 +25,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
     onNewSession,
 }) => {
     // i18n: 현재 로케일 메시지 + 로케일 전환 함수
-    const { messages, locale, setLocale } = useMenuMessages();
+    const { messages } = useMenuMessages();
 
     return (
         <header className="px-6 py-4 border-b bg-gradient-to-r from-background to-muted/10 relative overflow-hidden backdrop-blur-sm">
@@ -38,18 +37,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                    {/* 언어 셀렉터: localStorage + CustomEvent 기반 i18n 레이어와 연결 */}
-                    <select
-                        aria-label={messages.language.select}
-                        title={messages.language.select}
-                        value={locale}
-                        onChange={(e) => setLocale(resolveMenuLocale(e.target.value))}
-                        className="h-8 rounded-lg border border-border/50 bg-muted/30 px-2 text-xs font-medium text-foreground hover:bg-muted/50 transition-colors cursor-pointer shrink-0"
-                    >
-                        {MENU_LOCALES.map((loc) => (
-                            <option key={loc} value={loc}>{messages.language[loc]}</option>
-                        ))}
-                    </select>
 
                     {!sessionId.startsWith('id-12345') && (
                         <Badge variant="secondary" className="hidden sm:flex gap-1.5 items-center px-3 py-1 font-medium border-border/50 shrink-0">

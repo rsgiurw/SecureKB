@@ -107,7 +107,7 @@ export default function GlobalSettingsPage() {
       });
       await loadAISettings();
     } catch {
-      toast({ title: 'AI 설정 저장 실패', description: '관리자 API 키와 서버 상태를 확인하세요.', variant: 'destructive' });
+      toast({ title: 'AI 设置保存失败', description: '请检查管理员 API 密钥与服务器状态。', variant: 'destructive' });
     } finally {
       setAILoading(false);
     }
@@ -125,7 +125,7 @@ export default function GlobalSettingsPage() {
         description: '키 원문은 저장 후 화면 상태에서 제거되었습니다. 클라이언트 재초기화에는 서버 재시작이 필요할 수 있습니다.',
       });
     } catch {
-      toast({ title: 'API 키 교체 실패', description: '키 형식 또는 관리자 인증을 확인하세요.', variant: 'destructive' });
+      toast({ title: 'API 密钥更换失败', description: '请检查密钥格式或管理员认证。', variant: 'destructive' });
     } finally {
       setAILoading(false);
     }

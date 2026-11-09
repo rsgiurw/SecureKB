@@ -864,7 +864,7 @@ Return response in JSON format.
 
         # 인사말
         if any(word in query_lower for word in greeting_words):
-            return messages.get("greeting", "안녕하세요! 무엇을 도와드릴까요?")
+            return messages.get("greeting", "您好！有什么可以帮您吗？")
 
         # 기본 응답
         return messages.get("default_greeting", "안녕하세요! 궁금한 점을 말씀해주세요.")

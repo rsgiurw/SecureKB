@@ -27,16 +27,16 @@ logger = get_logger(__name__)
 
 # config 미설정 시 폴백 — 도메인 중립적 기본값(ko/en).
 # 특정 서비스/언어(예: ja)에 종속되지 않도록 일반적인 안내 문구만 사용합니다.
-_CODE_DEFAULT_LOCALES: tuple[str, ...] = ("ko", "en")
+_CODE_DEFAULT_LOCALES: tuple[str, ...] = ("zhHans", "en")
 _CODE_DEFAULTS: dict[str, dict[str, Any]] = {
-    "ko": {
-        "mainMessage": "무엇을 도와드릴까요?",
-        "subMessage": "AI가 참고 문서를 분석하여 정확한 답변을 제공합니다",
+    # [MOD] 改造：默认中文（仅中文产品）
+    "zhHans": {
+        "mainMessage": "有什么可以帮您吗？",
+        "subMessage": "AI 分析参考文档，为您提供准确、可溯源的回答",
         "suggestions": [
-            "이 문서에서 핵심 내용을 요약해주세요",
-            "예시 질문 1",
-            "예시 질문 2",
-            "예시 질문 3",
+            "总结这份文档的重点",
+            "年假有几天？",
+            "数据分为哪几个级别？",
         ],
     },
     "en": {
