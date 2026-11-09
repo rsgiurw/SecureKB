@@ -104,7 +104,7 @@ dependencies = [
     "pylnk3>=0.4.3",
     "psycopg2-binary>=2.9.11",
     "playwright==1.59.0",
-    "apscheduler==3.10.4",
+    "apscheduler==3.11.3",
     "lxml>=5.3.0,<7",
     # Korean NLP for PII Detection (spaCy)
     "spacy>=3.7.0",
