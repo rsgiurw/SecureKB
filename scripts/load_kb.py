@@ -17,18 +17,46 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 
+# [MOD] 改造②：部门级可见范围（Security Trimming 的数据侧）
+# "全员" = 所有员工可见；其他部门标签 = 仅该部门及以上角色可见
+DEPARTMENT_MAP: dict[str, list[str]] = {
+    "员工考勤与请假制度": ["全员"],
+    "招聘与入职管理制度": ["全员"],
+    "薪酬福利制度": ["全员"],
+    "会议管理规定": ["全员"],
+    "差旅费报销细则": ["全员"],
+    "信息安全管理制度": ["全员"],
+    "大模型使用管理规范": ["全员"],
+    "客户信息保护规范": ["全员"],
+    "保密协议与竞业限制管理办法": ["全员"],
+    "数据安全事件应急响应手册": ["全员"],
+    "访客与外包人员管理办法": ["全员"],
+    "AI产品研发流程规范": ["技术部"],
+    "数据备份与恢复规程": ["技术部"],
+    "网络安全管理规定": ["技术部"],
+    "IT设备与账号管理办法": ["技术部", "行政部"],
+    "合同审批流程管理办法": ["法务部"],
+    "印章与证照管理办法": ["法务部", "行政部"],
+}
+
+
 def build_docs(kb_dir: Path) -> list[dict]:
-    """读取目录下所有 .md，转成 easy_start 兼容的文档格式。"""
+    """读取目录下所有 .md，转成 easy_start 兼容的文档格式（附部门标签）。"""
     raw_docs = []
     for i, f in enumerate(sorted(kb_dir.glob("*.md")), 1):
         text = f.read_text(encoding="utf-8")
         if not text.strip():
             continue
+        departments = DEPARTMENT_MAP.get(f.stem, ["全员"])  # 未登记的默认全员可见
         raw_docs.append({
             "id": f"kb-{i:03d}",
             "title": f.stem,
             "content": text,
-            "metadata": {"category": "公司制度", "source": "company_kb"},
+            "metadata": {
+                "category": "公司制度",
+                "source": "company_kb",
+                "departments": departments,  # [MOD] 列表字段，配合 MatchAny 过滤
+            },
         })
     return raw_docs
 
@@ -43,6 +71,12 @@ async def main(kb_dir: Path, reset: bool) -> None:
     print(f"📄 读取 {len(raw_docs)} 篇制度文档")
 
     docs = prepare_documents(raw_docs)
+    # [FIX] prepare_documents 会重建 metadata 并丢弃自定义字段（departments 被洗掉），
+    # 按 source_file（=文档标题）重新注入部门标签
+    for d in docs:
+        title = d["metadata"].get("source_file", "")
+        d["metadata"]["departments"] = DEPARTMENT_MAP.get(title, ["全员"])
+        d["metadata"]["source"] = "company_kb"
 
     # [FIX] 先物理清空存储（廉价且确定），再调嵌入 API——避免 API 失败时残留旧数据
     import shutil

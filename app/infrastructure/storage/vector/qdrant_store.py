@@ -533,15 +533,22 @@ class QdrantVectorStore(IVectorStore):
             Qdrant Filter 객체
         """
         try:
-            from qdrant_client.models import FieldCondition, Filter, MatchValue
+            from qdrant_client.models import FieldCondition, Filter, MatchAny, MatchValue
 
             conditions = []
             for key, value in filters.items():
                 if key == "ids":
                     continue  # ID 필터는 별도 처리
-                conditions.append(
-                    FieldCondition(key=key, match=MatchValue(value=value))
-                )
+                if isinstance(value, (list, tuple, set)):
+                    # [MOD] 多值匹配（任一命中即通过）：支撑部门级 Security Trimming
+                    # （payload 中 departments 为列表，如 ["全员", "技术部"]）
+                    conditions.append(
+                        FieldCondition(key=key, match=MatchAny(any=list(value)))
+                    )
+                else:
+                    conditions.append(
+                        FieldCondition(key=key, match=MatchValue(value=value))
+                    )
 
             return Filter(must=conditions) if conditions else None
 

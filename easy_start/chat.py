@@ -19,6 +19,7 @@ FastAPI 서버 없이 직접 검색 파이프라인과 LLM을 호출합니다.
 """
 
 import asyncio
+import json
 import os
 import subprocess
 import sys
@@ -38,6 +39,22 @@ from easy_start.load_data import (  # noqa: E402
 
 # 상수
 TOP_K = 5
+
+# [MOD] 改造② Security Trimming：检索级部门过滤（由 run_chat.py 身份选择写入环境变量）
+# KB_DEPARTMENTS = JSON 数组（如 ["全员","技术部"]）或 "ALL"（管理员，不过滤）
+_SEARCH_FILTERS: dict[str, Any] | None = None
+
+
+def _resolve_search_filters() -> dict[str, Any] | None:
+    """从环境变量解析当前身份的可见部门，构造检索过滤器。"""
+    raw = os.getenv("KB_DEPARTMENTS", "ALL")
+    if raw == "ALL":
+        return None  # 管理员：不过滤，可见全部
+    try:
+        depts = json.loads(raw)
+        return {"departments": depts} if depts else None
+    except (ValueError, TypeError):
+        return None
 
 # LLM Provider 설정
 GEMINI_MODEL = "gemini-2.5-flash"
@@ -302,6 +319,7 @@ async def search_documents(
     search_results = await retriever.search(
         query=query,
         top_k=top_k,
+        filters=_SEARCH_FILTERS,  # [MOD] 改造②：Security Trimming 部门过滤
     )
 
     # SearchResult → dict 변환
@@ -367,6 +385,9 @@ def initialize_components() -> tuple[Any, Any | None, Any | None]:
 
     # 4. [MOD] QdrantRetriever — hybrid_alpha=1.0 (Dense only):
     #    qdrant local mode 미지원 기능(full-text index) 회피. W2에서 외장 BM25 하이브리드로 확장 예정.
+    global _SEARCH_FILTERS
+    _SEARCH_FILTERS = _resolve_search_filters()  # [MOD] 改造②：按身份设置检索过滤器
+
     retriever = QdrantRetriever(
         embedder=embedder,
         store=store,
