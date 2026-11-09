@@ -166,14 +166,14 @@ export const useChatMessages = ({
 
     // 스트리밍 연결 관리
     useEffect(() => {
-        // 스트리밍 활성화 + 유효한 세션 ID + fallback 세션이 아닐 때만 연결
-        if (isStreamingEnabled && sessionId && !sessionId.startsWith('fallback-')) {
-            streaming.connect().catch((error) => {
-                logger.warn('스트리밍 연결 失败, REST API로 폴백:', error);
-            });
-        }
-
-        // 클린업: 컴포넌트 언마운트 시 연결 해제
+        // [MOD] SecureKB：禁用 WebSocket 常驻连接，统一走 SSE。
+        // 原因（2026-11-10 排查结论）：
+        // ① React StrictMode 双挂载下 connect/disconnect 存在竞态——disconnect()
+        //    会 eventListeners.clear()，泄漏的旧 socket 没人监听，后端回包丢失，
+        //    UI 永远卡在"流式输出中"（日志证实后端 stream_end 已发出）；
+        // ② WS 消息被限流拒绝时即使收到 stream_error 也无超时兜底。
+        // SSE 每请求无状态，失败自动回退 REST，链路已在 EXP 验证。
+        // 保留 streaming.connect 代码供后续修复竞态后再启用。
         return () => {
             if (isStreamingEnabled) {
                 streaming.disconnect();
@@ -336,6 +336,7 @@ export const useChatMessages = ({
             sources?: Source[] | undefined;
             processingTime?: number | undefined;
             tokensUsed?: number | undefined;
+            modelInfo?: ChatMessage['model_info'];
         } = { content: '' };
 
         // 표시/수신 버퍼와 타이프라이터 타이머
@@ -410,6 +411,11 @@ export const useChatMessages = ({
                     // metadata: 검색 결과 수신 → retrieval_done 단계로 전이
                     if (sseAbortedRef.current) return;
                     if (event.event === 'metadata') {
+                        // [MOD] metadata 事件携带检索来源（后端以 dict 直发），先暂存，
+                        // visualDrain 后随 done 一起挂到消息上——否则来源卡片恒为空。
+                        if (event.sources && event.sources.length > 0) {
+                            accumulated.sources = event.sources;
+                        }
                         setRagProgress(withProgressLabel({
                             phase: 'retrieval_done',
                             searchResults: event.search_results,
@@ -440,6 +446,7 @@ export const useChatMessages = ({
                     accumulated.sources = event.sources;
                     accumulated.processingTime = event.processing_time;
                     accumulated.tokensUsed = event.tokens_used;
+                    accumulated.modelInfo = event.model_info;
                     // 남은 표시 버퍼가 있으면 타이프라이터가 마저 흘려보내고, 없으면 즉시 해제
                     if (pendingContent.length === 0) {
                         resolveVisualDrainOnce();
@@ -478,6 +485,7 @@ export const useChatMessages = ({
                 sources: accumulated.sources,
                 processing_time: accumulated.processingTime,
                 tokens_used: accumulated.tokensUsed,
+                model_info: accumulated.modelInfo,
             } : m)));
             setRagProgress(withProgressLabel({ phase: 'completed' }));
 
@@ -533,11 +541,12 @@ export const useChatMessages = ({
         setInput('');
         setLoading(true);
 
-        // 폴백 체인: WebSocket(연결됨) → SSE(스트리밍 활성·WS 미연결) → REST(비스트리밍 통짜).
+        // 폴백 체인: SSE(스트리밍 활성) → REST(비스트리밍 통짜).
+        // [MOD] WebSocket 优先分支已禁用（连接生命周期竞态导致回包丢失，见上方说明）。
         const isFallbackSession = sessionId.startsWith('fallback-');
-        const canUseWebSocket = isStreamingEnabled && streaming.isConnected && !isFallbackSession;
+        const canUseWebSocket = false;
         // SSE는 스트리밍이 켜져 있으나 WS가 연결되지 않은 경우의 중간 티어.
-        const canUseSSE = isStreamingEnabled && !streaming.isConnected && !isFallbackSession;
+        const canUseSSE = isStreamingEnabled && !isFallbackSession;
 
         // SSE/REST 폴백 공통: SSE 失败 시 REST로, 단 abort된 경우는 폴백 금지.
         const runSseThenRestFallback = async () => {

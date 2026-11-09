@@ -730,6 +730,24 @@ const parseChatStreamBlock = (block: string): StreamChatEvent | null => {
   if (typeof parsed.event !== 'string' && eventType) {
     parsed.event = eventType;
   }
+
+  // [MOD] 后端 stream_rag_pipeline 对 metadata/done/error 采用 {event, data:{...}} 信封
+  // （chunk 的 data 是字符串文本，天然平铺）。统一把内层字段上提，否则前端读不到
+  // sources/tokens_used/session_id（表现：来源卡片恒空、Token/Model 显示 N/A）。
+  const inner = parsed.data;
+  if (
+    eventType &&
+    eventType !== 'chunk' &&
+    typeof inner === 'object' &&
+    inner !== null &&
+    !Array.isArray(inner)
+  ) {
+    return {
+      ...(inner as Record<string, unknown>),
+      event: eventType,
+    } as unknown as StreamChatEvent;
+  }
+
   return parsed as unknown as StreamChatEvent;
 };
 
@@ -826,7 +844,7 @@ export const chatAPI = {
 
     // JWT Access Token (axios 인터셉터와 동일한 출처)
     const tokens = localStorage.getItem('auth_tokens');
-    if (tokens) {
+    if (tokens && !headers.Authorization) {
       try {
         const { accessToken } = JSON.parse(tokens);
         if (accessToken) {
@@ -835,6 +853,17 @@ export const chatAPI = {
       } catch (error) {
         logger.warn('JWT 토큰 파싱 失败:', error);
       }
+    }
+
+    // [MOD] SecureKB 登录令牌：SSE 走裸 fetch 不经过 axios 拦截器，必须显式携带
+    // Bearer——后端据此校验登录并对员工做部门过滤（与 /api/chat 同权）
+    try {
+      const kbToken = localStorage.getItem('securekb_token');
+      if (kbToken) {
+        headers.Authorization = `Bearer ${kbToken}`;
+      }
+    } catch {
+      // localStorage 不可用时静默跳过
     }
 
     const effectiveSessionId = sessionId || localStorage.getItem('chatSessionId') || undefined;

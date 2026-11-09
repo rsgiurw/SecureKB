@@ -5,7 +5,7 @@
  * 모든 메시지 타입을 정의합니다.
  */
 
-import { Source } from './index';
+import { Source, ChatMessage } from './index';
 
 // ============================================
 // 클라이언트 → 서버 메시지 타입
@@ -114,6 +114,9 @@ export interface StreamMetadataEvent {
   reranking_applied?: boolean;
   query_expansion?: string | null;
   timestamp?: string | null;
+  // [MOD] chat_service 实际以 dict 发送，metadata 里带检索来源列表（curl 实测）。
+  // 用于 SSE 路径在流开始时即拿到来源，供 done 时挂到消息上。
+  sources?: Source[];
 }
 
 /** 청크 이벤트: LLM 응답 텍스트 조각 (백엔드 StreamChunkEvent) */
@@ -132,6 +135,8 @@ export interface StreamDoneEvent {
   tokens_used?: number;
   processing_time?: number;
   sources?: Source[];
+  // [MOD] 后端 done 内层还带模型统计（信封解包后可见），用于消息卡片 Model 显示
+  model_info?: ChatMessage['model_info'];
 }
 
 /** 에러 이벤트 (백엔드 StreamErrorEvent) */

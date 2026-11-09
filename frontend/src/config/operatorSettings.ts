@@ -1,4 +1,4 @@
-import { DEFAULT_FEATURES } from './features';
+import { loadFeatureConfig } from './features';
 import { BRAND_CONFIG } from './brand';
 
 export const OPERATOR_SETTINGS_STORAGE_KEY = 'onerag_operator_settings';
@@ -136,35 +136,38 @@ export function buildOperatorRuntimeConfig(settings: OperatorSettings) {
     systemNotice: normalized.systemNotice,
   };
 
-  return {
-    operator: operatorWithoutSecret,
-    ...(logoDataUrl
-      ? {
-          brand: {
-            logo: {
-              main: logoDataUrl,
-              dark: logoDataUrl,
-              fallback: logoDataUrl,
-              type: 'image' as const,
-              alt: BRAND_CONFIG.logo.alt,
+    // [MOD] features 基线取 env 派生配置（VITE_FEATURE_*），运营设置只覆盖自己管辖的
+    // 子开关。此前用 DEFAULT_FEATURES（模块全关）作基线，会把 .env 打开的模块盖回关闭。
+    const envFeatures = loadFeatureConfig();
+    return {
+      operator: operatorWithoutSecret,
+      ...(logoDataUrl
+        ? {
+            brand: {
+              logo: {
+                main: logoDataUrl,
+                dark: logoDataUrl,
+                fallback: logoDataUrl,
+                type: 'image' as const,
+                alt: BRAND_CONFIG.logo.alt,
+              },
             },
-          },
-        }
-      : {}),
-    features: {
-      ...DEFAULT_FEATURES,
-      chatbot: {
-        ...DEFAULT_FEATURES.chatbot,
-        streaming: normalized.enableStreaming,
+          }
+        : {}),
+      features: {
+        ...envFeatures,
+        chatbot: {
+          ...envFeatures.chatbot,
+          streaming: normalized.enableStreaming,
+        },
+        documentManagement: {
+          ...envFeatures.documentManagement,
+          upload: normalized.enableDocumentUpload,
+        },
+        privacy: {
+          ...envFeatures.privacy,
+          maskPhoneNumbers: normalized.enablePhoneMasking,
+        },
       },
-      documentManagement: {
-        ...DEFAULT_FEATURES.documentManagement,
-        upload: normalized.enableDocumentUpload,
-      },
-      privacy: {
-        ...DEFAULT_FEATURES.privacy,
-        maskPhoneNumbers: normalized.enablePhoneMasking,
-      },
-    },
-  };
+    };
 }

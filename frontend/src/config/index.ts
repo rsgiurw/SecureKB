@@ -9,7 +9,7 @@ import { BRAND_CONFIG } from './brand';
 import { COLORS } from './colors';
 import type { ColorConfig } from './colors';
 import type { DeepPartial } from './deepPartial';
-import { DEFAULT_FEATURES } from './features';
+import { DEFAULT_FEATURES, loadFeatureConfig } from './features';
 import { LAYOUT_CONFIG } from './layout';
 import { CHAT_EMPTY_STATE_SETTINGS } from './chatEmptyStateSettings';
 
@@ -36,7 +36,10 @@ export interface AppConfig {
 export const APP_CONFIG: AppConfig = {
   brand: BRAND_CONFIG,
   colors: COLORS,
-  features: DEFAULT_FEATURES,
+  // [MOD] features 必须经 loadFeatureConfig() 读取 VITE_FEATURE_* 环境变量。
+  // 直接用 DEFAULT_FEATURES 时，FeatureProvider 优先取 ConfigContext（即本对象），
+  // env 开关永远不会生效（文档管理/管理面板菜单全被隐藏的根因）。
+  features: loadFeatureConfig(),
   layout: LAYOUT_CONFIG,
   chatEmptyState: CHAT_EMPTY_STATE_SETTINGS,
 } as const;
