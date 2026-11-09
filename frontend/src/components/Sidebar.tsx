@@ -43,36 +43,45 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   const isPromptsEnabled = useIsModuleEnabled('prompts');
   const isAdminEnabled = useIsModuleEnabled('admin');
 
+  // [MOD] 改造②：管理员角色启用全部菜单；普通员工仅问答
+  const isAdminUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('securekb_user') || 'null')?.role === 'admin';
+    } catch {
+      return false;
+    }
+  })();
+
   const menuItems = [
     {
       label: messages.nav.chatbot,
       path: '/bot',
       icon: MessageSquare,
-      enabled: isChatbotEnabled
+      enabled: isAdminUser || isChatbotEnabled
     },
     {
       label: messages.nav.documents,
       path: '/upload',
       icon: UploadCloud,
-      enabled: isDocumentsEnabled
+      enabled: isAdminUser && isDocumentsEnabled
     },
     {
       label: messages.nav.prompts,
       path: '/prompts',
       icon: BrainCircuit,
-      enabled: isPromptsEnabled
+      enabled: isAdminUser && isPromptsEnabled
     },
     {
       label: messages.nav.admin,
       path: '/admin',
       icon: Settings,
-      enabled: isAdminEnabled
+      enabled: isAdminUser && isAdminEnabled
     },
     {
       label: messages.nav.operationSettings,
       path: '/admin/settings',
       icon: SlidersHorizontal,
-      enabled: isAdminEnabled
+      enabled: isAdminUser && isAdminEnabled
     },
   ].filter(item => item.enabled);
 

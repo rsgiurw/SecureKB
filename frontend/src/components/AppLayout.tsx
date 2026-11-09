@@ -93,7 +93,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   }, []);
 
   const handleLogout = () => {
+    // [MOD] 改造②：完整登出——清除登录令牌与用户信息，回到登录门
     removeAdminAccess();
+    try {
+      localStorage.removeItem('securekb_token');
+      localStorage.removeItem('securekb_user');
+    } catch {
+      /* ignore */
+    }
     window.location.href = '/bot';
   };
 

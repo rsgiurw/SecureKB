@@ -172,6 +172,14 @@ function AppRoutes() {
   const isDocumentsEnabled = useIsModuleEnabled('documentManagement');
   const isPromptsEnabled = useIsModuleEnabled('prompts');
   const isAdminEnabled = useIsModuleEnabled('admin');
+
+  // [MOD] 改造②：角色权限——管理员启用全部模块；普通员工仅问答
+  let isAdmin = false;
+  try {
+    isAdmin = JSON.parse(localStorage.getItem('securekb_user') || 'null')?.role === 'admin';
+  } catch {
+    isAdmin = false;
+  }
   const location = useLocation();
 
   // [MOD] 登录门：仅中文产品，未登录一律先登录（embed 内嵌路由豁免）
@@ -195,7 +203,7 @@ function AppRoutes() {
       <Route path="/" element={<LandingPageContent />} />
 
       {/* 챗봇 라우트 (조건부) */}
-      {isChatbotEnabled && (
+      {(isChatbotEnabled || isAdmin) && (
         <>
           {/*
             임베드(embed) 전용 라우트.
@@ -237,7 +245,7 @@ function AppRoutes() {
       )}
 
       {/* 문서 관리 라우트 (조건부) */}
-      {isDocumentsEnabled && (
+      {(isDocumentsEnabled || isAdmin) && (
         <Route
           path="/upload"
           element={
@@ -255,7 +263,7 @@ function AppRoutes() {
       )}
 
       {/* 프롬프트 관리 라우트 (조건부) */}
-      {isPromptsEnabled && (
+      {(isPromptsEnabled || isAdmin) && (
         <Route
           path="/prompts"
           element={
@@ -273,7 +281,7 @@ function AppRoutes() {
       )}
 
       {/* 관리자 대시보드 (조건부) */}
-      {isAdminEnabled && (
+      {(isAdminEnabled || isAdmin) && (
         <>
           <Route
             path="/admin"
