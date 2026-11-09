@@ -17,6 +17,7 @@ const INTL_LOCALES: Record<MenuLocale, string> = {
   ja: "ja-JP",
   es: "es-ES",
   zhHant: "zh-Hant",
+  zhHans: "zh-Hans",
 };
 
 /**

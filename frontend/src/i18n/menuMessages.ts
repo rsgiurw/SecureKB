@@ -6,13 +6,14 @@
 //   - MenuMessages 인터페이스로 모든 로케일이 동일한 키 집합을 갖도록 컴파일 타임에 강제한다.
 //   - 인프라 + 채팅 핵심 UI + PDF 인용 뷰어부터 우선 마이그레이션한다(전 컴포넌트 일괄 번역 아님).
 //
-// 지원 로케일: 한국어(ko, 기본) / 영어(en) / 일본어(ja) / 스페인어(es) / 번체중국어(zhHant).
+// 지원 로케일: 한국어(ko) / 영어(en) / 일본어(ja) / 스페인어(es) / 번체중국어(zhHant) / 간체중국어(zhHans). [MOD] zhHans 추가
 // ko/en은 이 파일에 인라인, 그 외 로케일은 src/i18n/locales/* 모듈에서 합성한다.
 import { ja } from "./locales/ja";
 import { es } from "./locales/es";
 import { zhHant } from "./locales/zhHant";
+import { zhHans } from "./locales/zhHans";
 
-export const MENU_LOCALES = ["ko", "en", "ja", "es", "zhHant"] as const;
+export const MENU_LOCALES = ["ko", "en", "ja", "es", "zhHant", "zhHans"] as const;
 
 export type MenuLocale = (typeof MENU_LOCALES)[number];
 
@@ -772,6 +773,7 @@ const ko: MenuMessages = {
     ja: "日本語",
     es: "Español",
     zhHant: "繁體中文",
+    zhHans: "简体中文",
     label: "언어",
     select: "언어 선택",
   },
@@ -1443,6 +1445,7 @@ const en: MenuMessages = {
     ja: "日本語",
     es: "Español",
     zhHant: "繁體中文",
+    zhHans: "简体中文",
     label: "Language",
     select: "Select language",
   },
@@ -2114,4 +2117,5 @@ export const menuMessages: Record<MenuLocale, MenuMessages> = {
   ja,
   es,
   zhHant,
+  zhHans,
 };

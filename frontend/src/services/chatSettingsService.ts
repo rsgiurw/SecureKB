@@ -79,7 +79,16 @@ const DEFAULTS: AllEmptyStateSettings = {
       '請摘要這份文件的重點',
       '範例問題 1',
       '範例問題 2',
-      '範例問題 3',
+    ],
+  },
+  zhHans: {
+    mainMessage: '有什么可以帮您的吗？',
+    subMessage: 'AI 分析参考文档以提供准确的回答',
+    suggestions: [
+      '请总结这份文档的重点',
+      '示例问题 1',
+      '示例问题 2',
+      '示例问题 3',
     ],
   },
 };

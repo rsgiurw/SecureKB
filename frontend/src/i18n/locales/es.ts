@@ -8,6 +8,7 @@ export const es: MenuMessages = {
     ja: "日本語",
     es: "Español",
     zhHant: "繁體中文",
+    zhHans: "简体中文",
     label: "Idioma",
     select: "Seleccionar idioma",
   },

@@ -49,6 +49,7 @@ const LOCALE_LABELS: Record<MenuLocale, string> = {
   ja: '日本語',
   es: 'Español',
   zhHant: '繁體中文',
+  zhHans: '简体中文',
 };
 
 interface ChatSettingsManagerProps {
