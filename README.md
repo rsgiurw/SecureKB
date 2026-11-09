@@ -1,315 +1,158 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="OneRAG Logo" width="400"/>
+  <img src="assets/logo.svg" alt="SecureKB Logo" width="380"/>
 </p>
 
 <p align="center">
-  <strong>5분 안에 시작하고, 설정 1줄로 컴포넌트를 교체하는 Production-ready RAG 백엔드</strong>
+  <strong>安全加固的企业知识库问答系统 —— 手写可解释的检索链路 · 安全工程 · 量化评测</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/notadev-iamaura/OneRAG/actions/workflows/ci.yml"><img src="https://github.com/notadev-iamaura/OneRAG/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
-  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-3.11+-blue.svg" alt="Python 3.11+"></a>
-  <a href="https://demo-frontend-production-3c93.up.railway.app"><img src="https://img.shields.io/badge/Live_Demo-Railway-blueviolet.svg" alt="Live Demo"></a>
-  <a href="https://github.com/notadev-iamaura/OneRAG/stargazers"><img src="https://img.shields.io/github/stars/notadev-iamaura/OneRAG?style=social" alt="GitHub Stars"></a>
-</p>
-
-<p align="center">
-  <strong>한국어</strong> | <a href="README_EN.md">English</a>
-</p>
-
-<p align="center">
-  <a href="https://demo-frontend-production-3c93.up.railway.app">라이브 데모 체험하기</a> · 접근코드: <code>1127</code>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-3.12-blue.svg" alt="Python 3.12"></a>
+  <img src="https://img.shields.io/badge/LLM-智谱GLM__·__embedding__3-3776ab" alt="智谱 GLM">
+  <img src="https://img.shields.io/badge/向量库-Qdrant__本地模式-d36550" alt="Qdrant">
 </p>
 
 ---
 
-## TL;DR
+**SecureKB** 是基于 [OneRAG](https://github.com/notadev-iamaura/OneRAG)（MIT）深度改造的中文企业知识库问答系统：
+员工用中文提问，系统在**权限范围内**检索知识库（混合检索 + 权限过滤），由大模型生成**带引用溯源**的回答，
+并对输入/检索/输出全链路做**提示注入防护**。
+
+> 本仓库在 OneRAG 基础上完成 **七项深度改造**，全部配有对比实验数据（见 [docs/experiments.md](docs/experiments.md)）。
+
+## 核心数据（实测）
+
+### 检索质量（EXP-005/006，Golden 集 31 题）
+
+| 指标 | Dense 基线 | BM25+RRF 混合检索 | 变化 |
+| --- | --- | --- | --- |
+| recall@1 | 0.897 | **0.931** | +3.4pp |
+| recall@3 | 0.966 | **1.000** | +3.4pp |
+| MRR | 0.938 | **0.966** | +0.028 |
+
+### 安全防护（EXP-009）
+
+| 指标 | 数值 |
+| --- | --- |
+| 提示注入拦截率 | **100%**（16/16 攻击样本，两轮规则迭代） |
+| 正常问题误伤率 | **0%**（12 正常样本回归） |
+| 间接注入文档识别 | 2/2 |
+
+## 七项深度改造
+
+| # | 改造 | 说明 |
+| --- | --- | --- |
+| ① | 智谱 GLM 接入 | 生成（glm-4-flash）+ 嵌入（embedding-3，1024 维）切换国内直连的智谱服务；五层配置接线（generation/embeddings/环境配置/schema/校验器） |
+| ② | Security Trimming | 文档 payload 打部门标签（全员/技术部/法务部），检索层按身份过滤。**关键发现：混合检索下每一条召回路都必须过滤**，只过滤 Dense 路会经 BM25 路泄露（EXP-007） |
+| ③ | 应答模式可配 | 严谨/通俗两档（配置文件 + 管理脚本），严格模式自动携带条款引用；双档行为差异经 A/B 验证（EXP-004/004b） |
+| ④ | 自建评测体系 | Golden 集 31 题（事实/跨文档/拒答三类）+ `run_retrieval_eval.py` 自动回归（recall@k/MRR/延迟），与上游 RAGAS 生成评测互补 |
+| ⑤ | 混合检索 | BM25（**jieba 中文分词**替换上游韩语 kiwipiepy）+ Dense 双路召回 + RRF 融合（k=60），精确术语查询 rank 5→2（EXP-006） |
+| ⑥ | 多轮指代消解 | 检索前查询改写：“那财务审批呢？”→“合同审批流程里财务审批需要多久？”，改写失败优雅降级（EXP-008，3/3 消解成功） |
+| ⑦ | 提示注入防护 | 输入侧 13 条规则分级处置（block/句级剥离/放行）+ 间接注入文档扫描 + 输出侧泄露检测（提示词指纹/密钥形态/越狱信号） |
+
+## 架构
+
+```
+┌─ 管理员 ─────────────────────────────────────────┐
+│ 上传文档（部门标签）→ 文档管理 → 应答模式配置      │
+└──────────────────┬───────────────────────────────┘
+                   ↓ 解析 → jieba 分块 → 智谱 embedding-3（1024 维）
+        ┌────────────────────┐
+        │ Qdrant 本地模式     │  +  BM25 索引（部门标签 payload）
+        │ （部门标签 payload）│
+        └─────────┬──────────┘
+                  ↓
+┌─ 员工提问 ────────────────────────────────────────┐
+│ ① 输入侧注入防护（规则分级：拦截/剥离/放行）        │
+│ ② 查询改写（多轮指代消解）                         │
+│ ③ Dense + BM25 双路召回 → RRF 融合                 │
+│ ④ Security Trimming（部门过滤，双路都过滤）        │
+│ ⑤ 间接注入文档扫描                                 │
+│ ⑥ 智谱 GLM 生成（严谨/通俗模式）                   │
+│ ⑦ 输出侧泄露检测                                   │
+└──────────────────┬────────────────────────────────┘
+                   ↓ 带引用溯源的回答 + 安全事件标注
+```
+
+## 快速开始
+
+### 前置要求
+
+- Python 3.11+（开发环境 3.12）
+- Node.js 20+（官方前端）
+- [智谱开放平台](https://open.bigmodel.cn) API Key（glm-4-flash 免费；embedding-3 约 0.5 元/百万 token）
+
+### 启动
 
 ```bash
-git clone https://github.com/notadev-iamaura/OneRAG.git && cd OneRAG && uv sync
+# 1. 后端依赖（约 300 包）
+python -m venv .venv
+.venv/Scripts/python -m pip install -e .          # Linux/macOS: .venv/bin/python
+
+# 2. 配置密钥：复制 .env.example 为 .env，填入：
+#    ZHIPU_API_KEY=<你的Key>
+#    OPENAI_API_KEY=<同一个智谱Key>              # 生成与嵌入走 OpenAI 兼容端点
+#    VECTOR_DB_PROVIDER=qdrant
+#    QDRANT_PATH=<向量库数据目录>                 # 本地嵌入式模式
+
+# 3. 语料入库（scripts/load_kb.py，--kb-dir 指向你的 Markdown 文档目录）
+.venv/Scripts/python scripts/load_kb.py --kb-dir ./data/kb_docs --reset
+
+# 4. 完整版后端（8000 端口）
+.venv/Scripts/python main.py
+
+# 5. 官方前端（另开终端）
+cd frontend && npm install && npm run dev          # http://localhost:5000
 ```
+
+轻量体验（无需前端构建）：`chat.bat`（CLI 问答）· `admin.bat`（管理菜单）· `demo.bat`（轻量 Web 页）。
+
+### 评测回归
 
 ```bash
-# 🐳 Docker 있으면 → Full API 서버 (Weaviate + FastAPI + Swagger UI)
-cp quickstart/.env.quickstart .env   # GOOGLE_API_KEY만 설정
-make start                            # → http://localhost:8000/docs
-
-# 💻 Docker 없으면 → 로컬 CLI 챗봇 (설치만으로 바로 실행)
-make easy-start                       # → 터미널에서 바로 대화
-
-# 🔒 API 키 없이 → Ollama 로컬 LLM으로 완전 오프라인 동작
-ollama pull llama3.2 && make easy-start
+.venv/Scripts/python scripts/run_retrieval_eval.py --label <配置标签>
+# 输出 recall@1/3/5、MRR、检索延迟，逐题明细与报告落盘 evals/reports/
+.venv/Scripts/python scripts/test_injection.py     # 注入防护回归（拦截率/误伤率）
 ```
 
----
+## 安全工程
 
-## 데모
+- **输入侧注入防护**（`app/security/input_guard.py`）：13 条正向规则覆盖指令覆盖/身份操纵/
+  防护解除/提示词窃取/密钥窃取/语料窃取/间接注入；三级处置（放行 / 句级剥离 / 直接拒绝）；
+  `scripts/test_injection.py` 持续回归拦截率与误伤率。
+- **Security Trimming**：文档 payload 携带部门标签，Dense 与 BM25 两条召回路均按身份过滤
+  （混合检索下的常见漏洞：只过滤其中一路导致权限泄露，EXP-007 有完整复盘）。
+- **输出侧泄露检测**（`app/security/output_guard.py`）：系统提示词指纹比对、密钥形态、越狱信号。
+- **间接注入扫描**：检索结果中的文档若携带针对 AI 的指令特征，剔除后再生成。
+- 规划中：PII 脱敏规则引擎、审计日志持久化、管理员 JWT 完整版。
 
-<p align="center">
-  <img src="assets/demo-cli.svg" alt="OneRAG CLI Demo" width="100%"/>
-</p>
+## 与上游的主要差异
 
----
+- 智谱 GLM 全链路接入（生成 + 嵌入，OpenAI 兼容端点），schema/校验器适配
+- jieba 中文分词替换 kiwipiepy；检索评测器 `run_retrieval_eval.py` 新增
+- Security Trimming、注入防护、轻量三件套启动器（chat/admin/demo.bat）
+- Windows 开发环境适配（依赖版本、解释器选择、QDRANT_PATH 本地模式）
 
-## 왜 OneRAG인가?
+完整改造历史见 [commits](../../commits/main/)；实验全过程（含失败与复盘）见
+[docs/experiments.md](docs/experiments.md)。
 
-**하나의 코드베이스로 모든 RAG 컴포넌트를 조립합니다.**
+## Roadmap
 
-- **설정만 바꾸면 끝** — 검색 Provider(7모드: Vector DB 6종 + Grok), LLM(5종), Reranker(6종), Cache(3종) 모두 `.env` 또는 YAML로 교체
-- **API 키 없이 시작** — Ollama 로컬 LLM으로 인터넷 없이도 완전 동작
-- **OpenAI SDK 호환** — 기존 OpenAI 코드 그대로 OneRAG에 연결 (`/v1/chat/completions`)
-- **광범위한 테스트 스위트** — Pytest/Vitest 기반 회귀 검증과 CI/CD 게이트
-- **PoC에서 프로덕션까지** — 동일한 코드베이스로 확장, 재구축 불필요
+- [ ] 文档上传 Web 入口（上传 → 解析 → 打标 → 入库闭环）
+- [ ] PII 脱敏规则引擎
+- [ ] 审计日志持久化
+- [ ] 反馈按钮（👍/👎）→ bad case 自动进入评测集
+- [ ] 管理员 JWT 完整版
+- [ ] Docker Compose 一键部署
+- [ ] 前端简体中文语言包（zhHans）
 
-> **[라이브 데모](https://demo-frontend-production-3c93.up.railway.app)에서 바로 체험해보세요** (접근코드: `1127`)
+## 致谢
 
-### 아키텍처 한눈에 보기
+- [OneRAG](https://github.com/notadev-iamaura/OneRAG)（MIT）——本项目的基础框架，
+  检索编排、多向量库支持、生成评测（RAGAS）、WebSocket 等核心能力来自上游。
+- 依赖的上游组件（LangChain 文本切分、rank-bm25、jieba 等）按各自协议使用。
 
-<p align="center">
-  <img src="assets/architecture.svg" alt="OneRAG Architecture" width="100%"/>
-</p>
+## License
 
----
-
-## 시작하기
-
-|  | Full API 서버 (`make start`) | CLI 챗봇 (`make easy-start`) |
-|---|---|---|
-| **Docker** | 필요 | 불필요 |
-| **Vector DB** | Weaviate (하이브리드 검색) | ChromaDB (로컬 파일) |
-| **인터페이스** | REST API + Swagger UI | 터미널 CLI |
-| **LLM** | 5종 (Gemini, OpenAI, Claude, OpenRouter, Ollama) | Gemini / OpenRouter / Ollama |
-| **용도** | 프로덕션, API 통합, 팀 개발 | 학습, 체험, 빠른 PoC |
-
-### 방법 A: Full API 서버 (Docker)
-
-```bash
-git clone https://github.com/notadev-iamaura/OneRAG.git
-cd OneRAG && uv sync
-
-cp quickstart/.env.quickstart .env
-# .env 파일에서 GOOGLE_API_KEY 설정
-# (무료: https://aistudio.google.com/apikey)
-
-make start
-```
-
-**끝!** [http://localhost:8000/docs](http://localhost:8000/docs)에서 바로 테스트할 수 있습니다.
-
-```bash
-make start-down  # 종료
-```
-
-### 방법 B: 로컬 CLI 챗봇 (Docker 불필요)
-
-Docker 설치 없이 터미널에서 바로 RAG 검색 + AI 답변을 체험할 수 있습니다.
-
-```bash
-git clone https://github.com/notadev-iamaura/OneRAG.git
-cd OneRAG && uv sync
-
-make easy-start
-```
-
-`.env`가 없으면 `easy_start/.env.example` 템플릿으로 자동 생성됩니다. 샘플 데이터 25개가 자동 적재되고, 하이브리드 검색(Dense + BM25)이 바로 작동합니다.
-샘플 데이터 로더는 기존 컬렉션을 기본 삭제하지 않으며, 초기화가 필요할 때만 `--reset` 또는 reset 환경 변수를 사용합니다.
-AI 답변 생성을 사용하려면 API 키를 하나 설정하세요:
-
-```bash
-# 셋 중 하나만 설정하면 됩니다
-export GOOGLE_API_KEY="발급받은키"       # 무료: https://aistudio.google.com/apikey
-export OPENROUTER_API_KEY="발급받은키"   # https://openrouter.ai/keys
-ollama pull llama3.2                     # API 키 없이 로컬 LLM 사용
-```
-
-> **OneRAG가 처음이라면?** `make easy-start`로 시작해서 챗봇에게 직접 물어보세요.
-> "하이브리드 검색이 뭐야?", "RAG 파이프라인이 어떻게 돼?" — 샘플 데이터에 답이 있습니다.
-
----
-
-## OpenAI 호환 API
-
-기존 OpenAI SDK 코드를 수정 없이 OneRAG에 연결할 수 있습니다.
-
-```python
-from openai import OpenAI
-
-client = OpenAI(base_url="http://localhost:8000/v1", api_key="not-needed")
-
-# RAG 검색 + AI 답변 생성
-response = client.chat.completions.create(
-    model="gemini",  # 또는 ollama/llama3.2, openrouter/google/gemini-2.0-flash
-    messages=[{"role": "user", "content": "RAG란 무엇인가요?"}],
-)
-print(response.choices[0].message.content)
-```
-
-**지원 엔드포인트:**
-- `POST /v1/chat/completions` — 채팅 완료 (스트리밍 지원)
-- `GET /v1/models` — 사용 가능한 모델 목록
-
-**모델 선택:**
-| 형식 | 예시 | 설명 |
-|------|------|------|
-| `provider` | `gemini`, `ollama`, `claude` | 기본 모델 사용 |
-| `provider/model` | `ollama/qwen2.5:3b` | 특정 모델 지정 |
-| `openrouter/vendor/model` | `openrouter/google/gemini-2.0-flash` | OpenRouter 경유 |
-
-LangChain, Cursor, Open WebUI 등 OpenAI SDK를 사용하는 모든 도구와 바로 연결됩니다.
-
----
-
-## 컴포넌트 교체하기
-
-`.env` 또는 YAML 설정만 변경하면 모든 컴포넌트를 교체할 수 있습니다.
-
-```bash
-# 검색 Provider 교체
-VECTOR_DB_PROVIDER=weaviate  # Vector DB: chroma, pinecone, qdrant, pgvector, mongodb / 관리형 검색: grok
-
-# LLM 교체
-LLM_PROVIDER=google          # 또는 openai, anthropic, openrouter, ollama
-```
-
-```yaml
-# 리랭커 추가 (app/config/features/reranking.yaml)
-reranking:
-  approach: "cross-encoder"  # 또는 late-interaction, llm, local
-  provider: "jina"           # 또는 cohere, google, openai, openrouter, sentence-transformers
-
-# 기능 On/Off
-cache:     { enabled: true, type: "redis" }    # 또는 memory, semantic
-graph_rag: { enabled: true }                    # 지식 그래프 관계 추론
-pii:       { enabled: true }                    # 개인정보 마스킹
-```
-
----
-
-## 조립 가능한 블록들
-
-| 카테고리 | 선택지 | 변경 방법 |
-|---------|-------|----------|
-| **검색 Provider** | Weaviate, Chroma, Pinecone, Qdrant, pgvector, MongoDB, Grok Collections | 환경변수 1줄 |
-| **LLM** | Google Gemini, OpenAI, Anthropic Claude, OpenRouter, Ollama | 환경변수 1줄 |
-| **리랭커** | Jina, Cohere, Google, OpenAI, OpenRouter, Local | YAML 2줄 |
-| **캐시** | Memory, Redis, Semantic | YAML 1줄 |
-| **쿼리 라우팅** | LLM 기반, Rule 기반 | YAML 1줄 |
-| **한국어 검색** | 동의어, 불용어, 사용자사전 | YAML 설정 |
-| **보안** | PII 탐지, 마스킹, 감사 로깅 | YAML 설정 |
-| **GraphRAG** | 지식 그래프 기반 관계 추론 | YAML 1줄 |
-| **Agent** | 도구 실행, MCP 프로토콜 | YAML 설정 |
-
----
-
-## RAG 파이프라인
-
-```
-Query → Router → Expansion → Retriever → Cache → Reranker → Generator → PII Masking → Response
-```
-
-| 단계 | 기능 | 교체 가능 |
-|-----|------|----------|
-| 쿼리 라우팅 | 쿼리 유형 분류 | LLM/Rule 선택 |
-| 쿼리 확장 | 동의어, 불용어 처리 | 사전 커스텀 |
-| 검색 | 벡터/하이브리드 검색 | Vector DB 6종 + Grok |
-| 캐싱 | 응답 캐시 | 3종 캐시 |
-| 재정렬 | 검색 결과 정렬 | 6종 리랭커 |
-| 답변 생성 | LLM 응답 생성 | 5종 LLM |
-| 후처리 | 개인정보 마스킹 | 정책 커스텀 |
-
----
-
-## 단계별 구성 가이드
-
-| 단계 | 구성 | 용도 |
-|-----|------|-----|
-| **Basic** | 벡터 검색 + LLM | 간단한 문서 Q&A |
-| **Standard** | + 하이브리드 검색 + Reranker | 검색 품질이 중요한 서비스 **(권장)** |
-| **Advanced** | + GraphRAG + Agent | 복잡한 관계 추론, 도구 실행 |
-
-> Basic으로 시작해서, 필요할 때 블록을 추가하면 됩니다.
-
----
-
-## 프론트엔드 UI
-
-별도의 React 기반 웹 UI가 포함되어 있습니다. **[라이브 데모](https://demo-frontend-production-3c93.up.railway.app)**에서 바로 체험하거나, 로컬에서 실행할 수 있습니다.
-
-<p align="center">
-  <img src="assets/screenshot-chat-dark.png" alt="OneRAG Chat - Dark Mode" width="49%"/>
-  <img src="assets/screenshot-docs.png" alt="OneRAG Document Management" width="49%"/>
-</p>
-<p align="center">
-  <sub>챗봇 인터페이스 (다크 모드) · 문서 관리</sub>
-</p>
-
-**주요 기능:**
-- WebSocket 실시간 스트리밍 채팅 (RAG 검색 결과 + AI 답변)
-- 드래그앤드롭 문서 업로드 (PDF, Word, Excel, Markdown 등)
-- 문서 관리 — 검색, 정렬, 일괄 삭제, 상세 정보 조회
-- 다크 모드, 모바일 반응형 레이아웃
-- Feature Flag 기반 모듈 활성화/비활성화
-- 관리자 대시보드 — 세션, 성능, 프롬프트 통합 관제
-
-```bash
-# 백엔드 실행 중인 상태에서
-make frontend-dev    # → http://localhost:5173
-```
-
-> 프론트엔드 + 백엔드 + Weaviate 동시 실행: `make start-full`
-
----
-
-## 다국어 지원
-
-easy-start CLI 챗봇은 4개 언어를 지원합니다.
-
-```bash
-make easy-start LANG=en    # English
-make easy-start LANG=ja    # 日本語
-make easy-start LANG=zh    # 中文
-make easy-start            # 한국어 (기본)
-```
-
-각 언어별로 UI 텍스트, 시스템 프롬프트, 샘플 데이터가 모두 현지화되어 있습니다.
-
----
-
-## 개발
-
-```bash
-make dev-reload   # 개발 서버 (자동 리로드)
-make test         # 테스트 실행
-make lint         # 린트 검사
-make type-check   # 타입 체크
-make test-operational-smoke # 운영 안정성 smoke 검증
-```
-
----
-
-## 문서
-
-- [상세 설정 가이드](docs/SETUP.md)
-- [아키텍처 설명](docs/ARCHITECTURE.md)
-- [Streaming API 가이드](docs/streaming-api-guide.md)
-- [WebSocket API 가이드](docs/websocket-api-guide.md)
-
----
-
-## 라이선스
-
-MIT License
-
----
-
-<p align="center">
-  <sub>이 프로젝트는 RAG Chat Service PM이 여러 프로젝트를 진행하며 구현해보고 싶었던 기능들을 모아 만들었습니다.<br>
-  RAG를 처음 접하는 분들이 쉽게 PoC를 진행하고, 프로덕션까지 확장할 수 있도록 설계했습니다.</sub>
-</p>
-
-<p align="center">
-  <a href="https://github.com/notadev-iamaura/OneRAG/issues">Report Bug</a> ·
-  <a href="https://github.com/notadev-iamaura/OneRAG/issues">Request Feature</a> ·
-  <a href="https://github.com/notadev-iamaura/OneRAG/discussions">Discussions</a>
-</p>
+MIT（继承自上游 OneRAG）
