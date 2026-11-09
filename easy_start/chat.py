@@ -32,7 +32,7 @@ sys.path.insert(0, str(project_root))
 from easy_start.i18n import load_prompt, t  # noqa: E402
 from easy_start.load_data import (  # noqa: E402
     BM25_INDEX_PATH,
-    CHROMA_PERSIST_DIR,
+    QDRANT_PERSIST_DIR,
     COLLECTION_NAME,
 )
 
@@ -46,6 +46,9 @@ OPENROUTER_MODEL = "google/gemini-2.5-flash"
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1"
 OLLAMA_DEFAULT_MODEL = "llama3.2"
 OLLAMA_BASE_URL = "http://localhost:11434"
+# [MOD] 智谱 GLM（国内直连，OpenAI 兼容端点）
+ZHIPU_MODEL = "glm-4-flash"
+ZHIPU_API_URL = "https://open.bigmodel.cn/api/paas/v4/"
 
 
 def _get_system_prompt() -> str:
@@ -130,6 +133,12 @@ def _resolve_llm_providers() -> list[tuple[str, str, str, str]]:
         (base_url, api_key, model, provider_name) 튜플 리스트
     """
     providers: list[tuple[str, str, str, str]] = []
+
+    # [MOD] 智谱 GLM 最优先（国内直连、成本低）
+    zhipu_key = os.getenv("ZHIPU_API_KEY")
+    if zhipu_key:
+        zhipu_model = os.getenv("ZHIPU_MODEL", ZHIPU_MODEL)
+        providers.append((ZHIPU_API_URL, zhipu_key, zhipu_model, "Zhipu"))
 
     google_key = os.getenv("GOOGLE_API_KEY")
     if google_key:
@@ -315,20 +324,33 @@ def initialize_components() -> tuple[Any, Any | None, Any | None]:
     Returns:
         (retriever, bm25_index, merger) 튜플
     """
-    from app.infrastructure.storage.vector.chroma_store import ChromaVectorStore
     from app.modules.core.embedding.local_embedder import LocalEmbedder
-    from app.modules.core.retrieval.retrievers.chroma_retriever import ChromaRetriever
+    from app.modules.core.retrieval.retrievers.qdrant_retriever import QdrantRetriever
 
-    # 1. 임베딩 모델
-    embedder = LocalEmbedder(
-        model_name="Qwen/Qwen3-Embedding-0.6B",
-        output_dimensionality=1024,
-        batch_size=32,
-        normalize=True,
-    )
+    # 1. [MOD] 임베딩 모델: Zhipu API 우선, 폴백 LocalEmbedder
+    if os.getenv("ZHIPU_API_KEY"):
+        from app.modules.core.embedding.openai_embedder import OpenAIEmbedder
 
-    # 2. ChromaVectorStore (persistent)
-    store = ChromaVectorStore(persist_directory=CHROMA_PERSIST_DIR)
+        embedder = OpenAIEmbedder(
+            openai_api_key=os.getenv("ZHIPU_API_KEY"),
+            model_name=os.getenv("ZHIPU_EMBED_MODEL", "embedding-3"),
+            output_dimensionality=1024,
+            openai_base_url=os.getenv("ZHIPU_API_URL", "https://open.bigmodel.cn/api/paas/v4/"),
+        )
+    else:
+        from app.modules.core.embedding.local_embedder import LocalEmbedder
+
+        embedder = LocalEmbedder(
+            model_name="Qwen/Qwen3-Embedding-0.6B",
+            output_dimensionality=1024,
+            batch_size=32,
+            normalize=True,
+        )
+
+    # 2. [MOD] QdrantVectorStore (embedded, no server) — chromadb 대체
+    from app.infrastructure.storage.vector.qdrant_store import QdrantVectorStore
+
+    store = QdrantVectorStore(path=QDRANT_PERSIST_DIR)
 
     # 3. BM25 인덱스 + HybridMerger (선택적)
     bm25_index = None
@@ -343,14 +365,14 @@ def initialize_components() -> tuple[Any, Any | None, Any | None]:
     except (ImportError, Exception):
         pass
 
-    # 4. ChromaRetriever (하이브리드 DI 주입)
-    retriever = ChromaRetriever(
+    # 4. [MOD] QdrantRetriever — hybrid_alpha=1.0 (Dense only):
+    #    qdrant local mode 미지원 기능(full-text index) 회피. W2에서 외장 BM25 하이브리드로 확장 예정.
+    retriever = QdrantRetriever(
         embedder=embedder,
         store=store,
         collection_name=COLLECTION_NAME,
         top_k=TOP_K,
-        bm25_index=bm25_index,
-        hybrid_merger=merger,
+        hybrid_alpha=1.0,
     )
 
     return retriever, bm25_index, merger

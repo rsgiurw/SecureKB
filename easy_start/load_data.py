@@ -33,7 +33,8 @@ sys.path.insert(0, str(project_root))
 from easy_start.i18n import get_sample_data_path, t  # noqa: E402
 
 # 상수
-CHROMA_PERSIST_DIR = str(project_root / "easy_start" / ".chroma_data")
+CHROMA_PERSIST_DIR = str(project_root / "easy_start" / ".chroma_data")  # [MOD] legacy: chromadb 미사용
+QDRANT_PERSIST_DIR = str(project_root / "easy_start" / ".qdrant_data")  # [MOD] Qdrant 임베디드 모드 저장 경로
 BM25_INDEX_PATH = str(project_root / "easy_start" / ".bm25_index.pkl")
 MANIFEST_PATH = str(project_root / "easy_start" / ".load_manifest.json")
 COLLECTION_NAME = "documents"
@@ -204,57 +205,67 @@ def build_bm25_index(docs: list[dict[str, Any]]) -> Any:
 async def load_to_chroma(
     docs: list[dict[str, Any]],
     embeddings: list[list[float]],
-    persist_dir: str = CHROMA_PERSIST_DIR,
+    persist_dir: str = QDRANT_PERSIST_DIR,
     collection_name: str = COLLECTION_NAME,
 ) -> int:
     """
-    ChromaDB에 문서 적재
+    [MOD] Qdrant 임베디드 모드에 문서 적재 (원본: ChromaDB).
+
+    배경: 개발 머신에서 chromadb 네이티브 크래시로 Qdrant(path=)로 대체.
+    함수명은 호환성을 위해 유지하되, 내부 구현은 QdrantVectorStore 사용.
 
     Args:
         docs: 준비된 문서 리스트
         embeddings: 임베딩 벡터 리스트
-        persist_dir: ChromaDB 영속 디렉토리
+        persist_dir: Qdrant 임베디드 저장 경로
         collection_name: 컬렉션 이름
 
     Returns:
         적재된 문서 수
     """
-    from app.infrastructure.storage.vector.chroma_store import ChromaVectorStore
+    from qdrant_client.models import Distance, VectorParams
 
-    store = ChromaVectorStore(persist_directory=persist_dir)
+    from app.infrastructure.storage.vector.qdrant_store import QdrantVectorStore
 
-    # ChromaVectorStore 형식으로 변환
-    chroma_docs = []
+    store = QdrantVectorStore(path=persist_dir)
+
+    # 컬렉션이 없으면 생성 (Qdrant는 upsert 시 자동 생성하지 않음)
+    client = store._ensure_client()
+    if not client.collection_exists(collection_name):
+        client.create_collection(
+            collection_name=collection_name,
+            vectors_config=VectorParams(
+                size=len(embeddings[0]) if embeddings else 1024,
+                distance=Distance.COSINE,
+            ),
+        )
+
+    # QdrantVectorStore 형식으로 변환
+    qdrant_docs = []
     for doc, vector in zip(docs, embeddings, strict=True):
-        chroma_docs.append({
+        qdrant_docs.append({
             "id": doc["id"],
-            "vector": vector,
-            "metadata": {
-                **doc["metadata"],
-                "content": doc["content"],  # 검색 결과에서 내용 반환용
-            },
+            "embedding": vector,
+            "content": doc["content"],  # 검색 결과에서 내용 반환용
+            "metadata": doc["metadata"],
         })
 
     count = await store.add_documents(
         collection=collection_name,
-        documents=chroma_docs,
+        documents=qdrant_docs,
     )
 
     return int(count)
 
 
 def reset_chroma_collection(
-    persist_dir: str = CHROMA_PERSIST_DIR,
+    persist_dir: str = QDRANT_PERSIST_DIR,
     collection_name: str = COLLECTION_NAME,
 ) -> None:
-    """easy-start 샘플 컬렉션을 재생성할 수 있도록 기존 컬렉션을 제거."""
-    import chromadb
-    from chromadb.config import Settings
+    """[MOD] easy-start 샘플 컬렉션 재생성을 위한 삭제 (Qdrant 임베디드 모드)."""
+    from qdrant_client import QdrantClient
 
-    client = chromadb.PersistentClient(
-        path=persist_dir,
-        settings=Settings(anonymized_telemetry=False),
-    )
+    client = QdrantClient(path=persist_dir)
     try:
         client.delete_collection(collection_name)
     except Exception as e:
@@ -262,7 +273,7 @@ def reset_chroma_collection(
         if "does not exist" in message or "not found" in message:
             return
         raise RuntimeError(
-            f"easy-start Chroma 컬렉션 초기화 실패: {collection_name}. "
+            f"easy-start Qdrant 컬렉션 초기화 실패: {collection_name}. "
             "컬렉션이 잠겨 있거나 손상되었을 수 있습니다."
         ) from e
 
@@ -331,18 +342,29 @@ async def main(reset: bool | None = None) -> None:
     # 2. 문서 준비
     docs = prepare_documents(raw_docs)
 
-    # 3. 로컬 임베딩 생성
-    print(f"🤖 {t('load.embedding_init')}")
-    print(f"   {t('load.embedding_init_note')}")
+    # 3. [MOD] 임베딩 생성: Zhipu API 우선(네이티브 DLL 이슈 회피), 폴백 LocalEmbedder
+    if os.getenv("ZHIPU_API_KEY"):
+        print("🤖 Zhipu embedding-3 API 사용 (OpenAI 호환 엔드포인트)")
+        from app.modules.core.embedding.openai_embedder import OpenAIEmbedder
 
-    from app.modules.core.embedding.local_embedder import LocalEmbedder
+        embedder = OpenAIEmbedder(
+            openai_api_key=os.getenv("ZHIPU_API_KEY"),
+            model_name=os.getenv("ZHIPU_EMBED_MODEL", "embedding-3"),
+            output_dimensionality=1024,
+            openai_base_url=os.getenv("ZHIPU_API_URL", "https://open.bigmodel.cn/api/paas/v4/"),
+        )
+    else:
+        print(f"🤖 {t('load.embedding_init')}")
+        print(f"   {t('load.embedding_init_note')}")
 
-    embedder = LocalEmbedder(
-        model_name="Qwen/Qwen3-Embedding-0.6B",
-        output_dimensionality=1024,
-        batch_size=32,
-        normalize=True,
-    )
+        from app.modules.core.embedding.local_embedder import LocalEmbedder
+
+        embedder = LocalEmbedder(
+            model_name="Qwen/Qwen3-Embedding-0.6B",
+            output_dimensionality=1024,
+            batch_size=32,
+            normalize=True,
+        )
     print(f"✅ {t('load.embedding_ready')}")
 
     texts = [doc["content"] for doc in docs]
@@ -358,7 +380,7 @@ async def main(reset: bool | None = None) -> None:
     else:
         print("📦 기존 easy-start Chroma 컬렉션이 있으면 재사용합니다. (삭제하지 않음)")
     count = await load_to_chroma(docs, embeddings)
-    print(f"✅ {t('load.chroma_done', count=count, path=CHROMA_PERSIST_DIR)}")
+    print(f"✅ {t('load.chroma_done', count=count, path=QDRANT_PERSIST_DIR)}")
 
     # 5. BM25 인덱스 구축
     print(f"🔍 {t('load.bm25_building')}")

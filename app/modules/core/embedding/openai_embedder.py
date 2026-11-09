@@ -60,6 +60,7 @@ class OpenAIEmbedder(BaseEmbedder, Embeddings):
         model_name: str = "text-embedding-3-large",
         output_dimensionality: int = 3072,
         batch_size: int = 100,
+        openai_base_url: str | None = None,  # [MOD] OpenAI 호환 엔드포인트(예: Zhipu) 지원
     ):
         """
         OpenAI Embedder 초기화
@@ -69,6 +70,8 @@ class OpenAIEmbedder(BaseEmbedder, Embeddings):
             model_name: 모델 이름 (기본: text-embedding-3-large)
             output_dimensionality: 출력 차원 (기본: 3072)
             batch_size: 배치 임베딩 생성 시 배치 크기
+            openai_base_url: [MOD] OpenAI 호환 base_url (None이면 공식 엔드포인트).
+                             예: "https://open.bigmodel.cn/api/paas/v4/" (Zhipu embedding-3)
         """
         # BaseEmbedder 초기화
         super().__init__(
@@ -83,9 +86,11 @@ class OpenAIEmbedder(BaseEmbedder, Embeddings):
             try:
                 from openai import OpenAI
 
-                self.client = OpenAI(api_key=openai_api_key)
+                # [MOD] base_url 지원 (OpenAI SDK는 None이면 기본 엔드포인트 사용)
+                self.client = OpenAI(api_key=openai_api_key, base_url=openai_base_url)
                 logger.info(
                     f"✅ Initialized OpenAIEmbedder: model={model_name}, dim={output_dimensionality}"
+                    + (f", base_url={openai_base_url}" if openai_base_url else "")
                 )
             except Exception as e:
                 logger.warning(f"⚠️  Failed to initialize OpenAI client: {str(e)}")
