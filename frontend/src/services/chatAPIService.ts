@@ -50,6 +50,35 @@ export function createChatAPIService(config: ChatAPIConfig): IChatAPIService {
     axiosInstance.defaults.headers.common['X-API-Key'] = config.apiKey;
   }
 
+  // [MOD] SecureKB 登录令牌：每个请求注入 Bearer；401 清凭证回登录门
+  axiosInstance.interceptors.request.use((req) => {
+    try {
+      const token = localStorage.getItem('securekb_token');
+      if (token) req.headers.Authorization = `Bearer ${token}`;
+    } catch {
+      /* ignore */
+    }
+    return req;
+  });
+  axiosInstance.interceptors.response.use(
+    (res) => res,
+    (error) => {
+      if (
+        error.response?.status === 401 &&
+        !String(error.config?.url || '').includes('/api/auth/login')
+      ) {
+        try {
+          localStorage.removeItem('securekb_token');
+          localStorage.removeItem('securekb_user');
+        } catch {
+          /* ignore */
+        }
+        window.location.reload();
+      }
+      return Promise.reject(error);
+    }
+  );
+
   /**
    * localStorage에서 세션 ID 가져오기
    */
