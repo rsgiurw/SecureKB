@@ -45,6 +45,48 @@ class ChatRequest(BaseModel):
     dept: str = Field(default="全员", description="员工部门")
     mode: str = Field(default="strict", description="strict | friendly")
     top_k: int = Field(default=3, ge=1, le=10)
+    history: list[dict[str, str]] = Field(default=[], description="最近对话 [{'role','content'}]，用于指代消解")
+
+
+# [MOD] 改造⑥ 查询改写系统提示词：把带指代的追问改写成独立完整的问题
+REWRITE_SYSTEM = (
+    "你是搜索查询改写器。根据对话历史，将用户最新问题改写为一个不依赖上下文、独立完整的问题。"
+    "规则：保留原意并补全指代（如'那''它''上述'所指的内容）；"
+    "只输出改写后的问题本身，不要任何解释或前后缀；"
+    "如果最新问题本身已经独立完整，原样输出。"
+)
+
+
+async def _rewrite_query(question: str, history: list[dict[str, str]]) -> str:
+    """多轮指代消解：历史 + 追问 → 独立问题。失败时回退原问题（优雅降级）。"""
+    if not history:
+        return question
+    try:
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(
+            api_key=os.environ["ZHIPU_API_KEY"],
+            base_url=os.getenv("ZHIPU_API_URL", "https://open.bigmodel.cn/api/paas/v4/"),
+            timeout=30,
+        )
+        hist_text = "\n".join(
+            f"{'用户' if h.get('role') == 'user' else '助手'}: {h.get('content', '')[:200]}"
+            for h in history[-4:]
+        )
+        r = await client.chat.completions.create(
+            model=os.getenv("ZHIPU_MODEL", "glm-4-flash"),
+            messages=[
+                {"role": "system", "content": REWRITE_SYSTEM},
+                {"role": "user", "content": f"对话历史：\n{hist_text}\n\n最新问题：{question}\n\n独立问题："},
+            ],
+            max_tokens=100,
+            temperature=0.0,
+        )
+        await client.close()
+        rewritten = r.choices[0].message.content.strip().strip('"').strip()
+        return rewritten or question
+    except Exception:
+        return question  # 改写失败不阻塞主流程
 
 
 @app.get("/", include_in_schema=False)
@@ -84,10 +126,14 @@ async def chat(req: ChatRequest):
     os.environ["KB_ANSWER_MODE"] = req.mode if req.mode in MODES else "strict"
 
     # [FIX] 改造②：检索级部门过滤必须按请求应用（不能走全局变量，否则身份过滤失效）
+    # [MOD] 改造⑥：多轮指代消解——带历史时先改写为独立问题再检索
+    rewritten = await _rewrite_query(req.question, req.history)
+
+    # [FIX] 改造②：检索级部门过滤必须按请求应用（不能走全局变量，否则身份过滤失效）
     # [MOD] 改造⑤：过滤后的 Dense 结果 + BM25 结果做 RRF 融合（复用 chat 的融合器）
     from easy_start.chat import _rrf_fuse
 
-    search_results = await retriever.search(query=req.question, top_k=req.top_k, filters=filters)
+    search_results = await retriever.search(query=rewritten, top_k=req.top_k, filters=filters)
     dense_docs = [
         {
             "content": getattr(sr, "content", ""),
@@ -118,6 +164,7 @@ async def chat(req: ChatRequest):
         "answer": answer,
         "mode": os.environ["KB_ANSWER_MODE"],
         "visible_as": f"{req.role}:{req.dept}",
+        "rewritten": rewritten,  # 改造⑥：展示实际用于检索的独立问题
         "citations": [
             {
                 "source": d["metadata"].get("source_file", d.get("source", "")),

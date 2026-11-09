@@ -12,7 +12,10 @@
   header h1 { font-size: 17px; }
   header .ctrl { display: flex; gap: 10px; align-items: center; font-size: 13px; margin-left: auto; }
   header select { padding: 5px 8px; border: 1px solid #d1d5db; border-radius: 6px; }
+  header button.clear { background: #f3f4f6; color: #374151; font-size: 12px; padding: 5px 10px; }
   .mode-badge { font-size: 12px; padding: 3px 10px; border-radius: 99px; background: #dbeafe; color: #1d4ed8; }
+  .rewritten { margin-top: 8px; font-size: 12px; color: #6b7280; background: #f9fafb;
+               border: 1px dashed #d1d5db; border-radius: 6px; padding: 4px 8px; }
   .layout { display: grid; grid-template-columns: 300px 1fr; gap: 16px; max-width: 1100px;
             margin: 16px auto; padding: 0 16px; align-items: start; }
   @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
@@ -54,6 +57,7 @@
       <option value="strict" selected>严谨</option>
       <option value="friendly">通俗</option>
     </select></label>
+    <button class="clear" onclick="clearChat()">清空对话</button>
   </div>
 </header>
 
@@ -79,6 +83,12 @@
 <script>
 const $ = id => document.getElementById(id);
 const chat = $('chat');
+let history = [];  // 改造⑥：多轮对话历史（指代消解用）
+
+function clearChat() {
+  history = [];
+  chat.innerHTML = '<div class="empty">对话已清空。开始新的一轮提问。</div>';
+}
 
 const DOCS = [
   ["员工考勤与请假制度", "全员"], ["薪酬福利制度", "全员"], ["招聘与入职管理制度", "全员"],
@@ -135,6 +145,7 @@ async function ask() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         question: q,
+        history: history.slice(-4),  // 改造⑥：最近 2 轮对话
         role: $('roleSel').value,
         dept: $('deptSel').value,
         mode: $('modeSel').value,
@@ -147,8 +158,14 @@ async function ask() {
     const cites = (data.citations || []).map(c => `
       <div class="cite"><b>📄 ${escapeHtml(c.source)}</b> · 相似度 ${c.score}
         <div class="txt">${escapeHtml(c.text.slice(0, 60))}…</div></div>`).join('');
+    const rewrittenChip = (data.rewritten && data.rewritten !== q)
+      ? `<div class="rewritten">🔎 检索改写（指代消解）：${escapeHtml(data.rewritten)}</div>` : '';
     thinking.innerHTML = escapeHtml(data.answer).replace(/\n/g, '<br>')
+      + rewrittenChip
       + `<div class="timing">模式:${data.mode} · 身份:${data.visible_as} · 耗时 ${secs}s</div>` + cites;
+    // 改造⑥：记录对话历史（回答截断 300 字，避免上下文膨胀）
+    history.push({ role: 'user', content: q });
+    history.push({ role: 'assistant', content: String(data.answer).slice(0, 300) });
   } catch (e) {
     thinking.textContent = '出错了：' + e.message;
   }
