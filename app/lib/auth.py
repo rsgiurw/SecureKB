@@ -398,18 +398,18 @@ class APIKeyAuth:
                         ),
                     },
                 )
+                # [MOD] 中文化：401 响应体（用户可见）
                 return JSONResponse(
                     status_code=401,
                     content={
                         "detail": {
-                            "error": "인증 실패",
-                            "message": "API Key가 필요합니다",
+                            "error": "认证失败",
+                            "message": "需要 API Key",
                             "suggestion": (
-                                "X-API-Key 헤더에 유효한 API Key를 포함하세요. "
-                                ".env 파일의 FASTAPI_AUTH_KEY 값을 사용하세요. "
-                                "Swagger UI 사용 시: 우측 상단 'Authorize' 버튼 클릭 후 키 입력"
+                                "请在 X-API-Key 请求头中携带有效的 API Key"
+                                "（使用 .env 文件中 FASTAPI_AUTH_KEY 的值）。"
+                                "通过 Swagger UI 调试时：点击右上角 'Authorize' 按钮后粘贴密钥。"
                             ),
-                            "docs": "https://github.com/youngouk/RAG_Standard#authentication",
                         },
                     },
                 )
@@ -483,7 +483,8 @@ class APIKeyAuth:
                     "type": "apiKey",
                     "in": "header",
                     "name": "X-API-Key",
-                    "description": "FastAPI 인증을 위한 키입니다. 환경 변수 FASTAPI_AUTH_KEY에 설정된 값을 입력하세요.",
+                    # [MOD] 中文化：Swagger 认证描述
+                    "description": "API 认证密钥。请输入环境变量 FASTAPI_AUTH_KEY 中设置的值。",
                 }
             }
 

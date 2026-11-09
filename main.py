@@ -594,9 +594,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 # FastAPI 앱 생성
+# [MOD] SecureKB：API 元数据中文化
 app = FastAPI(
-    title="OneRAG API",
-    description="OneRAG 시스템 - API Key 인증 필요",
+    title="SecureKB API",
+    description="SecureKB 企业知识库问答系统 - 管理接口需要 API Key 认证",
     version=APP_VERSION,
     lifespan=lifespan,
 )
