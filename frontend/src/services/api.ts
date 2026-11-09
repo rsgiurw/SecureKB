@@ -245,6 +245,16 @@ api.interceptors.request.use(
       config.baseURL = runtimeBaseURL;
     }
 
+    // [MOD] 登录令牌注入（SecureKB 登录后所有请求携带 Bearer）
+    try {
+      const kbToken = localStorage.getItem('securekb_token');
+      if (kbToken && !config.headers?.Authorization) {
+        config.headers.Authorization = `Bearer ${kbToken}`;
+      }
+    } catch {
+      // localStorage 不可用时静默跳过
+    }
+
     // 세션 생성 API 호출 시 상세 로깅
     if (config.url === '/api/chat/session') {
       logger.log('세션 생성 요청 상세 정보:', {
@@ -344,6 +354,23 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+
+    // [MOD] 登录过期/无效 → 清除凭证回到登录门（登录接口自身的 401 除外）
+    if (
+      error.response?.status === 401 &&
+      !originalRequest?.url?.includes('/api/auth/login')
+    ) {
+      try {
+        localStorage.removeItem('securekb_token');
+        localStorage.removeItem('securekb_user');
+      } catch {
+        /* ignore */
+      }
+      if (!window.location.hash.includes('login')) {
+        window.location.hash = '#/login';
+        window.location.reload();
+      }
+    }
 
     // 세션 생성 API 에러 시 상세 로깅
     if (originalRequest?.url === '/api/chat/session') {

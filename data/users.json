@@ -1,0 +1,34 @@
+{
+  "admin": {
+    "username": "admin",
+    "display_name": "管理员",
+    "role": "admin",
+    "department": "全部",
+    "salt": "b65f38090e1be595",
+    "password_hash": "98942e79bcc3ab07365bf2c595dd9a5e1040ec3bd60e7296cd30f26512d348bc"
+  },
+  "tech": {
+    "username": "tech",
+    "display_name": "技术部用户",
+    "role": "employee",
+    "department": "技术部",
+    "salt": "a27a7a7aeb0d5032",
+    "password_hash": "d8fbe96b28dfe79314149402b36156685ae76af3390ab9f650ef6fc91f6d18e4"
+  },
+  "legal": {
+    "username": "legal",
+    "display_name": "法务部用户",
+    "role": "employee",
+    "department": "法务部",
+    "salt": "caf3e5e40c16c448",
+    "password_hash": "918178dda44cc62ab15f557a27641e72f4be9eb5ffea0e30f2727a4b92b8c01f"
+  },
+  "staff": {
+    "username": "staff",
+    "display_name": "普通员工",
+    "role": "employee",
+    "department": "全员",
+    "salt": "9230b516d3b7be24",
+    "password_hash": "d44499c8a0a346ea5c7e8cf076ed195e5f1c7967dfbed05e61b1b44daf1a92a4"
+  }
+}

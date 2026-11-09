@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Toaster } from '@/components/ui/toaster';
 import { useMenuMessages } from './i18n/useMenuLocale';
+import { LoginGate, getStoredToken, getStoredUser } from './components/LoginGate';
 
 // Code Splitting: 라우트별 지연 로딩
 const ChatPage = lazy(() => import('./pages/ChatPage'));
@@ -172,6 +173,13 @@ function AppRoutes() {
   const isPromptsEnabled = useIsModuleEnabled('prompts');
   const isAdminEnabled = useIsModuleEnabled('admin');
   const location = useLocation();
+
+  // [MOD] 登录门：仅中文产品，未登录一律先登录（embed 内嵌路由豁免）
+  const isEmbedRoute = location.pathname.startsWith('/embed');
+  const authed = !!getStoredToken() && !!getStoredUser();
+  if (!isEmbedRoute && !authed) {
+    return <LoginGate onSuccess={() => window.location.reload()} />;
+  }
 
   React.useEffect(() => {
     const isChatSurface = location.pathname === '/bot' || location.pathname === '/embed/chat';

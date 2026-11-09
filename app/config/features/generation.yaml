@@ -15,7 +15,7 @@ generation:
   # 변경하면 코드 수정 없이 해당 언어로 답변한다. (예: "English", "日本語")
   # 주의: response_language="ko"(기본) 프로파일에서만 이 문자열이 프롬프트에
   # 치환된다. response_language를 en/ja로 두면 해당 언어가 직접 고정된다.
-  output_language: "한국어"
+  output_language: "中文"
 
   # ========================================
   # 응답 프로파일 언어 (다국어 응답 프로파일, GAP #2)
