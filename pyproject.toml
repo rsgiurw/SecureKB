@@ -89,7 +89,7 @@ dependencies = [
     "pyyaml==6.0.1",
     "python-dotenv==1.2.2",
     # Session and Caching
-    "cachetools==5.3.0",
+    "cachetools==7.3.0",
     # Validation and Serialization
     "pydantic-settings==2.1.0",
     # Logging and Monitoring
