@@ -24,6 +24,16 @@ if not os.getenv("ZHIPU_API_KEY"):
     print("❌ 未找到 ZHIPU_API_KEY：请确认根目录 .env 文件存在且已填写")
     sys.exit(1)
 
+# ── [MOD] 改造③：读取知识库应答模式配置（kb_admin.py 管理）──
+_cfg_path = root / "easy_start" / ".kb_config.json"
+if _cfg_path.exists():
+    try:
+        _mode = json.loads(_cfg_path.read_text(encoding="utf-8")).get("answer_mode", "strict")
+        os.environ.setdefault("KB_ANSWER_MODE", _mode)
+    except (ValueError, OSError):
+        pass
+os.environ.setdefault("KB_ANSWER_MODE", "strict")
+
 # ── [MOD] 改造②：身份选择（Security Trimming 演示）──
 # 权限模型 = 角色 × 部门 两个正交维度：
 #   角色（管理员/员工）决定是否过滤；部门是员工的属性，决定可见范围。

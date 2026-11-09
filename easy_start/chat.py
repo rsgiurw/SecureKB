@@ -76,11 +76,16 @@ def _get_system_prompt() -> str:
         시스템 프롬프트 문자열
     """
     prompt = load_prompt("system_prompt")
-    if prompt:
-        return str(prompt)
+    if not prompt:
+        prompt = str(t("chat.prompt.system_fallback"))
 
-    # 폴백: 다국어 기본 프롬프트 (프롬프트 파일 누락 시)
-    return str(t("chat.prompt.system_fallback"))
+    # [MOD] 改造③：按知识库配置的应答模式（KB_ANSWER_MODE）追加规则片段
+    mode = os.getenv("KB_ANSWER_MODE", "strict")
+    fragment = load_prompt(f"mode_{mode}")
+    if fragment:
+        prompt = f"{prompt}\n{fragment}"
+
+    return str(prompt)
 
 
 def build_user_prompt(query: str, documents: list[dict[str, Any]]) -> str:
@@ -210,7 +215,8 @@ async def _call_llm(
                 {"role": "user", "content": user_prompt},
             ],
             max_tokens=2048,
-            temperature=0.3,
+            # [MOD] 改造③：严谨模式低温（忠实优先），通俗模式中温（表达更自然）
+            temperature=(0.1 if os.getenv("KB_ANSWER_MODE", "strict") == "strict" else 0.4),
         )
 
         return response.choices[0].message.content or ""
