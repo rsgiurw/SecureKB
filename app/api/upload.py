@@ -61,7 +61,7 @@ _privacy_masker: PrivacyMasker | None = PrivacyMasker(whitelist=list(DEFAULT_WHI
 
 # 자격(principal) 식별 문자열 규약
 # - API_KEY_PRINCIPAL: 서버 API 키(X-API-Key)로 인증된 운영자. 모든 업로드 API 사용 가능.
-# - "upload-token:{session_id}": 세션 생성 시 발급된 단기 토큰을 가진 브라우저 사용자.
+# - "upload-token:{session_id}": 创建会话 시 발급된 단기 토큰을 가진 브라우저 사용자.
 #   업로드/조회만 가능하고, 공유 코퍼스를 파괴하는 삭제는 불가. 취소/재시도는 자기 세션이
 #   만든 작업에만 가능하다.
 API_KEY_PRINCIPAL = "api-key"
@@ -91,7 +91,7 @@ def get_upload_access(request: Request) -> str:
     auth = get_api_key_auth()
     if not auth.api_key:
         logger.warning(
-            "FASTAPI_AUTH_KEY 미설정 상태에서 업로드 API 요청 거부(fail-closed)",
+            "未设置 FASTAPI_AUTH_KEY，上传 API 请求被拒绝（fail-closed）",
             extra={"path": request.url.path},
         )
         raise HTTPException(status_code=401, detail=dict(AUTH_NOT_CONFIGURED_DETAIL))
@@ -130,21 +130,21 @@ def _principal_session_id(principal: Any) -> str | None:
 def require_upload_admin_access(principal: str = Depends(get_upload_access)) -> str:
     """삭제처럼 공유 코퍼스를 바꾸는 작업은 서버 API 키 자격만 허용한다.
 
-    업로드 토큰은 "세션 생성"만으로 누구나 받을 수 있는 자격이므로, 이 토큰으로 전체
+    업로드 토큰은 "创建会话"만으로 누구나 받을 수 있는 자격이므로, 이 토큰으로 전체
     문서를 삭제할 수 있게 두면 인증 없는 삭제와 같다. 토큰 자격이면 403을 돌려준다.
     """
     if _principal_session_id(principal) is not None:
         logger.warning(
-            "업로드 토큰 자격으로 관리자 전용 업로드 API 요청 거부",
+            "以上传令牌资格拒绝管理员专用上传 API 请求",
             extra={"principal": principal},
         )
         raise HTTPException(
             status_code=403,
             detail={
                 "error_code": "UPLOAD-403",
-                "error": "권한 부족",
-                "message": "이 작업은 서버 API 키(X-API-Key) 인증이 필요합니다",
-                "suggestion": "운영자 설정에서 관리자 API 키를 입력한 뒤 다시 시도하세요",
+                "error": "权限不足",
+                "message": "此操作需要服务器 API 密钥（X-API-Key）认证",
+                "suggestion": "请在运营者设置中输入管理员 API 密钥后重试",
             },
         )
     return principal
@@ -164,15 +164,15 @@ def _assert_job_owner(job: dict[str, Any], principal: str, job_id: str) -> None:
     if owner and owner == session_id:
         return
     logger.warning(
-        "다른 세션의 업로드 작업 조작 시도 거부",
+        "已拒绝操作其他会话的上传任务",
         extra={"job_id": job_id, "principal": principal, "owner_session_id": owner},
     )
     raise HTTPException(
         status_code=403,
         detail={
             "error_code": "UPLOAD-403",
-            "error": "권한 부족",
-            "message": "이 업로드 작업은 다른 세션이 생성했습니다",
+            "error": "权限不足",
+            "message": "此上传任务由其他会话创建",
             "job_id": job_id,
         },
     )
@@ -188,7 +188,7 @@ config: dict[str, Any] = {}
 
 
 def set_dependencies(app_modules: dict[str, Any], app_config: dict[str, Any]):
-    """의존성 주입"""
+    """依赖注入"""
     global modules, config, _privacy_masker
     global _audit_event_store, _audit_event_store_signature
     modules = app_modules
@@ -202,7 +202,7 @@ def set_dependencies(app_modules: dict[str, Any], app_config: dict[str, Any]):
     privacy_config = config.get("privacy", {})
     if not privacy_config.get("enabled", True):
         _privacy_masker = None
-        logger.info("🔓 Upload API: PII 마스킹 비활성화됨 (privacy.enabled: false)")
+        logger.info("🔓 Upload API：PII 掩码已禁用（privacy.enabled: false）")
 
 
 JOBS_FILE = Path("/app/uploads/jobs.json")
@@ -217,8 +217,8 @@ UPLOAD_STREAM_CHUNK_SIZE = 1024 * 1024  # 1MB: 서버 측 스트리밍 read 단�
 CHUNKED_UPLOAD_RECOMMENDED_CHUNK_SIZE = 8 * 1024 * 1024  # 8MB: 클라이언트 권장 조각 크기
 
 # 협조적 취소 상수 (#30)
-UPLOAD_CANCELLED_MESSAGE = "문서 처리가 취소되었습니다"
-UPLOAD_CANCEL_REQUESTED_MESSAGE = "문서 처리 취소 요청됨"
+UPLOAD_CANCELLED_MESSAGE = "文档处理已取消"
+UPLOAD_CANCEL_REQUESTED_MESSAGE = "已请求取消文档处理"
 UPLOAD_CANCELLABLE_STATUSES = {"receiving", "pending", "processing", "cancelling"}
 
 # 스토어 인스턴스 캐시: 설정 시그니처가 바뀌면 재생성한다.
@@ -285,7 +285,7 @@ def _resolve_upload_job_store() -> UploadJobStore:
 
 
 def _upload_job_store_type(*, store_config: dict[str, Any] | None = None) -> str:
-    """업로드 잡 스토어 타입을 해석한다 (env > config > 기본 sqlite)."""
+    """解析上传任务存储类型（env > config > 默认 sqlite）。"""
     if store_config is None:
         upload_config = config.get("uploads", {}) if isinstance(config, dict) else {}
         store_config = upload_config.get("job_store", {}) if isinstance(upload_config, dict) else {}
@@ -299,7 +299,7 @@ def _upload_job_store_type(*, store_config: dict[str, Any] | None = None) -> str
 
 
 def _is_shared_upload_job_store() -> bool:
-    """여러 인스턴스가 공유하는(Postgres) 스토어인지 여부."""
+    """是否为多实例共享（Postgres）存储。"""
     return _upload_job_store_type() in POSTGRES_UPLOAD_JOB_STORE_TYPES
 
 
@@ -379,7 +379,7 @@ def _upload_job_store_fail_closed() -> bool:
 
 
 def _upload_job_retention_seconds() -> int:
-    """종결(terminal) 잡의 보존 시간(초)을 해석한다."""
+    """解析已结束任务的保留时间（秒）。"""
     upload_config = config.get("uploads", {}) if isinstance(config, dict) else {}
     store_config = upload_config.get("job_store", {}) if isinstance(upload_config, dict) else {}
     if not isinstance(store_config, dict):
@@ -400,7 +400,7 @@ def _upload_job_retention_seconds() -> int:
 
 
 def _coerce_job_timestamp(value: Any) -> float | None:
-    """잡 타임스탬프(epoch 숫자/ISO 문자열)를 epoch float로 정규화한다."""
+    """将任务时间戳（epoch 数字/ISO 字符串）规范化为 epoch 浮点数。"""
     if isinstance(value, int | float):
         return float(value)
     if isinstance(value, str) and value.strip():
@@ -416,7 +416,7 @@ def _coerce_job_timestamp(value: Any) -> float | None:
 
 
 def _terminal_job_timestamp(job: dict[str, Any]) -> float | None:
-    """종결 잡의 종료 시각을 추정한다 (보존 만료 판정용)."""
+    """估算已结束任务的结束时间（用于保留期判定）。"""
     for key in ("completed_at", "failed_at", "cancelled_at", "updated_at"):
         timestamp = _coerce_job_timestamp(job.get(key))
         if timestamp is not None:
@@ -434,7 +434,7 @@ def cleanup_upload_jobs(
     now: float | None = None,
     retention_seconds: int | None = None,
 ) -> int:
-    """보존 기간이 지난 종결(terminal) 잡을 메모리 맵에서 제거한다."""
+    """从内存映射中移除超过保留期的已结束任务。"""
     retention = _upload_job_retention_seconds() if retention_seconds is None else retention_seconds
     if retention <= 0:
         return 0
@@ -456,7 +456,7 @@ def cleanup_upload_jobs(
 
 
 def load_upload_jobs() -> dict[str, dict[str, Any]]:
-    """업로드 작업 상태를 durable store에서 로드"""
+    """从持久存储加载上传任务状态"""
     try:
         store = _resolve_upload_job_store()
         if _is_shared_upload_job_store():
@@ -475,7 +475,7 @@ def load_upload_jobs() -> dict[str, dict[str, Any]]:
 
 
 def save_upload_jobs(jobs: dict[str, dict[str, Any]]):
-    """업로드 작업 상태를 durable store에 저장"""
+    """将上传任务状态保存到持久存储"""
     try:
         if _is_shared_upload_job_store():
             # 오토스케일 환경에서 인스턴스 로컬 맵 전체 저장은 다른 인스턴스의
@@ -490,7 +490,7 @@ def save_upload_jobs(jobs: dict[str, dict[str, Any]]):
 
 
 def save_upload_job(job_id: str) -> None:
-    """단일 잡만 저장한다 (공유 스토어에서 무관한 행 덮어쓰기 방지)."""
+    """仅保存单个任务（避免覆盖共享存储中的无关行）。"""
     job = upload_jobs.get(job_id)
     if not isinstance(job, dict):
         return
@@ -506,7 +506,7 @@ def save_upload_job(job_id: str) -> None:
 
 
 def delete_upload_job(job_id: str) -> None:
-    """잡 1건을 스토어에서 삭제한다 (공유 스토어는 행 단위 삭제)."""
+    """从存储中删除单条任务（共享存储按行删除）。"""
     if _is_shared_upload_job_store():
         try:
             store = _resolve_upload_job_store()
@@ -522,7 +522,7 @@ def delete_upload_job(job_id: str) -> None:
 
 
 def _reload_upload_jobs_if_needed(job_id: str | None = None) -> None:
-    """공유 스토어 사용 시 또는 캐시 미스 시 프로세스 로컬 잡 캐시를 갱신한다."""
+    """使用共享存储或缓存未命中时，更新进程本地任务缓存。"""
     global upload_jobs
     if _is_shared_upload_job_store() or (job_id is not None and job_id not in upload_jobs):
         loaded_jobs = load_upload_jobs()
@@ -531,7 +531,7 @@ def _reload_upload_jobs_if_needed(job_id: str | None = None) -> None:
 
 
 def _shared_upload_worker_lease_seconds() -> int:
-    """공유 스토어 워커의 잡 lease 시간(초)을 해석한다."""
+    """解析共享存储工作器的任务租约时间（秒）。"""
     raw_value = os.getenv("ONERAG_UPLOAD_JOB_WORKER_LEASE_SECONDS") or "7200"
     try:
         return max(300, int(raw_value))
@@ -558,7 +558,7 @@ upload_jobs: dict[str, dict[str, Any]] = _initial_upload_jobs()
 
 
 class DocumentInfo(BaseModel):
-    """문서 정보 모델"""
+    """文档信息模型"""
 
     id: str
     filename: str
@@ -572,7 +572,7 @@ class DocumentInfo(BaseModel):
 
 
 class UploadResponse(BaseModel):
-    """업로드 응답 모델"""
+    """上传响应模型"""
 
     job_id: str
     message: str
@@ -586,7 +586,7 @@ class JobStatusResponse(BaseModel):
     """작업 상태 응답 모델
 
     처리 프로비넌스(GAP #9): loader_type/splitter_type/storage_locations/
-    extraction_summary는 백엔드가 '실제 처리된' 값을 권위 노출한다. 프론트엔드가
+    extraction_summary는 백엔드가 '实际处理' 값을 권위 노출한다. 프론트엔드가
     파일 확장자·사용자 설정으로 추론하던 표기를 백엔드 실제값으로 대체한다.
     """
 
@@ -607,7 +607,7 @@ class JobStatusResponse(BaseModel):
 
 
 class DocumentListResponse(BaseModel):
-    """문서 목록 응답 모델"""
+    """文档列表响应模型"""
 
     documents: list[DocumentInfo]
     total_count: int
@@ -617,13 +617,13 @@ class DocumentListResponse(BaseModel):
 
 
 class BulkDeleteRequest(BaseModel):
-    """벌크 삭제 요청 모델"""
+    """批量删除请求模型"""
 
-    ids: list[str] = Field(..., description="삭제할 문서 ID 목록")
+    ids: list[str] = Field(..., description="待删除文档 ID 列表")
 
 
 class BulkDeleteResponse(BaseModel):
-    """벌크 삭제 응답 모델"""
+    """批量删除响应模型"""
 
     deleted_count: int
     failed_count: int
@@ -633,7 +633,7 @@ class BulkDeleteResponse(BaseModel):
 
 
 class UploadCancelResponse(BaseModel):
-    """업로드 작업 취소 응답 모델 (#30)"""
+    """上传任务取消响应模型（#30）"""
 
     job_id: str
     status: str
@@ -644,7 +644,7 @@ class UploadCancelResponse(BaseModel):
 
 
 class UploadRetryResponse(BaseModel):
-    """업로드 작업 재시도 응답 모델 (#10)"""
+    """上传任务重试响应模型（#10）"""
 
     job_id: str
     status: str
@@ -654,16 +654,16 @@ class UploadRetryResponse(BaseModel):
 
 
 class ChunkedUploadStartRequest(BaseModel):
-    """대용량 분할 업로드 시작 요청 모델 (#11)"""
+    """大文件分块上传开始请求模型（#11）"""
 
-    filename: str = Field(..., min_length=1, description="원본 파일명")
-    content_type: str | None = Field(None, description="파일 MIME 타입")
-    file_size: int = Field(..., gt=0, description="전체 파일 크기(바이트)")
-    metadata: dict[str, Any] | None = Field(None, description="문서 메타데이터")
+    filename: str = Field(..., min_length=1, description="原始文件名")
+    content_type: str | None = Field(None, description="文件 MIME 类型")
+    file_size: int = Field(..., gt=0, description="文件总大小（字节）")
+    metadata: dict[str, Any] | None = Field(None, description="文档元数据")
 
 
 class ChunkedUploadStartResponse(BaseModel):
-    """대용량 분할 업로드 시작 응답 모델 (#11)"""
+    """大文件分块上传开始响应模型（#11）"""
 
     job_id: str
     message: str
@@ -674,7 +674,7 @@ class ChunkedUploadStartResponse(BaseModel):
 
 
 class ChunkedUploadChunkResponse(BaseModel):
-    """대용량 분할 업로드 조각 응답 모델 (#11)"""
+    """大文件分块上传分片响应模型（#11）"""
 
     job_id: str
     status: str
@@ -686,13 +686,13 @@ class ChunkedUploadChunkResponse(BaseModel):
 
 
 class ChunkedUploadCompleteRequest(BaseModel):
-    """대용량 분할 업로드 완료 요청 모델 (#11)"""
+    """大文件分块上传完成请求模型（#11）"""
 
-    metadata: dict[str, Any] | None = Field(None, description="문서 메타데이터(옵션)")
+    metadata: dict[str, Any] | None = Field(None, description="文档元数据（可选）")
 
 
 def get_upload_directory() -> Path:
-    """업로드 디렉토리 반환"""
+    """返回上传目录"""
     upload_path = config.get("uploads", {}).get("directory", "./uploads")
     upload_dir = Path(upload_path).resolve()
     try:
@@ -708,7 +708,7 @@ def get_upload_directory() -> Path:
 
 
 def estimate_processing_time(file_size: int, file_type: str) -> float:
-    """파일 크기와 타입을 기반으로 처리 시간 예측"""
+    """根据文件大小和类型预测处理时间"""
     base_time = 20.0
     size_mb = file_size / (1024 * 1024)
     processing_rates = {
@@ -757,7 +757,7 @@ def _document_processing_timeout_seconds() -> float:
 
 
 def validate_file(file: UploadFile) -> dict[str, Any]:
-    """파일 검증"""
+    """文件校验"""
     supported_types = {
         "application/pdf": "pdf",
         "text/plain": "txt",
@@ -775,9 +775,9 @@ def validate_file(file: UploadFile) -> dict[str, Any]:
             return {
                 "valid": False,
                 "error": {
-                    "error": "지원하지 않는 파일 형식",
-                    "message": f"'{file.content_type}' 형식은 지원되지 않습니다",
-                    "suggestion": "지원 형식: PDF, DOCX, PPTX, TXT, MD, CSV, XLSX, HTML, JSON",
+                    "error": "不支持的文件格式",
+                    "message": f"'{file.content_type}' 不支持该格式",
+                    "suggestion": "支持格式：PDF、DOCX、PPTX、TXT、MD、CSV、XLSX、HTML、JSON",
                     "file_name": file.filename,
                     "file_type": file.content_type,
                     "supported_extensions": [
@@ -803,9 +803,9 @@ def validate_file(file: UploadFile) -> dict[str, Any]:
         return {
             "valid": False,
             "error": {
-                "error": "파일 크기 초과",
-                "message": f"파일 크기({file_size_mb:.1f}MB)가 최대 허용 크기({max_size_mb:.0f}MB)를 초과했습니다",
-                "suggestion": "파일을 압축하거나 여러 파일로 분할하여 업로드하세요",
+                "error": "文件大小超限",
+                "message": f"文件大小（{file_size_mb:.1f}MB）超过最大允许大小（{max_size_mb:.0f}MB）",
+                "suggestion": "请压缩文件或拆分为多个文件后上传",
                 "file_name": file.filename,
                 "file_size_mb": round(file_size_mb, 1),
                 "max_size_mb": int(max_size_mb),
@@ -849,7 +849,7 @@ def _persist_original_file(
 
 
 def _delete_original_for_document(document_id: str) -> None:
-    """문서 삭제 시 보관 원본을 best-effort로 정리한다 (#10).
+    """文档删除 시 보관 원본을 best-effort로 정리한다 (#10).
 
     문서 id는 업로드 job_id와 동일하므로 잡 메타데이터에서 원본 참조를 해석한다.
     원본이 없거나 해석 불가하면 조용히 통과한다(삭제 자체를 막지 않음).
@@ -912,7 +912,7 @@ def _is_current_processing_attempt(
 
 
 def _upload_job_processing_time(job: dict[str, Any]) -> float | None:
-    """잡의 누적 처리 시간(초)을 추정한다(없으면 start_time 기준 계산)."""
+    """估算任务累计处理时间（秒）；无则按 start_time 计算。"""
     existing = _coerce_job_timestamp(job.get("processing_time"))
     if existing is not None:
         return existing
@@ -923,7 +923,7 @@ def _upload_job_processing_time(job: dict[str, Any]) -> float | None:
 
 
 def _safe_unlink_child_file(path_value: Any, parent: Path) -> None:
-    """parent 하위 경로의 파일만 안전하게 삭제한다(경로 우회 방지)."""
+    """仅安全删除 parent 子目录下的文件（防止路径穿越）。"""
     if not path_value:
         return
     candidate = Path(str(path_value)).expanduser()
@@ -1044,7 +1044,7 @@ def _finalize_if_upload_cancel_requested(
     temp_file_path: Path | str | None = None,
     original_file_path: Path | str | None = None,
 ) -> bool:
-    """취소가 요청됐으면 잡을 cancelled로 마무리한다(체크포인트용, #30)."""
+    """若收到取消请求，将任务置为 cancelled（检查点用途，#30）。"""
     if not _is_upload_cancel_requested(job_id):
         return False
     return _finalize_upload_job_cancelled(
@@ -1057,7 +1057,7 @@ def _finalize_if_upload_cancel_requested(
 # ============================================================
 # 처리 프로비넌스 헬퍼 (GAP #9)
 # ============================================================
-# 백엔드가 '실제 처리된' loader/splitter/storage/extraction 값을 산출한다.
+# 백엔드가 '实际处理' loader/splitter/storage/extraction 값을 산출한다.
 # 일본어/도메인/멀티테넌시/Document AI OCR 하드코딩은 제외해 범용성을 유지한다.
 
 # 파일타입 → 사람이 읽기 좋은 로더 라벨
@@ -1094,7 +1094,7 @@ EXTRACTION_SUMMARY_FIELDS = {
 
 
 def _coerce_optional_int(value: Any) -> int | None:
-    """값을 정수로 변환하되 None/빈문자열/bool은 None으로 처리한다."""
+    """将值转换为整数；None/空字符串/布尔值按 None 处理。"""
     if value is None or value == "" or isinstance(value, bool):
         return None
     try:
@@ -1104,13 +1104,13 @@ def _coerce_optional_int(value: Any) -> int | None:
 
 
 def _doc_metadata(document: Any) -> dict[str, Any] | None:
-    """문서 객체에서 dict metadata를 안전하게 추출한다(없으면 None)."""
+    """从文档对象中安全提取 dict 类型的 metadata（无则返回 None）。"""
     metadata = getattr(document, "metadata", None)
     return metadata if isinstance(metadata, dict) else None
 
 
 def _first_metadata_value(documents: list[Any], keys: tuple[str, ...]) -> str | None:
-    """문서 metadata에서 keys 중 처음 발견되는 비어있지 않은 문자열을 반환한다."""
+    """返回文档 metadata 中 keys 里第一个非空字符串。"""
     for document in documents:
         metadata = _doc_metadata(document)
         if metadata is None:
@@ -1125,7 +1125,7 @@ def _first_metadata_value(documents: list[Any], keys: tuple[str, ...]) -> str | 
 def _upload_loader_type(file_type: str, documents: list[Any]) -> str:
     """실제 사용된 로더 라벨을 산출한다(GAP #9).
 
-    PDF는 loader가 기록한 extraction_method(pypdf 등)를 라벨에 반영해 '어떻게'
+    PDF는 loader가 기록한 extraction_method(pypdf 등)를 라벨에 반영해 '如何'
     추출됐는지 노출한다. 그 외 파일타입은 LOADER_TYPE_LABELS로 매핑한다.
 
     Args:
@@ -1297,7 +1297,7 @@ async def process_document_background(
         if _finalize_if_upload_cancel_requested(job_id=job_id, temp_file_path=file_path):
             return
         upload_jobs[job_id].update(
-            {"status": "processing", "progress": 10, "message": "문서 처리 시작..."}
+            {"status": "processing", "progress": 10, "message": "文档处理开始..."}
         )
         save_upload_job(job_id)
         document_processor = modules.get("document_processor")
@@ -1309,7 +1309,7 @@ async def process_document_background(
         if asyncio.iscoroutine(retrieval_module) or isinstance(retrieval_module, asyncio.Future):
             retrieval_module = await retrieval_module
         logger.info(f"Loading document: {filename}")
-        upload_jobs[job_id].update({"progress": 30, "message": "문서 로딩 중..."})
+        upload_jobs[job_id].update({"progress": 30, "message": "文档加载中..."})
         save_upload_job(job_id)
         file_size = file_path.stat().st_size
 
@@ -1318,7 +1318,7 @@ async def process_document_background(
         if _privacy_masker:
             masked_filename = _privacy_masker.mask_filename(filename)
             if masked_filename != filename:
-                logger.info(f"파일명 PII 마스킹 적용: {filename} → {masked_filename}")
+                logger.info(f"文件名 PII 掩码已应用：{filename} → {masked_filename}")
         else:
             masked_filename = filename  # PII 마스킹 비활성화 시 원본 사용
 
@@ -1342,7 +1342,7 @@ async def process_document_background(
         ):
             return
         logger.info(f"Splitting document into chunks: {len(docs)} documents")
-        upload_jobs[job_id].update({"progress": 50, "message": "문서 분할 중..."})
+        upload_jobs[job_id].update({"progress": 50, "message": "文档分块中..."})
         save_upload_job(job_id)
         chunks = await document_processor.split_documents(docs)
         # 체크포인트(분할 후): 취소 요청/이전 attempt 확인 (#30)
@@ -1356,7 +1356,7 @@ async def process_document_background(
             return
         logger.info(f"Document split into {len(chunks)} chunks")
         upload_jobs[job_id].update(
-            {"progress": 70, "message": f"임베딩 생성 중... ({len(chunks)}개 청크)"}
+            {"progress": 70, "message": f"正在生成嵌入...（{len(chunks)} 个分块）"}
         )
         save_upload_job(job_id)
         # 병렬 임베딩 사용: 청크를 워커별로 분할해 동시 임베딩한다.
@@ -1374,7 +1374,7 @@ async def process_document_background(
         ):
             return
         upload_jobs[job_id].update(
-            {"progress": 90, "message": f"벡터 DB에 저장 중... ({len(embedded_chunks)}개 임베딩)"}
+            {"progress": 90, "message": f"正在写入向量数据库...（{len(embedded_chunks)} 个嵌入）"}
         )
         save_upload_job(job_id)
         indexing_started = True
@@ -1395,21 +1395,21 @@ async def process_document_background(
                 errors = index_result.get("errors") or ["unknown error"]
                 first_error = errors[0] if isinstance(errors, list) else str(errors)
                 raise RuntimeError(
-                    "Vector DB 저장 실패: "
-                    f"성공 {success_count}/{total_count}, 실패 {error_count}. "
-                    f"첫 번째 오류: {first_error}"
+                    "写入向量数据库失败： "
+                    f"成功 {success_count}/{total_count}，失败 {error_count}。 "
+                    f"首个错误：{first_error}"
                 )
         elif isinstance(index_result, int) and index_result != len(embedded_chunks):
             raise RuntimeError(
-                "Vector DB 저장 실패: "
-                f"성공 {index_result}/{len(embedded_chunks)}, 실패 {len(embedded_chunks) - index_result}"
+                "写入向量数据库失败： "
+                f"成功 {index_result}/{len(embedded_chunks)}，失败 {len(embedded_chunks) - index_result}"
             )
         try:
             os.unlink(file_path)
         except Exception as e:
             logger.warning(f"Failed to delete temp file: {e}")
         processing_time = datetime.now().timestamp() - upload_jobs[job_id]["start_time"]
-        # 처리 프로비넌스 산출(GAP #9): 실제 처리된 loader/splitter/storage/extraction
+        # 처리 프로비넌스 산출(GAP #9): 实际处理 loader/splitter/storage/extraction
         # 값을 백엔드 권위로 기록한다. 산출 실패는 비치명적(필드만 누락).
         provenance_update: dict[str, Any] = {
             "loader_type": _upload_loader_type(file_type, docs),
@@ -1423,7 +1423,7 @@ async def process_document_background(
             {
                 "status": "completed",
                 "progress": 100,
-                "message": "문서 처리 완료",
+                "message": "文档处理完成",
                 "chunk_count": len(chunks),
                 "processing_time": processing_time,
                 **provenance_update,
@@ -1442,7 +1442,7 @@ async def process_document_background(
             {
                 "status": "failed",
                 "progress": 0,
-                "message": "문서 처리 실패",
+                "message": "文档处理失败",
                 "error_message": str(error),
                 "retry_safe": bool(original_file_path),
                 "indexing_started": indexing_started,
@@ -1492,10 +1492,10 @@ async def _finalize_upload_job_timed_out(
             {
                 "status": "failed",
                 "progress": 0,
-                "message": "문서 처리 시간 초과",
+                "message": "文档处理超时",
                 "error_message": (
-                    "문서 처리가 제한 시간을 초과했습니다. 파일을 더 작게 분할해 "
-                    "다시 시도하세요."
+                    "文档处理超出时限，请将文件切分得更小 "
+                    "请重试。"
                 ),
                 "internal_error_message": (
                     f"processing timed out after {timeout_seconds:.0f}s"
@@ -1630,7 +1630,7 @@ async def upload_document(
     metadata: str | None = Form(None),
     principal: str = Depends(get_upload_access),
 ):
-    """문서 업로드"""
+    """文档上传"""
     try:
         validation = validate_file(file)
         if not validation["valid"]:
@@ -1644,9 +1644,9 @@ async def upload_document(
             raise HTTPException(
                 status_code=400,
                 detail={
-                    "error": "잘못된 파일명",
-                    "message": "파일명이 유효하지 않습니다",
-                    "suggestion": "올바른 파일명을 사용하여 다시 업로드하세요 (숨김 파일은 업로드할 수 없습니다)",
+                    "error": "文件名无效",
+                    "message": "文件名无效",
+                    "suggestion": "请使用正确的文件名重新上传（不支持隐藏文件）",
                     "file_name": file.filename,
                 },
             )
@@ -1655,26 +1655,26 @@ async def upload_document(
             resolved_path = file_path.resolve()
             resolved_temp_dir = temp_dir.resolve()
             if not str(resolved_path).startswith(str(resolved_temp_dir)):
-                logger.error(f"Path Traversal 시도 차단: {file.filename}")
+                logger.error(f"已拦截路径穿越尝试：{file.filename}")
                 raise HTTPException(
                     status_code=400,
                     detail={
-                        "error": "보안 검증 실패",
-                        "message": "파일 경로에서 보안 위협이 감지되었습니다",
-                        "suggestion": "파일명에 특수문자나 경로 문자(.., /)가 포함되지 않았는지 확인하세요",
+                        "error": "安全校验失败",
+                        "message": "检测到文件路径存在安全威胁",
+                        "suggestion": "请确认文件名不含特殊字符或路径字符（..、/）",
                         "file_name": file.filename,
                     },
                 )
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"파일 경로 검증 실패: {e}")
+            logger.error(f"文件路径校验失败：{e}")
             raise HTTPException(
                 status_code=400,
                 detail={
-                    "error": "파일 경로 검증 실패",
-                    "message": "파일 경로를 검증하는 중 오류가 발생했습니다",
-                    "suggestion": "파일명에 특수문자가 포함되지 않았는지 확인하고 다시 시도하세요",
+                    "error": "文件路径校验失败",
+                    "message": "校验文件路径时发生错误",
+                    "suggestion": "请确认文件名不含特殊字符后重试",
                     "file_name": file.filename,
                     "technical_error": str(e),
                 },
@@ -1707,7 +1707,7 @@ async def upload_document(
             "file_size": file_size,
             "status": "pending",
             "progress": 0,
-            "message": "업로드 완료, 처리 대기 중...",
+            "message": "上传完成，等待处理中...",
             "start_time": datetime.now().timestamp(),
             "chunk_count": None,
             "processing_time": None,
@@ -1733,16 +1733,16 @@ async def upload_document(
         logger.info(f"Document upload initiated: {file.filename}, job_id: {job_id}")
         size_mb = file_size / (1024 * 1024)
         if estimated_time > 60:
-            time_msg = f"약 {estimated_time / 60:.1f}분"
+            time_msg = f"约 {estimated_time / 60:.1f} 分钟"
         else:
-            time_msg = f"약 {estimated_time:.0f}초"
+            time_msg = f"约 {estimated_time:.0f} 秒"
         if size_mb > 10:
             warning_msg = (
-                " ⚠️ 대용량 파일로 인해 처리 시간이 오래 걸릴 수 있습니다. 브라우저를 닫지 마세요."
+                " ⚠️ 大文件处理可能耗时较长，请勿关闭浏览器。"
             )
         else:
             warning_msg = ""
-        user_message = f"파일 업로드 완료! 문서 처리 중입니다. 예상 시간: {time_msg} (파일 크기: {size_mb:.1f}MB){warning_msg}"
+        user_message = f"文件上传完成！文档处理中。预计时间：{time_msg}（文件大小：{size_mb:.1f}MB）{warning_msg}"
         return UploadResponse(
             job_id=job_id,
             message=user_message,
@@ -1758,9 +1758,9 @@ async def upload_document(
         raise HTTPException(
             status_code=500,
             detail={
-                "error": "업로드 실패",
-                "message": "파일 업로드 중 오류가 발생했습니다",
-                "suggestion": "네트워크 연결을 확인하고 다시 시도하세요. 문제가 지속되면 관리자에게 문의하세요",
+                "error": "上传失败",
+                "message": "上传文件时发生错误",
+                "suggestion": "请检查网络连接后重试。若问题持续，请联系管理员",
                 "file_name": file.filename if file and hasattr(file, "filename") else None,
                 "retry_after": 30,
                 "technical_error": str(error),
@@ -1770,7 +1770,7 @@ async def upload_document(
 
 @router.get("/upload/status/{job_id}", response_model=JobStatusResponse)
 async def get_upload_status(job_id: str):
-    """업로드 작업 상태 조회"""
+    """上传任务状态查询"""
     # 공유 스토어 사용 시 다른 인스턴스의 갱신을 반영하고, 캐시 미스 시 재로드한다.
     _reload_upload_jobs_if_needed(job_id)
     if job_id not in upload_jobs:
@@ -1778,9 +1778,9 @@ async def get_upload_status(job_id: str):
         raise HTTPException(
             status_code=404,
             detail={
-                "error": "작업을 찾을 수 없음",
-                "message": "요청하신 업로드 작업을 찾을 수 없습니다",
-                "suggestion": "서버가 재시작되었을 수 있습니다. 파일을 다시 업로드해주세요",
+                "error": "未找到任务",
+                "message": "未找到您的上传任务",
+                "suggestion": "服务器可能已重启，请重新上传文件",
                 "job_id": job_id,
                 "retry_upload": True,
             },
@@ -1809,7 +1809,7 @@ async def get_upload_status(job_id: str):
 
 
 def _coerce_document_upload_date(value: Any) -> str:
-    """문서 업로드 일시를 ISO 문자열로 정규화한다.
+    """文档上传 일시를 ISO 문자열로 정규화한다.
 
     - bool은 int의 하위 타입이라 epoch(1초)로 오인될 수 있으므로 먼저 배제한다.
     - 숫자 epoch은 UTC 기준으로 변환해 항상 시간대 정보를 부여한다(naive/aware 혼합 방지).
@@ -1830,16 +1830,16 @@ def _coerce_document_upload_date(value: Any) -> str:
 
 @router.get("/upload/documents", response_model=DocumentListResponse)
 async def list_documents(page: int = 1, page_size: int = 20):
-    """문서 목록 조회"""
+    """文档列表查询"""
     try:
         retrieval_module = modules.get("retrieval")
         if not retrieval_module:
             raise HTTPException(
                 status_code=500,
                 detail={
-                    "error": "시스템 모듈 사용 불가",
-                    "message": "문서 검색 모듈을 사용할 수 없습니다",
-                    "suggestion": "서버 상태를 확인하고 관리자에게 문의하세요",
+                    "error": "系统模块不可用",
+                    "message": "文档检索模块不可用",
+                    "suggestion": "请检查服务器状态并联系管理员",
                     "module_name": "retrieval",
                     "retry_after": 60,
                 },
@@ -1883,9 +1883,9 @@ async def list_documents(page: int = 1, page_size: int = 20):
         raise HTTPException(
             status_code=500,
             detail={
-                "error": "문서 목록 조회 실패",
-                "message": "문서 목록을 불러오는 중 오류가 발생했습니다",
-                "suggestion": "잠시 후 다시 시도하거나 관리자에게 문의하세요",
+                "error": "文档列表查询失败",
+                "message": "加载文档列表时发生错误",
+                "suggestion": "请稍后重试或联系管理员",
                 "page": page,
                 "page_size": page_size,
                 "retry_after": 30,
@@ -1899,16 +1899,16 @@ async def list_documents(page: int = 1, page_size: int = 20):
     dependencies=[Depends(require_upload_admin_access)],
 )
 async def delete_document(document_id: str):
-    """문서 삭제"""
+    """文档删除"""
     try:
         retrieval_module = modules.get("retrieval")
         if not retrieval_module:
             raise HTTPException(
                 status_code=500,
                 detail={
-                    "error": "시스템 모듈 사용 불가",
-                    "message": "문서 검색 모듈을 사용할 수 없습니다",
-                    "suggestion": "서버 상태를 확인하고 관리자에게 문의하세요",
+                    "error": "系统模块不可用",
+                    "message": "文档检索模块不可用",
+                    "suggestion": "请检查服务器状态并联系管理员",
                     "module_name": "retrieval",
                     "retry_after": 60,
                 },
@@ -1938,9 +1938,9 @@ async def delete_document(document_id: str):
         raise HTTPException(
             status_code=500,
             detail={
-                "error": "문서 삭제 실패",
-                "message": "문서를 삭제하는 중 오류가 발생했습니다",
-                "suggestion": "문서가 이미 삭제되었거나 접근 권한이 없을 수 있습니다. 다시 시도하거나 관리자에게 문의하세요",
+                "error": "文档删除失败",
+                "message": "删除文档时发生错误",
+                "suggestion": "文档可能已被删除或无访问权限。请重试或联系管理员",
                 "document_id": document_id,
                 "retry_after": 30,
                 "technical_error": str(error),
@@ -1954,16 +1954,16 @@ async def delete_document(document_id: str):
     dependencies=[Depends(require_upload_admin_access)],
 )
 async def bulk_delete_documents(request: BulkDeleteRequest):
-    """문서 일괄 삭제"""
+    """文档批量删除"""
     try:
         retrieval_module = modules.get("retrieval")
         if not retrieval_module:
             raise HTTPException(
                 status_code=500,
                 detail={
-                    "error": "시스템 모듈 사용 불가",
-                    "message": "문서 검색 모듈을 사용할 수 없습니다",
-                    "suggestion": "서버 상태를 확인하고 관리자에게 문의하세요",
+                    "error": "系统模块不可用",
+                    "message": "文档检索模块不可用",
+                    "suggestion": "请检查服务器状态并联系管理员",
                     "module_name": "retrieval",
                     "retry_after": 60,
                 },
@@ -2013,9 +2013,9 @@ async def bulk_delete_documents(request: BulkDeleteRequest):
         raise HTTPException(
             status_code=500,
             detail={
-                "error": "일괄 삭제 실패",
-                "message": "문서 일괄 삭제 중 오류가 발생했습니다",
-                "suggestion": "네트워크 연결을 확인하고 다시 시도하거나 관리자에게 문의하세요",
+                "error": "批量删除失败",
+                "message": "批量删除文档时发生错误",
+                "suggestion": "请检查网络连接后重试，或联系管理员",
                 "requested_count": len(request.ids) if request and hasattr(request, "ids") else 0,
                 "retry_after": 30,
                 "technical_error": str(error),
@@ -2038,9 +2038,9 @@ async def download_document(document_id: str):
             raise HTTPException(
                 status_code=500,
                 detail={
-                    "error": "시스템 모듈 사용 불가",
-                    "message": "문서 검색 모듈을 사용할 수 없습니다",
-                    "suggestion": "서버 상태를 확인하고 관리자에게 문의하세요",
+                    "error": "系统模块不可用",
+                    "message": "文档检索模块不可用",
+                    "suggestion": "请检查服务器状态并联系管理员",
                 },
             )
 
@@ -2051,9 +2051,9 @@ async def download_document(document_id: str):
             raise HTTPException(
                 status_code=404,
                 detail={
-                    "error": "문서를 찾을 수 없음",
-                    "message": "요청하신 문서를 찾을 수 없습니다",
-                    "suggestion": "문서가 삭제되었거나 ID가 올바르지 않을 수 있습니다",
+                    "error": "未找到文档",
+                    "message": "未找到您请求的文档",
+                    "suggestion": "文档可能已被删除或 ID 不正确",
                     "document_id": document_id,
                 },
             )
@@ -2098,9 +2098,9 @@ async def download_document(document_id: str):
         raise HTTPException(
             status_code=500,
             detail={
-                "error": "문서 다운로드 실패",
-                "message": "문서를 다운로드하는 중 오류가 발생했습니다",
-                "suggestion": "잠시 후 다시 시도하거나 관리자에게 문의하세요",
+                "error": "文档下载失败",
+                "message": "下载文档时发生错误",
+                "suggestion": "请稍后重试或联系管理员",
                 "document_id": document_id,
                 "technical_error": str(error),
             },
@@ -2109,7 +2109,7 @@ async def download_document(document_id: str):
 
 @router.get("/upload/supported-types")
 async def get_supported_types():
-    """지원하는 파일 타입 목록"""
+    """支持的文件类型列表"""
     return {
         "supported_types": {
             "pdf": {
@@ -2165,7 +2165,7 @@ async def get_supported_types():
 
 
 def _guess_original_media_type(filename: str) -> str:
-    """파일명 확장자로 MIME 타입을 추정한다(미상 시 octet-stream)."""
+    """按文件扩展名推断 MIME 类型（未知时为 octet-stream）。"""
     ext = Path(filename).suffix.lower().lstrip(".")
     media_types = {
         "pdf": "application/pdf",
@@ -2310,8 +2310,8 @@ async def _get_document_chunks_for_detail(document_id: str) -> list[Any]:
         raise HTTPException(
             status_code=500,
             detail={
-                "error": "시스템 모듈 사용 불가",
-                "message": "문서 검색 모듈을 사용할 수 없습니다",
+                "error": "系统模块不可用",
+                "message": "文档检索模块不可用",
                 "document_id": document_id,
             },
         )
@@ -2324,8 +2324,8 @@ async def _get_document_chunks_for_detail(document_id: str) -> list[Any]:
         raise HTTPException(
             status_code=501,
             detail={
-                "error": "청크 상세 조회 미지원",
-                "message": "현재 검색 모듈은 문서 청크 상세 조회를 지원하지 않습니다",
+                "error": "不支持分块详情查询",
+                "message": "当前检索模块不支持文档分块详情查询",
                 "document_id": document_id,
             },
         )
@@ -2336,8 +2336,8 @@ async def _get_document_chunks_for_detail(document_id: str) -> list[Any]:
         raise HTTPException(
             status_code=501,
             detail={
-                "error": "청크 상세 조회 미지원",
-                "message": "현재 검색 모듈은 문서 청크 상세 조회를 지원하지 않습니다",
+                "error": "不支持分块详情查询",
+                "message": "当前检索模块不支持文档分块详情查询",
                 "document_id": document_id,
             },
         ) from error
@@ -2353,7 +2353,7 @@ async def get_document_source_detail(
     page: int | None = Query(default=None),
     chunk: int | None = Query(default=None),
 ) -> dict[str, Any]:
-    """청크(인용 출처)의 전체 본문을 source_id로 조회한다."""
+    """按 source_id 查询分块（引用来源）的完整内容。"""
     chunks = await _get_document_chunks_for_detail(document_id)
     for index, item in enumerate(chunks):
         metadata = _chunk_metadata(item)
@@ -2408,8 +2408,8 @@ async def get_document_source_detail(
     raise HTTPException(
         status_code=404,
         detail={
-            "error": "출처 청크를 찾을 수 없음",
-            "message": "요청하신 출처 청크를 찾을 수 없습니다",
+            "error": "未找到来源分块",
+            "message": "未找到您请求的来源分块",
             "document_id": document_id,
             "source_id": source_id,
         },
@@ -2430,8 +2430,8 @@ async def download_original_document(document_id: str):
             status_code=404,
             detail={
                 "error_code": "UPLOAD-020",
-                "error": "작업을 찾을 수 없음",
-                "message": "요청하신 업로드 작업을 찾을 수 없습니다",
+                "error": "未找到任务",
+                "message": "未找到您的上传任务",
                 "document_id": document_id,
             },
         )
@@ -2447,9 +2447,9 @@ async def download_original_document(document_id: str):
             status_code=404,
             detail={
                 "error_code": "STORAGE-001",
-                "error": "원본 파일 없음",
-                "message": "보관된 원본 파일을 찾을 수 없습니다",
-                "suggestion": "원본 보관 이전에 업로드된 문서이거나 원본이 정리되었을 수 있습니다",
+                "error": "原始文件缺失",
+                "message": "未找到归档的原始文件",
+                "suggestion": "可能是归档功能上线前上传的文档，或原始文件已被清理",
                 "document_id": document_id,
             },
         ) from error
@@ -2463,8 +2463,8 @@ async def download_original_document(document_id: str):
             status_code=500,
             detail={
                 "error_code": "STORAGE-003",
-                "error": "원본 다운로드 실패",
-                "message": "원본 파일을 읽는 중 오류가 발생했습니다",
+                "error": "原始文件下载失败",
+                "message": "读取原始文件时发生错误",
                 "document_id": document_id,
             },
         ) from error
@@ -2481,7 +2481,7 @@ async def download_original_document(document_id: str):
 
 
 def _upload_cancel_response(job_id: str, job: dict[str, Any]) -> UploadCancelResponse:
-    """잡 상태로부터 취소 응답 모델을 구성한다."""
+    """从任务状态构造取消响应模型。"""
     return UploadCancelResponse(
         job_id=job_id,
         status=str(job.get("status") or "unknown"),
@@ -2511,8 +2511,8 @@ async def cancel_upload_job(
             status_code=404,
             detail={
                 "error_code": "UPLOAD-020",
-                "error": "작업을 찾을 수 없음",
-                "message": "요청하신 업로드 작업을 찾을 수 없습니다",
+                "error": "未找到任务",
+                "message": "未找到您的上传任务",
                 "job_id": job_id,
             },
         )
@@ -2526,8 +2526,8 @@ async def cancel_upload_job(
             status_code=409,
             detail={
                 "error_code": "UPLOAD-021",
-                "error": "작업 취소 불가",
-                "message": "이미 완료되었거나 실패한 업로드 작업은 취소할 수 없습니다",
+                "error": "无法取消任务",
+                "message": "已完成或已失败的上传任务无法取消",
                 "job_id": job_id,
                 "status": status,
             },
@@ -2537,8 +2537,8 @@ async def cancel_upload_job(
             status_code=409,
             detail={
                 "error_code": "UPLOAD-021",
-                "error": "작업 취소 불가",
-                "message": "현재 상태에서는 업로드 작업을 취소할 수 없습니다",
+                "error": "无法取消任务",
+                "message": "当前状态无法取消上传任务",
                 "job_id": job_id,
                 "status": status,
             },
@@ -2596,8 +2596,8 @@ async def retry_upload_job(
             status_code=404,
             detail={
                 "error_code": "UPLOAD-020",
-                "error": "작업을 찾을 수 없음",
-                "message": "요청하신 업로드 작업을 찾을 수 없습니다",
+                "error": "未找到任务",
+                "message": "未找到您的上传任务",
                 "job_id": job_id,
             },
         )
@@ -2608,8 +2608,8 @@ async def retry_upload_job(
             status_code=409,
             detail={
                 "error_code": "UPLOAD-022",
-                "error": "작업 재시도 불가",
-                "message": "현재 상태에서는 업로드 작업을 재시도할 수 없습니다",
+                "error": "无法重试任务",
+                "message": "当前状态无法重试上传任务",
                 "job_id": job_id,
                 "status": status,
             },
@@ -2627,8 +2627,8 @@ async def retry_upload_job(
             status_code=409,
             detail={
                 "error_code": "UPLOAD-023",
-                "error": "작업 재시도 불가",
-                "message": "재시도에 필요한 원본 파일을 사용할 수 없습니다",
+                "error": "无法重试任务",
+                "message": "重试所需的原始文件不可用",
                 "job_id": job_id,
             },
         ) from error
@@ -2645,8 +2645,8 @@ async def retry_upload_job(
             status_code=409,
             detail={
                 "error_code": "UPLOAD-023",
-                "error": "작업 재시도 불가",
-                "message": "재시도에 필요한 원본 파일을 준비하지 못했습니다",
+                "error": "无法重试任务",
+                "message": "重试所需的原始文件准备失败",
                 "job_id": job_id,
             },
         ) from error
@@ -2659,7 +2659,7 @@ async def retry_upload_job(
         {
             "status": "pending",
             "progress": 0,
-            "message": "업로드 재시도 대기 중...",
+            "message": "等待上传重试中...",
             "start_time": now.timestamp(),
             "chunk_count": None,
             "processing_time": None,
@@ -2696,7 +2696,7 @@ async def retry_upload_job(
     return UploadRetryResponse(
         job_id=job_id,
         status="pending",
-        message="재처리를 시작합니다",
+        message="开始重新处理",
         retry_count=retry_count,
         timestamp=now.isoformat(),
     )
@@ -2708,7 +2708,7 @@ async def retry_upload_job(
 
 
 def _validate_descriptor(filename: str, content_type: str | None, file_size: int) -> dict[str, Any]:
-    """분할 업로드 시작 시 파일명/타입/크기를 검증한다(단일 업로드와 동일 규칙)."""
+    """分块上传开始时校验文件名/类型/大小（与单文件上传规则一致）。"""
     supported_types = {
         "application/pdf": "pdf",
         "text/plain": "txt",
@@ -2730,8 +2730,8 @@ def _validate_descriptor(filename: str, content_type: str | None, file_size: int
             "valid": False,
             "error": {
                 "error_code": "UPLOAD-001",
-                "error": "지원하지 않는 파일 형식",
-                "message": f"'{content_type}' 형식은 지원되지 않습니다",
+                "error": "不支持的文件格式",
+                "message": f"'{content_type}' 不支持该格式",
                 "file_name": filename,
             },
         }
@@ -2741,8 +2741,8 @@ def _validate_descriptor(filename: str, content_type: str | None, file_size: int
             "valid": False,
             "error": {
                 "error_code": "UPLOAD-002",
-                "error": "파일 크기 초과",
-                "message": "파일 크기가 최대 허용 크기를 초과했습니다",
+                "error": "文件大小超限",
+                "message": "文件大小超过最大允许值",
                 "file_name": filename,
                 "max_size_mb": int(max_size / (1024 * 1024)),
             },
@@ -2751,7 +2751,7 @@ def _validate_descriptor(filename: str, content_type: str | None, file_size: int
 
 
 def _build_chunked_temp_path(upload_dir: Path, *, job_id: str, raw_filename: str) -> tuple[str, Path]:
-    """분할 업로드용 temp 파일 경로를 path-traversal 가드와 함께 생성한다."""
+    """创建分块上传的临时文件路径（含路径穿越防护）。"""
     temp_dir = upload_dir / "temp"
     temp_dir.mkdir(parents=True, exist_ok=True)
     safe_filename = Path(raw_filename or "unknown").name
@@ -2760,8 +2760,8 @@ def _build_chunked_temp_path(upload_dir: Path, *, job_id: str, raw_filename: str
             status_code=400,
             detail={
                 "error_code": "UPLOAD-005",
-                "error": "잘못된 파일명",
-                "message": "파일명이 유효하지 않습니다",
+                "error": "文件名无效",
+                "message": "文件名无效",
                 "file_name": raw_filename,
             },
         )
@@ -2771,8 +2771,8 @@ def _build_chunked_temp_path(upload_dir: Path, *, job_id: str, raw_filename: str
             status_code=400,
             detail={
                 "error_code": "UPLOAD-006",
-                "error": "보안 검증 실패",
-                "message": "파일 경로에서 보안 위협이 감지되었습니다",
+                "error": "安全校验失败",
+                "message": "检测到文件路径存在安全威胁",
                 "file_name": raw_filename,
             },
         )
@@ -2780,7 +2780,7 @@ def _build_chunked_temp_path(upload_dir: Path, *, job_id: str, raw_filename: str
 
 
 def _get_chunked_receiving_job(job_id: str) -> dict[str, Any]:
-    """receiving 상태의 분할 업로드 잡을 가져온다(상태/유형 검증)."""
+    """获取 receiving 状态的分块上传任务（状态/类型校验）。"""
     _reload_upload_jobs_if_needed(job_id)
     job = upload_jobs.get(job_id)
     if not isinstance(job, dict):
@@ -2788,8 +2788,8 @@ def _get_chunked_receiving_job(job_id: str) -> dict[str, Any]:
             status_code=404,
             detail={
                 "error_code": "UPLOAD-020",
-                "error": "작업을 찾을 수 없음",
-                "message": "요청하신 분할 업로드 작업을 찾을 수 없습니다",
+                "error": "未找到任务",
+                "message": "未找到您的分块上传任务",
                 "job_id": job_id,
             },
         )
@@ -2798,8 +2798,8 @@ def _get_chunked_receiving_job(job_id: str) -> dict[str, Any]:
             status_code=409,
             detail={
                 "error_code": "UPLOAD-019",
-                "error": "분할 업로드 상태 오류",
-                "message": "현재 상태에서는 파일 조각을 받을 수 없습니다",
+                "error": "分块上传状态错误",
+                "message": "当前状态无法接收文件分片",
                 "job_id": job_id,
                 "status": job.get("status"),
             },
@@ -2835,7 +2835,7 @@ async def start_chunked_upload(
         "file_size": payload.file_size,
         "status": "receiving",
         "progress": 0,
-        "message": "파일 조각 수신 중...",
+        "message": "正在接收文件分片...",
         "start_time": datetime.now().timestamp(),
         "chunk_count": None,
         "processing_time": None,
@@ -2852,7 +2852,7 @@ async def start_chunked_upload(
     save_upload_job(job_id)
     return ChunkedUploadStartResponse(
         job_id=job_id,
-        message="분할 업로드 작업이 생성되었습니다",
+        message="分块上传任务已创建",
         filename=payload.filename,
         file_size=payload.file_size,
         chunk_size=CHUNKED_UPLOAD_RECOMMENDED_CHUNK_SIZE,
@@ -2876,8 +2876,8 @@ async def upload_chunked_chunk(
             status_code=400,
             detail={
                 "error_code": "UPLOAD-016",
-                "error": "잘못된 업로드 위치",
-                "message": "offset은 0 이상이어야 합니다",
+                "error": "上传位置无效",
+                "message": "offset 必须大于等于 0",
                 "job_id": job_id,
             },
         )
@@ -2891,8 +2891,8 @@ async def upload_chunked_chunk(
             status_code=409,
             detail={
                 "error_code": "UPLOAD-016",
-                "error": "업로드 위치 불일치",
-                "message": "서버가 기대한 offset과 요청 offset이 다릅니다",
+                "error": "上传位置不匹配",
+                "message": "请求的 offset 与服务器预期不一致",
                 "job_id": job_id,
                 "expected_offset": received_size,
                 "received_offset": offset,
@@ -2908,8 +2908,8 @@ async def upload_chunked_chunk(
             status_code=400,
             detail={
                 "error_code": "UPLOAD-006",
-                "error": "보안 검증 실패",
-                "message": "파일 경로에서 보안 위협이 감지되었습니다",
+                "error": "安全校验失败",
+                "message": "检测到文件路径存在安全威胁",
                 "job_id": job_id,
             },
         ) from error
@@ -2926,8 +2926,8 @@ async def upload_chunked_chunk(
                         status_code=400,
                         detail={
                             "error_code": "UPLOAD-017",
-                            "error": "파일 크기 초과",
-                            "message": "수신된 파일 조각이 선언된 전체 파일 크기를 초과했습니다",
+                            "error": "文件大小超限",
+                            "message": "收到的文件分片超过声明的总大小",
                             "job_id": job_id,
                             "file_size": expected_size,
                         },
@@ -2940,8 +2940,8 @@ async def upload_chunked_chunk(
             status_code=500,
             detail={
                 "error_code": "UPLOAD-008",
-                "error": "분할 업로드 실패",
-                "message": "파일 조각을 저장하는 중 오류가 발생했습니다",
+                "error": "分块上传失败",
+                "message": "保存文件分片时发生错误",
                 "job_id": job_id,
             },
         ) from error
@@ -2952,7 +2952,7 @@ async def upload_chunked_chunk(
         {
             "chunk_received_size": received_size,
             "progress": progress,
-            "message": f"파일 조각 수신 중... ({received_size}/{expected_size} bytes)",
+            "message": f"正在接收文件分片...（{received_size}/{expected_size} 字节）",
             "updated_at": datetime.now().isoformat(),
         }
     )
@@ -2963,7 +2963,7 @@ async def upload_chunked_chunk(
         received_size=received_size,
         file_size=expected_size,
         progress=progress,
-        message="파일 조각이 저장되었습니다",
+        message="文件分片已保存",
         timestamp=datetime.now().isoformat(),
     )
 
@@ -2996,8 +2996,8 @@ async def complete_chunked_upload(
                 status_code=400,
                 detail={
                     "error_code": "UPLOAD-006",
-                    "error": "보안 검증 실패",
-                    "message": "파일 경로에서 보안 위협이 감지되었습니다",
+                    "error": "安全校验失败",
+                    "message": "检测到文件路径存在安全威胁",
                     "job_id": job_id,
                 },
             ) from error
@@ -3007,8 +3007,8 @@ async def complete_chunked_upload(
                 status_code=409,
                 detail={
                     "error_code": "UPLOAD-018",
-                    "error": "분할 업로드 미완료",
-                    "message": "전체 파일 크기만큼 조각이 수신되지 않았습니다",
+                    "error": "分块上传未完成",
+                    "message": "收到的分片未达到文件总大小",
                     "job_id": job_id,
                     "expected_size": expected_size,
                     "received_size": received_size,
@@ -3033,7 +3033,7 @@ async def complete_chunked_upload(
             {
                 "status": "pending",
                 "progress": 0,
-                "message": "업로드 완료, 처리 대기 중...",
+                "message": "上传完成，等待处理中...",
                 "start_time": datetime.now().timestamp(),
                 "processing_attempt_id": processing_attempt_id,
                 **original_payload,
@@ -3051,7 +3051,7 @@ async def complete_chunked_upload(
         estimated_time = estimate_processing_time(expected_size, file_type)
         return UploadResponse(
             job_id=job_id,
-            message="파일 업로드 완료! 문서 처리 중입니다.",
+            message="文件上传完成！文档处理中。",
             filename=filename,
             file_size=expected_size,
             estimated_processing_time=estimated_time,
@@ -3065,8 +3065,8 @@ async def complete_chunked_upload(
             status_code=500,
             detail={
                 "error_code": "UPLOAD-008",
-                "error": "분할 업로드 완료 실패",
-                "message": "분할 업로드를 완료하는 중 오류가 발생했습니다",
+                "error": "分块上传完成失败",
+                "message": "完成分块上传时发生错误",
                 "job_id": job_id,
                 "retry_after": 30,
             },

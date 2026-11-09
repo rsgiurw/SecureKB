@@ -186,11 +186,16 @@ rag:
   #       한국어 기본값("관련 문서를 찾을 수 없습니다. 문서를 업로드했는지 확인하거나
   #       질문을 바꿔 다시 시도해주세요."). 비한국어 운영자는 코드 포크 없이 교체 가능.
   generation_fallback:
-    module_missing_message: null
-    with_docs_message: null
-    no_docs_message: null
-    document_preview_unavailable: null
-    prompt_leakage_blocked_message: null
+    # [MOD] 中文化：降级话术（null=使用代码默认值；此处显式中文）
+    module_missing_message: "抱歉，AI 服务暂时不可用，请稍后重试。"
+    with_docs_message: "已找到相关内容：
+
+{content}...
+
+（当前 AI 服务暂时故障，详细回答受限，请稍后重试。）"
+    no_docs_message: "知识库中没有找到相关内容。您可以换个问法，或联系管理员确认相关文档是否已上传。"
+    document_preview_unavailable: "暂无法预览该文档内容。"
+    prompt_leakage_blocked_message: "根据安全策略，内部指令内容不予公开。请重新提问需要基于文档回答的内容。"
     type_error_message: null
     no_documents_message: null
 
