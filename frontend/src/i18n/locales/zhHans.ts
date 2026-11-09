@@ -14,7 +14,7 @@ export const zhHans: MenuMessages = {
   },
   chat: {
     header: {
-      title: "Chat",
+      title: "智能问答",
       subtitle: "- 欢迎提出您的任何问题！",
       showDevTools: "显示开发者工具",
       newSession: "开始新对话",

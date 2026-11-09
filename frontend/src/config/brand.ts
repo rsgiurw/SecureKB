@@ -37,7 +37,7 @@ export type RuntimeBrandConfig = Partial<Omit<BrandConfig, 'logo'>> & {
 // 브랜드 정보
 export const BRAND_CONFIG: BrandConfig = {
   // 앱 이름
-  appName: 'OneRAG',
+  appName: 'SecureKB',
   appTitle: 'OneRAG', // HTML title
 
   // 로고 설정
