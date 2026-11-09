@@ -164,3 +164,4 @@ temp_*.md
 pip-audit-report.md
 easy_start/.qdrant_data/
 easy_start/.kb_config.json
+uploads/
