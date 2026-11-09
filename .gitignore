@@ -165,3 +165,5 @@ pip-audit-report.md
 easy_start/.qdrant_data/
 easy_start/.kb_config.json
 uploads/
+translations_*.txt
+ko_visible_strings.txt
