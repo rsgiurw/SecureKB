@@ -29,7 +29,7 @@ export default defineConfig({
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: https:",
         "font-src 'self' data:",
-        "connect-src 'self' http://localhost:8000 ws://localhost:8000 https://*.railway.app wss://*.railway.app",
+        "connect-src 'self' http://127.0.0.1:8000 ws://127.0.0.1:8000 https://*.railway.app wss://*.railway.app",
         `frame-ancestors ${frameAncestors}`,
         "base-uri 'self'",
         "form-action 'self'",
@@ -42,12 +42,12 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: process.env.VITE_API_BASE_URL || 'http://localhost:8000',
+        target: process.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000',
         changeOrigin: true,
         secure: true,
       },
       '/api/admin/ws': {
-        target: process.env.VITE_WS_BASE_URL || 'ws://localhost:8000',
+        target: process.env.VITE_WS_BASE_URL || 'ws://127.0.0.1:8000',
         ws: true,
         changeOrigin: true,
         secure: true,
