@@ -41,10 +41,10 @@ os.environ.pop("KB_DEPARTMENTS", None)  # 评测以管理员视角，不启用�
 from easy_start.chat import initialize_components, search_documents  # noqa: E402
 
 
-async def eval_case(case: dict, retriever, max_k: int) -> dict:
+async def eval_case(case: dict, retriever, max_k: int, bm25_index: any = None) -> dict:
     """评测单题：检索 + 命中判定 + 延迟统计。"""
     t0 = time.perf_counter()
-    docs = await search_documents(case["question"], retriever, top_k=max_k)
+    docs = await search_documents(case["question"], retriever, top_k=max_k, bm25_index=bm25_index)
     latency_ms = (time.perf_counter() - t0) * 1000
 
     retrieved = [d["metadata"].get("source_file", "") for d in docs]
@@ -84,11 +84,11 @@ async def main() -> None:
     cases = json.loads(Path(args.golden).read_text(encoding="utf-8"))["cases"]
     print(f"📋 Golden 集：{len(cases)} 题 | 截断位：{k_list} | 配置标签：{args.label}\n")
 
-    retriever, _, _ = initialize_components()
+    retriever, bm25_index, _ = initialize_components()
 
     results = []
     for case in cases:
-        r = await eval_case(case, retriever, max_k)
+        r = await eval_case(case, retriever, max_k, bm25_index=bm25_index)
         for k in k_list:
             r[f"hit@{k}"] = bool(r["first_rank"] and r["first_rank"] <= k)
         results.append(r)

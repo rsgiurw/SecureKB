@@ -133,6 +133,27 @@ async def main(kb_dir: Path, reset: bool) -> None:
     ]
     count = await store.add_documents(collection=COLLECTION_NAME, documents=qdrant_docs)
 
+    # [MOD] 改造⑤：构建中文 BM25 索引（jieba 分词），供 RRF 混合检索使用
+    try:
+        from easy_start.load_data import save_bm25_index
+        from easy_start.zh_tokenizer import ChineseTokenizer
+
+        try:
+            from app.modules.core.retrieval.bm25.stopwords import StopwordFilter
+
+            stopword_filter = StopwordFilter(use_defaults=True, enabled=True)
+        except ImportError:
+            stopword_filter = None
+
+        from app.modules.core.retrieval.bm25_engine import BM25Index
+
+        bm25_index = BM25Index(tokenizer=ChineseTokenizer(stopword_filter=stopword_filter))
+        bm25_index.build(docs)
+        save_bm25_index(bm25_index)
+        print("✅ BM25 索引已构建（jieba 中文分词）")
+    except ImportError as e:
+        print(f"⚠️ BM25 跳过（缺依赖）：{e}")
+
     total = client.count(COLLECTION_NAME).count
     print(f"✅ 入库完成：本次 {count} 条，集合共 {total} 条（应为 {len(docs)}）")
 

@@ -303,13 +303,15 @@ def load_bm25_index(path: str = BM25_INDEX_PATH) -> Any:
     """
     from rank_bm25 import BM25Plus
 
-    from app.modules.core.retrieval.bm25_engine import BM25Index, KoreanTokenizer
+    # [MOD] 改造⑤：中文语料改用 jieba 分词器（重建 BM25 索引时使用）
+    from easy_start.zh_tokenizer import ChineseTokenizer
+    from app.modules.core.retrieval.bm25_engine import BM25Index
 
     with open(path, "rb") as f:
         data = pickle.load(f)  # noqa: S301
 
     # 토크나이저는 검색 시 쿼리 토큰화에만 사용
-    tokenizer = KoreanTokenizer()
+    tokenizer = ChineseTokenizer()
     index = BM25Index(tokenizer=tokenizer)
 
     # 저장된 데이터로 내부 상태 복원 (재토큰화 없이)

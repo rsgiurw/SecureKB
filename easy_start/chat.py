@@ -307,38 +307,82 @@ async def search_documents(
     query: str,
     retriever: Any = None,
     top_k: int = TOP_K,
+    bm25_index: Any | None = None,  # [MOD] 改造⑤：传入则启用 Dense+BM25 混合（RRF）
 ) -> list[dict[str, Any]]:
     """
-    ChromaDB + BM25 하이브리드 검색 수행
+    Qdrant Dense + BM25 混合检索（RRF 融合）
 
     Args:
-        query: 검색 쿼리
-        retriever: ChromaRetriever 인스턴스
-        top_k: 반환할 결과 수
+        query: 检索查询
+        retriever: QdrantRetriever 实例
+        top_k: 返回结果数
+        bm25_index: BM25Index 实例（None 时退化为纯 Dense）
 
     Returns:
-        검색 결과 리스트
+        检索结果列表
     """
     if retriever is None:
         return []
 
+    # [MOD] 改造⑤：Dense + BM25 混合检索（RRF 融合）
     search_results = await retriever.search(
         query=query,
         top_k=top_k,
-        filters=_SEARCH_FILTERS,  # [MOD] 改造②：Security Trimming 部门过滤
+        filters=_SEARCH_FILTERS,  # 改造②：Security Trimming 部门过滤
     )
-
-    # SearchResult → dict 변환
-    results = []
-    for sr in search_results:
-        results.append({
+    dense_docs = [
+        {
             "content": getattr(sr, "content", ""),
             "score": getattr(sr, "score", 0.0),
             "source": getattr(sr, "id", ""),
             "metadata": getattr(sr, "metadata", {}),
-        })
+        }
+        for sr in search_results
+    ]
 
-    return results
+    if bm25_index is None:
+        return dense_docs
+
+    bm25_results = bm25_index.search(query, top_k=top_k)
+    bm25_docs = [
+        {"content": d.get("content", ""), "source": d.get("id", ""), "metadata": d.get("metadata", {})}
+        for d in bm25_results
+    ]
+    return _rrf_fuse(dense_docs, bm25_docs, top_k)
+
+
+def _rrf_fuse(
+    dense_docs: list[dict], bm25_docs: list[dict], top_k: int, k: int = 60
+) -> list[dict]:
+    """Reciprocal Rank Fusion：score = Σ 1/(k + rank_i)，按 content 键对齐两路结果。
+
+    RRF 的优势：不依赖两路分数的量纲（余弦 vs BM25 归一化分），只用排名融合，
+    鲁棒且简单——这正是它成为混合检索事实标准的原因（面试考点）。
+    融合后按最高分归一化，便于展示。
+    """
+    rrf_scores: dict[str, float] = {}
+    entries: dict[str, dict] = {}
+
+    for rank, d in enumerate(dense_docs, 1):
+        key = d["content"]
+        rrf_scores[key] = rrf_scores.get(key, 0.0) + 1.0 / (k + rank)
+        entries.setdefault(key, d)
+
+    for rank, d in enumerate(bm25_docs, 1):
+        key = d["content"]
+        rrf_scores[key] = rrf_scores.get(key, 0.0) + 1.0 / (k + rank)
+        if key not in entries:
+            entries[key] = {"content": key, "source": d.get("source", ""), "metadata": d.get("metadata", {})}
+
+    ranked = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+    max_score = ranked[0][1] if ranked else 1.0
+
+    fused = []
+    for key, s in ranked:
+        doc = dict(entries[key])
+        doc["score"] = round(s / max_score, 3) if max_score else 0.0
+        fused.append(doc)
+    return fused
 
 
 def initialize_components() -> tuple[Any, Any | None, Any | None]:
@@ -581,6 +625,7 @@ async def chat_loop() -> None:
             results = await search_documents(
                 query=query,
                 retriever=retriever,
+                bm25_index=bm25_index,  # [MOD] 改造⑤：混合检索
             )
 
         if not results:
