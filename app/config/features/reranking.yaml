@@ -47,10 +47,13 @@ reranking:
   # ========================================
   # 기본 설정
   # ========================================
-  # 출하 기본값: GOOGLE_API_KEY만으로 동작하는 조합 (quickstart 호환)
-  # GOOGLE_API_KEY 부재 시에도 graceful degradation으로 리랭킹 없이 동작합니다.
-  approach: "llm"     # legacy 전용: llm | cross-encoder | late-interaction | local
-  provider: "google"  # legacy 전용: approach에 따라 유효한 provider 선택
+  # [MOD] SecureKB（2026-11-10）：出厂默认 llm/google 需要 GOOGLE_API_KEY
+  # （SecureKB 用智谱，没有），会 graceful degradation 成"无 rerank"——
+  # 这就是排序质量差（候选 #2 不相关）的根因。改为 local/bge：
+  # BAAI/bge-reranker-v2-m3 本地多语言 reranker，免 API key，CPU 可推理。
+  # 首次启动需从 HuggingFace 下载模型（约 2.3GB，建议 HF_ENDPOINT=https://hf-mirror.com）。
+  approach: "local"   # legacy 전용: llm | cross-encoder | late-interaction | local
+  provider: "bge"     # legacy 전용: approach에 따라 유효한 provider 선택
 
   # (선택) 더 빠른 토큰 레벨 리랭킹을 원하면 아래 조합으로 변경하세요.
   # 단, JINA_API_KEY 환경변수가 반드시 필요합니다 (https://jina.ai/).
@@ -164,6 +167,8 @@ reranking:
   #    설치: uv sync --extra local-embedding
   #    (미설치 시 리랭킹 시점에 설치 안내 에러가 발생합니다)
   bge:
+    # [MOD] SecureKB：实测 v2-m3 对 3 候选 rerank 仅 0.7s（8 候选约 2s），
+    # 并非端到端延迟主因（大头是 LLM 生成与 embedding API），保留质量最优的 v2-m3。
     model: "BAAI/bge-reranker-v2-m3"
     top_n: 10
     max_documents: 16
