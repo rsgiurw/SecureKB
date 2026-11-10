@@ -28,6 +28,7 @@ from ...lib.topic_extractor import extract_topic
 from ...lib.types import RAGResultDict, SessionInfoDict, SessionResult, StatsDict
 from ...modules.core.privacy.cn_pii import ChinaPIIMasker
 from ...security.input_guard import scan_input
+from ...security.output_compliance import OutputComplianceEngine
 from .secure_audit_service import get_secure_audit_service
 from .blocked_response import DEFAULT_BLOCKED_ANSWER
 from .rag_pipeline import RAGPipeline
@@ -188,6 +189,9 @@ class ChatService:
         privacy_config = config.get("privacy") or {}
         self._pii_masking_enabled = privacy_config.get("enabled") is not False
         self._pii_masker = ChinaPIIMasker()
+        # [MOD] 输出合规规则引擎（安全模块：整合 PII 掩码/提示词泄漏/密钥格式/
+        # 注入回声四类规则，block/mask 分级处置）
+        self._output_engine = OutputComplianceEngine(pii_masker=self._pii_masker)
 
         # 통계 정보
         self.stats = {
@@ -529,10 +533,25 @@ class ChatService:
             result["sources"] = self._filter_sources_by_answer(
                 result.get("sources") or [], result["answer"]
             )
-            # [MOD] PII 出口掩码（纵深防御最后一层）：制度语料本身无真实 PII，
-            # 此层防御的是未来语料混入敏感信息或 LLM 幻觉拼凑出数字串的场景。
+            # [MOD] 输出合规规则引擎（纵深防御最后一层）：PII 掩码 + 提示词泄漏
+            # /密钥格式/注入回声四类规则，block/mask 分级处置；violations 入审计。
+            # （流式路径 chunk 已渐进发射无法事后处置，其防线是入口清洗——已知限制）
             if self._pii_masking_enabled:
-                result["answer"] = self._pii_masker.mask_text(result["answer"])
+                compliance = self._output_engine.check(result["answer"])
+                if compliance.violations:
+                    self._audit(
+                        category="security",
+                        action="output.compliance",
+                        session_id=session_id,
+                        result="blocked" if compliance.blocked else "masked",
+                        detail={
+                            "violations": [
+                                {"rule": v.rule_id, "severity": v.severity}
+                                for v in compliance.violations
+                            ],
+                        },
+                    )
+                result["answer"] = compliance.final
         return cast(RAGResultDict, result)
 
     async def add_conversation_to_session(
