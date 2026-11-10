@@ -525,7 +525,8 @@ export const useChatMessages = ({
     const handleSend = async (directMessage?: string) => {
         // 임베드 host가 메시지를 직접 전달한 경우(directMessage) 그것을 사용하고,
         // 아니면 기존처럼 입력창(input) 상태값을 사용한다.
-        const rawMessage = directMessage ?? input;
+        // [MOD] 防御：只接受字符串——onClick 直传时 React 会把事件对象塞进来
+        const rawMessage = typeof directMessage === 'string' ? directMessage : input;
         const messageContent = rawMessage.trim();
         if (!messageContent || loading) return;
 

@@ -148,11 +148,15 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
                                                         {source.document}
                                                         {source.page && <span className="ml-1 text-[10px] opacity-60 font-normal">(p.{source.page})</span>}
                                                     </div>
-                                                    <Badge variant="outline" className={cn(
-                                                        "h-4 text-[8px] px-1 font-extrabold shrink-0 shadow-none border-none",
-                                                        source.relevance > 0.8 ? "bg-green-500/10 text-green-600" : "bg-slate-500/10 text-slate-600"
-                                                    )}>
-                                                        {(source.relevance * 100).toFixed(0)}%
+                                                    {/* [MOD] 显示排序名次而非百分比：hybrid 模式的 relevance 是
+                                                        RRF 归一化排序权重（约 1/(60+rank)，正常仅 1%~3%），
+                                                        显示成 % 会被误读为"置信度只有 2%" */}
+                                                    <Badge
+                                                        title="按检索相关度排序的名次"
+                                                        variant="outline"
+                                                        className="h-4 text-[8px] px-1 font-extrabold shrink-0 shadow-none border-none bg-slate-500/10 text-slate-600"
+                                                    >
+                                                        #{idx + 1}
                                                     </Badge>
                                                 </div>
                                                 <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed relative z-10">

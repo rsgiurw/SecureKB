@@ -63,7 +63,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Button
-                                onClick={loading ? handleStop : handleSend}
+                                // [MOD] 必须包箭头函数：React 会把点击事件对象作为第一个参数
+                                // 传入 handleSend(event)，被误当成 directMessage 后
+                                // event.trim() 抛异常 → 点击发送永远失败（回车无参所以正常）
+                                onClick={loading ? handleStop : () => handleSend()}
                                 disabled={(!loading && !input.trim()) || !isOnline}
                                 aria-label={loading ? messages.chat.input.stopResponse : messages.chat.input.sendMessage}
                                 size="icon"
