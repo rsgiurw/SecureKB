@@ -434,54 +434,25 @@ class ChatService:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def _format_stream_sources(self, documents: list[Any]) -> list[dict[str, Any]]:
-        """Normalize retrieved documents for stream metadata and done events."""
-        sources: list[dict[str, Any]] = []
-        for index, document in enumerate(documents):
-            metadata = getattr(document, "metadata", None)
-            if not isinstance(metadata, dict) and isinstance(document, dict):
-                metadata = document.get("metadata", {})
-            if not isinstance(metadata, dict):
-                metadata = {}
+    def _format_stream_sources(
+        self,
+        documents: list[Any],
+        sql_search_result: Any | None = None,
+    ) -> list[dict[str, Any]]:
+        """Normalize retrieved documents for stream metadata and done events.
 
-            # 인접 청크 확장으로 추가된 이웃 청크는 실제 검색 히트가 아니므로
-            # 사용자 인용 소스에서 제외한다(비스트리밍 format_sources와 정합)(#4).
-            if metadata.get("context_expanded"):
-                continue
-
-            content = (
-                getattr(document, "page_content", None)
-                or getattr(document, "content", None)
-                or (document.get("content") if isinstance(document, dict) else "")
-                or ""
-            )
-            # 점수 추출: 0.0도 유효한 값이므로 `or` 대신 명시적 None 검사를 사용한다(#14).
-            score_candidates = (
-                getattr(document, "score", None),
-                metadata.get("score"),
-                metadata.get("relevance"),
-            )
-            score = next(
-                (candidate for candidate in score_candidates if candidate is not None),
-                0.0,
-            )
-            source_name = (
-                metadata.get("source")
-                or metadata.get("source_file")
-                or metadata.get("file_name")
-                or metadata.get("filename")
-                or f"document-{index + 1}"
-            )
-
-            sources.append(
-                {
-                    "id": index,
-                    "document": str(source_name),
-                    "content_preview": str(content)[:200],
-                    "relevance": float(score) if isinstance(score, (int, float)) else 0.0,
-                }
-            )
-        return sources
+        [MOD] 复用与非流式路径完全相同的来源格式化（rag_pipeline.format_sources
+        → _format_rag_source）。此前这里手写了简化版来源，document 字段取到
+        集合名（company_kb），Web 来源卡片的标题全部显示成集合名而非真实
+        文档名（2026-11-10）。同源格式化保证 SSE 与 REST 的引用字段一致。
+        """
+        try:
+            formatted = self.rag_pipeline.format_sources(documents, sql_search_result)
+            return [source.model_dump(mode="json") for source in formatted.sources]
+        except Exception as e:
+            # 格式化失败非致命：回答照常流式输出，仅不附带来源卡片。
+            logger.warning(f"스트리밍 소스 포맷팅 실패, 빈 목록으로 진행 - {e}")
+            return []
 
     def _get_stream_model_info(self, generation_module: Any | None) -> dict[str, Any]:
         """Return best-effort model metadata for streaming completion events."""
@@ -723,7 +694,8 @@ class ChatService:
                 pass
 
             # 5. 메타데이터 이벤트 전송
-            stream_sources = self._format_stream_sources(reranked_documents)
+            # [MOD] 传入 sql_search_result：与 REST 同源格式化（含 SQL 元数据来源）
+            stream_sources = self._format_stream_sources(reranked_documents, sql_search_result)
             metadata_event = {
                 "event": "metadata",
                 "data": {
