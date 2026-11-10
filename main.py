@@ -720,26 +720,14 @@ if env_allowed_origins:
     )
 
 # ✅ H6 보안 패치: allow_methods를 명시적으로 지정 (와일드카드 제거)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=default_allowed_origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=[
-        "Content-Type",
-        "Authorization",
-        "X-API-Key",
-        "X-Session-ID",
-        "X-OneRAG-Visitor-ID",
-        "Accept-Language",
-        # [MOD] 浏览器上传通道凭据头（创建会话时签发的短期令牌）。
-        # 缺了会触发 CORS 预检 400 "Disallowed CORS headers"——文档管理列表
-        # 在"刚聊过天（持有上传令牌）"的浏览器里必然加载失败（2026-11-10）。
-        "X-OneRAG-Upload-Token",
-        "X-OneRAG-Session-Id",
-    ],
-)
-
+# [MOD] 注意：此 CORSMiddleware 注册已移至文件更下方（所有中间件之后）——
+# Starlette 中后注册的中间件在最外层。放在最外层的动机（2026-11-10）：
+# ① 跨域直连架构下，浏览器每个请求前的 OPTIONS 预检由 CORS 在最外层直接
+#   短路应答，不再穿透到内层限流器——此前预检计入聊天限流配额（20/分钟
+#   被预检+真实请求双倍消耗），用户连发几条消息即被打满，且 429 无 CORS
+#   头 → 前端只能看到 "Network Error" 而非真实原因；
+# ② 内层中间件返回的 429/401 响应经过外层 CORS 出站时自动补上
+#   Access-Control-Allow-Origin，前端可读出真实错误信息。
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
@@ -794,6 +782,28 @@ app.add_middleware(
 from app.middleware.error_logger import ErrorLoggingMiddleware
 
 app.add_middleware(ErrorLoggingMiddleware)
+
+# [MOD] CORS 注册在最外层（见上方注释）。Starlette 后注册的中间件位于最外层，
+# 这里必须放在所有 add_middleware / @app.middleware 之后。
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=default_allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "X-API-Key",
+        "X-Session-ID",
+        "X-OneRAG-Visitor-ID",
+        "Accept-Language",
+        # 浏览器上传通道凭据头（创建会话时签发的短期令牌）。缺了会触发
+        # CORS 预检 400 "Disallowed CORS headers"——文档管理列表在"刚聊过
+        # 天（持有上传令牌）"的浏览器里必然加载失败（2026-11-10）。
+        "X-OneRAG-Upload-Token",
+        "X-OneRAG-Session-Id",
+    ],
+)
 
 # 정적 파일 서빙 (있는 경우)
 static_path = Path(__file__).parent.parent / "public"
