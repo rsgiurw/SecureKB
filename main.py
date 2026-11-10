@@ -732,6 +732,11 @@ app.add_middleware(
         "X-Session-ID",
         "X-OneRAG-Visitor-ID",
         "Accept-Language",
+        # [MOD] 浏览器上传通道凭据头（创建会话时签发的短期令牌）。
+        # 缺了会触发 CORS 预检 400 "Disallowed CORS headers"——文档管理列表
+        # 在"刚聊过天（持有上传令牌）"的浏览器里必然加载失败（2026-11-10）。
+        "X-OneRAG-Upload-Token",
+        "X-OneRAG-Session-Id",
     ],
 )
 
