@@ -4,7 +4,8 @@ import { parseHtmlContent } from './htmlParser';
 
 export const formatSourcePreview = (text?: string, limit = 220): string => {
     if (!text) {
-        return '미리보기를 제공하지 않는 문서입니다.';
+        // [MOD] 韩文占位文本改为中文（SecureKB 仅中文，上游残留已清理）
+        return '（该来源未提供内容预览）';
     }
 
     // HTML 콘텐츠 파싱

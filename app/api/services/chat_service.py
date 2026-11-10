@@ -13,6 +13,7 @@ Phase 3.2: chat.py에서 추출한 검증된 비즈니스 로직
 """
 
 import asyncio
+import re
 import time
 import uuid
 from collections.abc import AsyncGenerator, Callable
@@ -89,6 +90,29 @@ class ChatService:
 
     기존 코드 기반: app/api/chat.py의 함수들을 클래스로 재구성
     """
+
+    # [MOD] 寒暄前置分流（2026-11-10）：问候/致谢/身份询问不需要检索知识库，
+    # 直接应答且不附来源卡片。锚定正则——仅当整条消息只是寒暄词本身时才命中
+    # （"你好"✓ / "你好，年假有几天"✗ 不会误伤真实问题）。比把中文关键词塞进
+    # greeting 规则更安全：规则系统是子串匹配且语言体系只有 ko/en。
+    _SMALL_TALK_PATTERN = re.compile(
+        r"^\s*(?:"
+        r"你好|您好|哈喽|嗨|嗨嗨|hello|hi|hey|在吗|"
+        r"谢谢|多谢|感谢|thanks|thank you|"
+        r"再见|拜拜|bye|"
+        r"你是谁|你叫什么名字|你能做什么|你会什么|介绍一下自己"
+        r")[！!。.？?~～，,\s]*$",
+        re.IGNORECASE,
+    )
+    _SMALL_TALK_ANSWER = (
+        "你好！我是 SecureKB 企业知识库助手。\n\n"
+        "可以向我提问公司制度相关的问题，例如：考勤与请假、差旅报销、"
+        "信息安全规范、印章使用、合同审批等。"
+    )
+
+    @staticmethod
+    def _is_small_talk(message: str) -> bool:
+        return bool(ChatService._SMALL_TALK_PATTERN.match(message or ""))
 
     def __init__(self, modules: dict[str, Any], config: dict[str, Any]):
         """
@@ -339,6 +363,32 @@ class ChatService:
             session_id=session_id,
         )
 
+        # [MOD] 寒暄前置分流：问候/致谢跳过检索，零来源直接应答（与流式路径同策略）
+        if self._is_small_talk(message):
+            logger.info(
+                "寒暄命中，跳过检索直接应答",
+                extra={"session_id": session_id, "message_preview": message[:30]},
+            )
+            return cast(
+                RAGResultDict,
+                {
+                    "answer": self._SMALL_TALK_ANSWER,
+                    "sources": [],
+                    "tokens_used": 0,
+                    "topic": "small_talk",
+                    "processing_time": 0.0,
+                    "search_results": 0,
+                    "ranked_results": 0,
+                    "model_info": {
+                        "provider": "internal",
+                        "model": "rule-based",
+                        "streaming": False,
+                    },
+                    "routing_metadata": {"route": "small_talk"},
+                    "performance_metrics": None,
+                },
+            )
+
         # RAGPipeline.execute() 단일 호출 (8단계 오케스트레이션)
         result = await self.rag_pipeline.execute(
             message=message, session_id=session_id, options=options
@@ -584,6 +634,67 @@ class ChatService:
                 session_context = ""
                 if not final_session_id:
                     final_session_id = str(uuid.uuid4())
+
+            # [MOD] 寒暄前置分流：放在 route_query 之前，问候/致谢完全跳过检索与
+            # 路由，零来源直接应答。事件序列（metadata→chunk→done）与正常路径一致。
+            if self._is_small_talk(message):
+                logger.info(
+                    "寒暄命中（流式），跳过检索直接应答",
+                    extra={"session_id": final_session_id, "message_preview": message[:30]},
+                )
+                answer = self._SMALL_TALK_ANSWER
+                yield {
+                    "event": "metadata",
+                    "data": {
+                        "session_id": final_session_id,
+                        "search_results": 0,
+                        "ranked_results": 0,
+                        "reranking_applied": False,
+                        "message_id": message_id,
+                        "sources": [],
+                        "route": "small_talk",
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                }
+                yield {"event": "chunk", "data": answer, "chunk_index": 0}
+                processing_time = time.time() - start_time
+                if final_session_id:
+                    try:
+                        await self.add_conversation_to_session(
+                            final_session_id,
+                            message,
+                            answer,
+                            {
+                                "tokens_used": 0,
+                                "processing_time": processing_time,
+                                "sources": [],
+                                "topic": "small_talk",
+                                "model_info": {"provider": "internal", "model": "rule-based"},
+                                "message_id": message_id,
+                                "route": "small_talk",
+                                "can_evaluate": False,
+                            },
+                        )
+                    except Exception as persist_error:  # noqa: BLE001 - 存储失败非致命
+                        logger.warning(
+                            "寒暄应答存储失败",
+                            extra={"session_id": final_session_id, "error": str(persist_error)},
+                        )
+                yield {
+                    "event": "done",
+                    "data": {
+                        "session_id": final_session_id,
+                        "message_id": message_id,
+                        "total_chunks": 1,
+                        "processing_time": processing_time,
+                        "tokens_used": 0,
+                        "sources": [],
+                        "route": "small_talk",
+                        "model_info": {"provider": "internal", "model": "rule-based"},
+                        "token_estimation": "small_talk_short_circuit",
+                    },
+                }
+                return
 
             route_decision = await self.rag_pipeline.route_query(
                 message, final_session_id or "", start_time

@@ -137,7 +137,9 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
                                 </AccordionTrigger>
                                 <AccordionContent className="pt-2 pb-0">
                                     <div className="grid grid-cols-1 gap-2">
-                                        {message.sources.map((source, idx) => (
+                                        {/* [MOD] 候选列表是生成用的内部上下文（top_k），展示全部 8 篇
+                                            噪声大于价值——默认只展示相关度最高的前 3 篇 */}
+                                        {message.sources.slice(0, 3).map((source, idx) => (
                                             <button
                                                 key={idx}
                                                 onClick={() => onChunkClick(source)}
