@@ -355,20 +355,23 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // [MOD] 登录过期/无效 → 清除凭证回到登录门（登录接口自身的 401 除外）
+    // [MOD] 登录过期/无效 → 清除凭证回到登录门（登录接口自身的 401 除外）。
+    // 不再写 '#/login' 哈希（上游 HashRouter 登录页的残留，SecureKB 的登录门是
+    // 组件级：无登录态时 App 自动渲染 LoginGate）。原地刷新让登录门接管，登录后
+    // 留在当前路径。仅在本机确实存过登录令牌时才刷新，避免匿名 401 引发刷新循环。
     if (
       error.response?.status === 401 &&
       !originalRequest?.url?.includes('/api/auth/login')
     ) {
       try {
+        const hadToken = !!localStorage.getItem('securekb_token');
         localStorage.removeItem('securekb_token');
         localStorage.removeItem('securekb_user');
+        if (hadToken) {
+          window.location.reload();
+        }
       } catch {
         /* ignore */
-      }
-      if (!window.location.hash.includes('login')) {
-        window.location.hash = '#/login';
-        window.location.reload();
       }
     }
 

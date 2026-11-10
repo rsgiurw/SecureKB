@@ -32,6 +32,7 @@ from ..lib.auth import (
 )
 from ..lib.logger import get_logger
 from ..modules.core.privacy.masker import DEFAULT_WHITELIST, PrivacyMasker
+from ..security.users import verify_token  # [MOD] SecureKB 登录令牌校验（改造②）
 from .audit_event_store import AuditEventStore, SQLiteAuditEventStore
 from .original_file_storage import (
     GCS_ORIGINAL_STORAGE_BACKEND,
@@ -61,15 +62,25 @@ _privacy_masker: PrivacyMasker | None = PrivacyMasker(whitelist=list(DEFAULT_WHI
 
 # 자격(principal) 식별 문자열 규약
 # - API_KEY_PRINCIPAL: 서버 API 키(X-API-Key)로 인증된 운영자. 모든 업로드 API 사용 가능.
+# - LOGIN_ADMIN_PRINCIPAL: [MOD] SecureKB 로그인 토큰(Bearer, role=admin)으로 인증된
+#   관리자. API 키와 동등한 자격 — Web 관리 화면이 운영 설정에 키를 붙여넣지 않아도
+#   로그인만으로 문서 관리를 쓸 수 있게 한다(改造②: 로그인이 관리자 신원의 원천).
 # - "upload-token:{session_id}": 创建会话 시 발급된 단기 토큰을 가진 브라우저 사용자.
 #   업로드/조회만 가능하고, 공유 코퍼스를 파괴하는 삭제는 불가. 취소/재시도는 자기 세션이
 #   만든 작업에만 가능하다.
 API_KEY_PRINCIPAL = "api-key"
+LOGIN_ADMIN_PRINCIPAL = "login-admin"
 UPLOAD_TOKEN_PRINCIPAL_PREFIX = "upload-token:"
 
 
 def get_upload_access(request: Request) -> str:
-    """업로드 API 접근 인증 (서버 API 키 OR 단기 업로드 토큰).
+    """업로드 API 접근 인증 (로그인 관리자 토큰 OR 서버 API 키 OR 단기 업로드 토큰).
+
+    [MOD] 1순위: SecureKB 로그인 토큰(Bearer, role=admin). users.py가 서버에서
+    서명/검증하므로 클라이언트가 역할을 위조할 수 없다. 만료 토큰은 verify_token이
+    None을 돌려주므로 아래 기존 경로(X-API-Key/업로드 토큰)로 떨어진다.
+    role=admin이 아닌 직원 토큰은 403을 돌려준다 — 401로 처리하면 프런트 로그아웃
+    인터셉터가 채팅 세션까지 로그아웃시키므로, 권한 부족은 403으로 명확히 구분한다.
 
     기존 동작(X-API-Key 헤더 검증, get_api_key)을 우선 시도하고, 실패 시
     브라우저용 단기 업로드 토큰(X-OneRAG-Upload-Token + 세션 식별자)을 검증한다.
@@ -80,15 +91,38 @@ def get_upload_access(request: Request) -> str:
 
     서버 API 키가 설정되지 않았으면 환경과 무관하게 401을 돌려준다(fail-closed).
     예전에는 개발 환경이면 인증을 건너뛰었는데, 환경 감지만 속이면 업로드/삭제 API가
-    그대로 열리는 구조였다.
+    그대로 열리는 구조였다. (로그인 관리자 토큰은 이 fail-closed와 무관하게 독립
+    검증된 자격이므로 먼저 통과시킨다.)
 
     Returns:
-        자격 식별 문자열(API_KEY_PRINCIPAL 또는 "upload-token:{session_id}").
+        자격 식별 문자열(LOGIN_ADMIN_PRINCIPAL / API_KEY_PRINCIPAL 또는 "upload-token:{session_id}").
 
     Raises:
-        HTTPException: 키 미구성이거나, API 키도 유효한 업로드 토큰도 없을 때.
+        HTTPException: 키 미구성이거나, 어느 자격도 유효하지 않을 때.
     """
     auth = get_api_key_auth()
+
+    # [MOD] 1순위: SecureKB 로그인 토큰(Bearer, role=admin)
+    bearer = request.headers.get("Authorization", "")
+    if bearer.startswith("Bearer "):
+        user = verify_token(bearer[len("Bearer "):])
+        if user:
+            if user.get("role") == "admin":
+                return LOGIN_ADMIN_PRINCIPAL
+            logger.warning(
+                "직원 로그인 토큰으로 업로드 API 접근 거부",
+                extra={"path": request.url.path, "username": user.get("username")},
+            )
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "error_code": "UPLOAD-403",
+                    "error": "权限不足",
+                    "message": "文档管理需要管理员登录",
+                    "suggestion": "请使用管理员账户（admin）登录后重试",
+                },
+            )
+
     if not auth.api_key:
         logger.warning(
             "未设置 FASTAPI_AUTH_KEY，上传 API 请求被拒绝（fail-closed）",
