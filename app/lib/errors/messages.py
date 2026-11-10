@@ -2,8 +2,14 @@
 
 모든 에러 메시지를 한국어와 영어로 저장하며,
 각 에러에 대한 해결 방법도 제공합니다.
+
+[MOD] SecureKB（2026-11-10）：新增中文覆盖层（zh_messages.py）——
+get_message_template / get_solutions_list 在 lang="zh" 时优先查中文表
+（高频用户可见错误码），缺失回退 en。
 """
 
+
+from .zh_messages import ZH_ERROR_MESSAGES, ZH_ERROR_SOLUTIONS  # noqa: E402
 
 # 에러 메시지 저장소: {error_code: {"ko": "한국어 메시지", "en": "English message"}}
 ERROR_MESSAGES: dict[str, dict[str, str]] = {
@@ -2245,7 +2251,7 @@ def get_message_template(error_code: str, lang: str = "ko") -> str:
 
     Args:
         error_code: 에러 코드 (예: "AUTH-001")
-        lang: 언어 코드 ("ko" 또는 "en")
+        lang: 언어 코드 ("ko", "en" 또는 "zh")
 
     Returns:
         에러 메시지 템플릿 문자열
@@ -2256,6 +2262,13 @@ def get_message_template(error_code: str, lang: str = "ko") -> str:
     """
     if error_code not in ERROR_MESSAGES:
         raise KeyError(f"Unknown error code: {error_code}")
+
+    if lang == "zh":
+        # [MOD] 中文覆盖层（zh_messages.py）：高频错误码中文优先，缺失回退 en
+        zh = ZH_ERROR_MESSAGES.get(error_code)
+        if zh is not None:
+            return zh
+        return ERROR_MESSAGES[error_code]["en"]
 
     if lang not in ("ko", "en"):
         raise ValueError(f"Unsupported language: {lang}")
@@ -2268,7 +2281,7 @@ def get_solutions_list(error_code: str, lang: str = "ko") -> list[str]:
 
     Args:
         error_code: 에러 코드 (예: "AUTH-001")
-        lang: 언어 코드 ("ko" 또는 "en")
+        lang: 언어 코드 ("ko", "en" 또는 "zh")
 
     Returns:
         에러 해결 방법 리스트
@@ -2277,8 +2290,19 @@ def get_solutions_list(error_code: str, lang: str = "ko") -> list[str]:
         KeyError: 에러 코드가 존재하지 않는 경우
         ValueError: 지원하지 않는 언어 코드인 경우
     """
+    # [MOD] 中文覆盖层优先：ZH 表独立维护（可能包含 ERROR_SOLUTIONS 没有的新码）
+    if lang == "zh":
+        zh = ZH_ERROR_SOLUTIONS.get(error_code)
+        if zh is not None:
+            return zh
+
     if error_code not in ERROR_SOLUTIONS:
         raise KeyError(f"Unknown error code: {error_code}")
+
+    if lang == "zh":
+        en = ERROR_SOLUTIONS[error_code].get("en")
+        if en is not None:
+            return en
 
     if lang not in ("ko", "en"):
         raise ValueError(f"Unsupported language: {lang}")
