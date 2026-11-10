@@ -26,6 +26,7 @@ from ...lib.logger import get_logger
 from ...lib.metrics import CostTracker, PerformanceMetrics
 from ...lib.topic_extractor import extract_topic
 from ...lib.types import RAGResultDict, SessionInfoDict, SessionResult, StatsDict
+from ...modules.core.privacy.cn_pii import ChinaPIIMasker
 from .blocked_response import DEFAULT_BLOCKED_ANSWER
 from .rag_pipeline import RAGPipeline
 
@@ -167,6 +168,13 @@ class ChatService:
         """
         self.modules = modules
         self.config = config
+
+        # [MOD] 中国 PII 入口清洗（SecureKB 安全模块，2026-11-10）。
+        # 开关读 privacy.enabled，但语义为"默认开启"：SecureKB 场景下 PII 掩码
+        # 是安全基线，config 缺失/显式 false 都不关闭——只有显式传 False 才关。
+        privacy_config = config.get("privacy") or {}
+        self._pii_masking_enabled = privacy_config.get("enabled") is not False
+        self._pii_masker = ChinaPIIMasker()
 
         # 통계 정보
         self.stats = {
@@ -408,6 +416,16 @@ class ChatService:
             session_id=session_id,
         )
 
+        # [MOD] PII 入口清洗（与流式路径同策略）：进入检索/存储/日志前统一掩码
+        if self._pii_masking_enabled:
+            masked_message = self._pii_masker.mask_text(message)
+            if masked_message != message:
+                logger.info(
+                    "用户消息检出 PII，已入口掩码",
+                    extra={"session_id": session_id, "message_preview": message[:20]},
+                )
+                message = masked_message
+
         # [MOD] 寒暄前置分流：问候/致谢跳过检索，零来源直接应答（与流式路径同策略）
         if self._is_small_talk(message):
             logger.info(
@@ -443,6 +461,10 @@ class ChatService:
             result["sources"] = self._filter_sources_by_answer(
                 result.get("sources") or [], result["answer"]
             )
+            # [MOD] PII 出口掩码（纵深防御最后一层）：制度语料本身无真实 PII，
+            # 此层防御的是未来语料混入敏感信息或 LLM 幻觉拼凑出数字串的场景。
+            if self._pii_masking_enabled:
+                result["answer"] = self._pii_masker.mask_text(result["answer"])
         return cast(RAGResultDict, result)
 
     async def add_conversation_to_session(
@@ -655,6 +677,18 @@ class ChatService:
         # GAP #5: 직전 청크 전송 시각(time.monotonic). 첫 청크는 None이라 페이싱
         # 무동작이며, chunk_min_interval_seconds=0이면 전체 구간에서 무동작이다.
         last_chunk_sent_at: float | None = None
+
+        # [MOD] PII 入口清洗：用户消息在进入检索/会话存储/日志前统一掩码。
+        # 入口即掩 → 后续全链路（query、会话历史、审计日志）只见掩码文本
+        # （纵深防御第一层；制度语料本身无真实 PII，生成侧无 PII 来源）。
+        if self._pii_masking_enabled:
+            masked_message = self._pii_masker.mask_text(message)
+            if masked_message != message:
+                logger.info(
+                    "用户消息检出 PII，已入口掩码",
+                    extra={"session_id": session_id, "message_preview": message[:20]},
+                )
+                message = masked_message
 
         try:
             # 1. 세션 처리 (비스트리밍)
