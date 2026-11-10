@@ -140,7 +140,28 @@ class EnhancedSessionModule:
         self.memories = self.memory_service.memories
         self.stats = self.session_service.stats
 
+        # [MOD] 会话快照持久化（SecureKB，2026-11-10）：启动时恢复 + 写后保存。
+        # SessionService.sessions 与 MemoryService.memories 都是纯内存结构，
+        # 后端重启即蒸发（用户报告"聊天记录消失"的根因）。快照覆盖会话元数据
+        # 与内存消息；消息全文由 chat_store（FileChatStore）持久化与恢复。
+        from pathlib import Path
+
+        from .services.chat_persistence import ChatSnapshotPersistence
+
+        self._chat_persistence = ChatSnapshotPersistence(
+            session_service=self.session_service,
+            memory_service=self.memory_service,
+            path=Path(session_config.get("snapshot_path", "data/chat_snapshot.json")),
+        )
+        restored = self._chat_persistence.restore()
+        if restored:
+            logger.info(f"会话快照已恢复 {restored} 个会话")
+
         logger.info("EnhancedSessionModule 초기화 (Service-Based Architecture)")
+
+    def persist_snapshot(self) -> None:
+        """[MOD] 对外暴露快照保存（对话写入/会话删除后由调用方触发）。"""
+        self._chat_persistence.save()
 
     async def initialize(self):
         """

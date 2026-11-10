@@ -4,7 +4,10 @@
 
 session:
   enabled: true
-  ttl_seconds: 3600
+  # [MOD] SecureKB（2026-11-10）：会话 TTL 从 1 小时调至 7 天。
+  # 企业知识库助手的使用模式是"隔天回来继续问"，1 小时 TTL 会把隔天会话
+  # 判过期删除（配合聊天持久化，记录不再丢失）。
+  ttl_seconds: 604800
   max_exchanges: 10                # 최대 대화 교환 수 (1교환 = user + assistant 메시지)
   memory_limit_per_session: 5
   cleanup_interval_seconds: 600

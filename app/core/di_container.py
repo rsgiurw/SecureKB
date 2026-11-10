@@ -211,27 +211,37 @@ def _create_pii_policy_engine(policy_config: Any = None) -> Any:
 def _create_chat_store(config: dict[str, Any] | None, db_manager: Any) -> Any | None:
     """채팅 영속화 스토어를 생성합니다(선택적 백엔드).
 
-    0-dependency 기본 보존: `session.chat_persistence.enabled`가 명시적으로 true일
-    때만 PostgresChatStore를 생성하고, 그 외에는 None을 반환하여 MemoryService가
-    인메모리만 사용하도록 합니다(추가 인프라 불필요). 활성화하더라도 DATABASE_URL
-    미연결 시 스토어 내부에서 graceful 하게 영속화를 건너뜁니다.
+    [MOD] SecureKB（2026-11-10）：无 PostgreSQL 部署的默认持久化后端改为
+    FileChatStore（本地 sqlite）。此前此函数在未启用 PostgreSQL 时返回 None——
+    MemoryService 只用内存，后端重启即丢失全部对话（用户报告"聊天记录消失"）。
 
-    Args:
-        config: 전체 설정 딕셔너리(session.chat_persistence.enabled 확인용)
-        db_manager: 공유 DatabaseManager (기존 PostgreSQL 연결 재사용)
+    优先级：
+    1. session.chat_persistence.enabled=true 且 DATABASE_URL 可用
+       → PostgresChatStore（上游路径，多实例部署用）
+    2. 其余情况 → FileChatStore（本地 sqlite 单文件，单实例默认）
 
     Returns:
-        PostgresChatStore 또는 None(비활성화 시)
+        PostgresChatStore / FileChatStore / None（仅显式禁用时）
     """
     session_config = (config or {}).get("session", {})
     persistence_config = session_config.get("chat_persistence", {})
-    if not persistence_config.get("enabled", False):
-        # 기본 비활성화: 인메모리만 사용 (0-dependency 기본)
+
+    if persistence_config.get("enabled", False):
+        from app.infrastructure.storage.chat.postgres_chat_store import PostgresChatStore
+
+        return PostgresChatStore(db_manager=db_manager)
+
+    if str(session_config.get("local_persistence", True)).lower() == "false":
+        # 显式禁用本地持久化（如纯无状态部署）
         return None
 
-    from app.infrastructure.storage.chat.postgres_chat_store import PostgresChatStore
+    from app.modules.core.session.services.file_chat_store import FileChatStore
+    from pathlib import Path
 
-    return PostgresChatStore(db_manager=db_manager)
+    data_dir = Path("data")
+    data_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("聊天持久化后端: FileChatStore (data/chat_messages.sqlite3)")
+    return FileChatStore(path=data_dir / "chat_messages.sqlite3")
 
 
 def _create_enhanced_session_module(*args: Any, **kwargs: Any) -> Any:

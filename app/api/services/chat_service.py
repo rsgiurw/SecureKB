@@ -572,6 +572,11 @@ class ChatService:
             await session_module.add_conversation(
                 session_id, user_message, assistant_answer, metadata
             )
+            # [MOD] 对话写入后持久化会话快照（会话元数据 + 内存消息）；
+            # 消息全文由 chat_store（FileChatStore）在同一调用链内落库。
+            persist_snapshot = getattr(session_module, "persist_snapshot", None)
+            if persist_snapshot:
+                persist_snapshot()
 
     def update_stats(self, data: dict[str, Any]) -> None:
         """

@@ -167,3 +167,8 @@ easy_start/.kb_config.json
 uploads/
 translations_*.txt
 ko_visible_strings.txt
+
+# SecureKB 运行时数据（会话快照/聊天消息库的 WAL 伴生文件）
+data/*.sqlite3-shm
+data/*.sqlite3-wal
+data/chat_snapshot.json
