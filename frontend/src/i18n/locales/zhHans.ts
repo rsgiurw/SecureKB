@@ -35,7 +35,7 @@ export const zhHans: MenuMessages = {
       copiedNotice: "已复制回答",
       scrollToBottom: "滚动至底部",
       preparingResponse: "正在准备回应...",
-      sourcesCount: "检索来源（共 {count} 篇候选 · 显示前 3）",
+      sourcesCount: "检索来源（{count} 篇 · 按相关度排序）",
     },
   },
   chatStream: {

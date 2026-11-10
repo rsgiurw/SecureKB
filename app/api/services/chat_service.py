@@ -114,6 +114,51 @@ class ChatService:
     def _is_small_talk(message: str) -> bool:
         return bool(ChatService._SMALL_TALK_PATTERN.match(message or ""))
 
+    @staticmethod
+    def _source_display_name(source: Any) -> str:
+        """来源标题：dict（SSE metadata/done）与 Source 对象（REST）双形态兼容。"""
+        if isinstance(source, dict):
+            return str(source.get("document") or source.get("document_name") or "").strip()
+        return str(
+            getattr(source, "document", None)
+            or getattr(source, "document_name", None)
+            or ""
+        ).strip()
+
+    @staticmethod
+    def _title_in_answer(name: str, answer: str) -> bool:
+        """文档名是否出现在回答中。LLM 常省略'员工/公司/企业'等通用前缀
+        （'员工考勤与请假制度'→'考勤与请假制度'），生成前缀剥离变体再匹配。"""
+        if not name:
+            return False
+        variants = {name}
+        for prefix in ("员工", "公司", "企业"):
+            if name.startswith(prefix) and len(name) - len(prefix) >= 4:
+                variants.add(name[len(prefix):])
+        return any(v in answer for v in variants)
+
+    @classmethod
+    def _filter_sources_by_answer(
+        cls, sources: list[Any], answer: str
+    ) -> list[Any]:
+        """[MOD] 来源引用过滤（2026-11-10）：只展示回答中实际提及的文档。
+
+        检索 top_k 返回的是"生成候选"，不是"实际引用"——年假问题的 8 篇候选里
+        真正被回答使用的往往只有考勤制度一篇。轻量启发式：LLM 的提示词风格
+        倾向于在回答中点名文档（"根据《员工考勤与请假制度》…"），因此文档名
+        （含前缀剥离变体）出现在回答文本中即视为被引用。
+        兜底：回答未点名任何文档（改写了标题/无引用风格）时保留前 3 篇候选，
+        避免把来源全部滤空。
+        """
+        if not sources or not answer:
+            return sources
+        cited: list[Any] = []
+        for source in sources:
+            name = cls._source_display_name(source)
+            if cls._title_in_answer(name, answer):
+                cited.append(source)
+        return cited if cited else sources[:3]
+
     def __init__(self, modules: dict[str, Any], config: dict[str, Any]):
         """
         Args:
@@ -393,6 +438,11 @@ class ChatService:
         result = await self.rag_pipeline.execute(
             message=message, session_id=session_id, options=options
         )
+        # [MOD] 来源引用过滤：与非流式 done 事件同策略（实际提及的文档优先）
+        if result.get("answer"):
+            result["sources"] = self._filter_sources_by_answer(
+                result.get("sources") or [], result["answer"]
+            )
         return cast(RAGResultDict, result)
 
     async def add_conversation_to_session(
@@ -1047,6 +1097,11 @@ class ChatService:
                 tokens_used = stream_tokens_used or self._estimate_stream_tokens(
                     answer_text, chunk_index
                 )
+
+            # [MOD] 来源引用过滤：done 事件只携带回答中实际提及的文档（metadata
+            # 事件仍是全量候选——过滤需待回答生成完成后才能判定）
+            if answer_text and not canned_no_answer:
+                stream_sources = self._filter_sources_by_answer(stream_sources, answer_text)
 
             # 실제 답변이 있을 때만 저장하고 성공으로 집계한다(#7).
             persisted_real_answer = bool(
