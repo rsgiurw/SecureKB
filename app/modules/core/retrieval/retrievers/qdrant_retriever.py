@@ -105,3 +105,21 @@ class QdrantRetriever(HybridVectorStoreRetrieverBase):
             stopword_filter=stopword_filter,
             user_dictionary=user_dictionary,
         )
+
+    async def add_documents(self, documents: list[dict[str, Any]]) -> dict[str, Any]:
+        """[MOD] Web 上传管道的向量入库（2026-11-10）。
+
+        委托 QdrantStore.add_documents 写入（documents 需含 embedding 向量，
+        由 upload 管道的 embed_chunks_parallel 预先生成）。返回格式与
+        upload.py 的预期对齐（success_count/error_count/total_count）。
+
+        此前 QdrantRetriever 未暴露写入方法——Web 上传在入库阶段报
+        "add_documents 미지원" 直接失败，Web 上传链路从未工作过。
+        """
+        inserted = await self.store.add_documents(self.collection_name, documents)
+        failed = len(documents) - inserted
+        return {
+            "success_count": inserted,
+            "error_count": failed,
+            "total_count": len(documents),
+        }
