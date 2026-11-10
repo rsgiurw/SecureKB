@@ -43,8 +43,56 @@ from ...lib.errors import (
     wrap_exception,
 )
 from ...lib.logger import get_logger
+from ...modules.core.privacy.cn_pii import ChinaPIIMasker
 from ...security.users import verify_token, visible_departments
+from ..services.secure_audit_service import get_secure_audit_service
 from ..analytics_event_store import get_analytics_event_store
+
+
+# [MOD] 安全审计：掩码预览器（审计只存掩码文本，不落原始 PII）
+_audit_preview_masker = ChinaPIIMasker()
+
+
+def _record_query_audit(
+    *,
+    request: Request,
+    principal: dict[str, Any],
+    session_id: str | None,
+    message_preview: str,
+    sources: list[Any],
+    route: str | None,
+    processing_time: float,
+) -> None:
+    """查询行为审计（Security Trimming 访问留痕，non-blocking）。"""
+    get_secure_audit_service().record(
+        category="query",
+        action="query.answered",
+        actor_username=principal.get("username"),
+        actor_role=principal.get("role"),
+        session_id=session_id,
+        ip=get_real_client_ip(request),
+        result="ok",
+        detail={
+            "message_preview": _audit_preview_masker.mask_text(message_preview),
+            "documents": [
+                (s.get("document") if isinstance(s, dict) else getattr(s, "document", None))
+                for s in sources
+            ][:5],
+            "route": route,
+            "processing_time": round(processing_time, 3),
+        },
+    )
+
+
+def _record_auth_denied(request: Request, reason: str) -> None:
+    """未授权访问安全事件审计（non-blocking）。"""
+    get_secure_audit_service().record(
+        category="security",
+        action="auth.denied",
+        ip=get_real_client_ip(request),
+        result="denied",
+        detail={"reason": reason, "path": request.url.path},
+    )
 
 
 # [MOD] 登录认证：解析请求身份（Bearer 令牌优先，管理员 X-API-Key 兼容通道）
@@ -273,6 +321,7 @@ async def chat(
     # [MOD] 登录验证：未携带有效凭证一律 401（管理员 X-API-Key 通道兼容）
     principal = _resolve_principal(request)
     if principal is None:
+        _record_auth_denied(request, "not_authenticated")
         raise HTTPException(status_code=401, detail="请先登录后使用（未提供有效凭证）")
     session_id = None
     try:
@@ -339,6 +388,17 @@ async def chat(
             message_id=message_id,
             model_info=rag_result.get("model_info"),
             tokens_used=rag_result.get("tokens_used", 0),
+            processing_time=time.time() - start_time,
+        )
+        # [MOD] 查询行为审计（Security Trimming 访问留痕）：谁在何时问了什么
+        # （入口已掩码的文本）、命中哪些文档、走了哪条路径
+        _record_query_audit(
+            request=request,
+            principal=principal,
+            session_id=session_id,
+            message_preview=chat_request.message[:60],
+            sources=rag_result.get("sources") or [],
+            route=((rag_result.get("routing_metadata") or {}).get("route")),
             processing_time=time.time() - start_time,
         )
         # Self-RAG 메타데이터는 model_info에 포함되어 있음
@@ -885,6 +945,7 @@ async def chat_stream(request: Request, chat_request: StreamChatRequest) -> Stre
     # 权限过滤必须覆盖每条召回路，流式路径也不例外）。
     principal = _resolve_principal(request)
     if principal is None:
+        _record_auth_denied(request, "not_authenticated")
         raise HTTPException(status_code=401, detail="请先登录后使用（未提供有效凭证）")
 
     # [MOD] Security Trimming：员工只检索"全员"+本部门文档（服务端强制，与 /api/chat 同一模式）
@@ -917,6 +978,16 @@ async def chat_stream(request: Request, chat_request: StreamChatRequest) -> Stre
                         message_id=data.get("message_id"),
                         model_info=data.get("model_info"),
                         tokens_used=int(data.get("tokens_used") or 0),
+                        processing_time=float(data.get("processing_time") or 0.0),
+                    )
+                    # [MOD] 查询行为审计（流式 done 携带最终来源——已按引用过滤）
+                    _record_query_audit(
+                        request=request,
+                        principal=principal,
+                        session_id=data.get("session_id"),
+                        message_preview=chat_request.message[:60],
+                        sources=data.get("sources") or [],
+                        route=data.get("route"),
                         processing_time=float(data.get("processing_time") or 0.0),
                     )
 
@@ -955,3 +1026,31 @@ async def chat_stream(request: Request, chat_request: StreamChatRequest) -> Stre
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.get("/admin/audit/events")
+async def list_secure_audit_events(
+    request: Request,
+    category: str | None = None,
+    actor: str | None = None,
+    limit: int = 200,
+) -> dict[str, Any]:
+    """[MOD] 安全审计日志查询（管理员专用）。
+
+    双通道鉴权：登录管理员 Bearer 令牌 或 管理员 X-API-Key。
+    审计事件本身也记录未授权访问尝试（谁想偷看审计日志，本身就是审计对象）。
+    """
+    principal = _resolve_principal(request)
+    if principal is None:
+        _record_auth_denied(request, "audit_api_unauthenticated")
+        raise HTTPException(status_code=401, detail="请先登录后使用（未提供有效凭证）")
+    if principal.get("role") != "admin":
+        _record_auth_denied(request, "audit_api_forbidden")
+        raise HTTPException(
+            status_code=403,
+            detail={"error": "权限不足", "message": "审计日志仅管理员可查看"},
+        )
+    events = get_secure_audit_service().list_events(
+        category=category, actor_username=actor, limit=limit
+    )
+    return {"events": events, "count": len(events)}

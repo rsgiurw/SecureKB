@@ -27,6 +27,8 @@ from ...lib.metrics import CostTracker, PerformanceMetrics
 from ...lib.topic_extractor import extract_topic
 from ...lib.types import RAGResultDict, SessionInfoDict, SessionResult, StatsDict
 from ...modules.core.privacy.cn_pii import ChinaPIIMasker
+from ...security.input_guard import scan_input
+from .secure_audit_service import get_secure_audit_service
 from .blocked_response import DEFAULT_BLOCKED_ANSWER
 from .rag_pipeline import RAGPipeline
 
@@ -114,6 +116,17 @@ class ChatService:
     @staticmethod
     def _is_small_talk(message: str) -> bool:
         return bool(ChatService._SMALL_TALK_PATTERN.match(message or ""))
+
+    # [MOD] 提示注入拒绝话术（InputGuard block 级处置）
+    _INJECTION_REFUSAL_ANSWER = (
+        "您的请求已被安全防护拦截（检测到提示注入特征）。"
+        "请调整提问内容后重试；如有疑问请联系管理员。"
+    )
+
+    @staticmethod
+    def _audit(**kwargs: Any):
+        """安全/行为审计记录入口（non-blocking——审计失败不阻断业务）。"""
+        return get_secure_audit_service().record(**kwargs)
 
     @staticmethod
     def _source_display_name(source: Any) -> str:
@@ -418,13 +431,26 @@ class ChatService:
 
         # [MOD] PII 入口清洗（与流式路径同策略）：进入检索/存储/日志前统一掩码
         if self._pii_masking_enabled:
-            masked_message = self._pii_masker.mask_text(message)
-            if masked_message != message:
+            pii_detection = self._pii_masker.mask_text_detailed(message)
+            if pii_detection.total_masked > 0:
                 logger.info(
                     "用户消息检出 PII，已入口掩码",
                     extra={"session_id": session_id, "message_preview": message[:20]},
                 )
-                message = masked_message
+                self._audit(
+                    category="security",
+                    action="pii.masked",
+                    session_id=session_id,
+                    result="masked",
+                    detail={
+                        "phone": pii_detection.phone_count,
+                        "id_card": pii_detection.id_card_count,
+                        "bank_card": pii_detection.bank_card_count,
+                        "email": pii_detection.email_count,
+                        "validation_blocked": pii_detection.skipped_by_validation,
+                    },
+                )
+                message = pii_detection.masked
 
         # [MOD] 寒暄前置分流：问候/致谢跳过检索，零来源直接应答（与流式路径同策略）
         if self._is_small_talk(message):
@@ -451,6 +477,48 @@ class ChatService:
                     "performance_metrics": None,
                 },
             )
+
+        # [MOD] 提示注入防护接线（与流式路径同策略）：block 拒绝+审计，warn 剥离
+        guard_result = scan_input(message)
+        if guard_result.level == "block":
+            self._audit(
+                category="security",
+                action="injection.blocked",
+                session_id=session_id,
+                result="blocked",
+                detail={
+                    "hits": [h.category for h in guard_result.hits],
+                    "total_weight": guard_result.total_weight,
+                    "matched": [h.matched for h in guard_result.hits],
+                },
+            )
+            return cast(
+                RAGResultDict,
+                {
+                    "answer": self._INJECTION_REFUSAL_ANSWER,
+                    "sources": [],
+                    "tokens_used": 0,
+                    "topic": "injection_blocked",
+                    "processing_time": 0.0,
+                    "search_results": 0,
+                    "ranked_results": 0,
+                    "model_info": {"provider": "internal", "model": "input_guard"},
+                    "routing_metadata": {"route": "injection_blocked"},
+                    "performance_metrics": None,
+                },
+            )
+        if guard_result.level == "warn":
+            self._audit(
+                category="security",
+                action="injection.warn",
+                session_id=session_id,
+                result="masked",
+                detail={
+                    "hits": [h.category for h in guard_result.hits],
+                    "total_weight": guard_result.total_weight,
+                },
+            )
+            message = guard_result.cleaned
 
         # RAGPipeline.execute() 단일 호출 (8단계 오케스트레이션)
         result = await self.rag_pipeline.execute(
@@ -682,13 +750,26 @@ class ChatService:
         # 入口即掩 → 后续全链路（query、会话历史、审计日志）只见掩码文本
         # （纵深防御第一层；制度语料本身无真实 PII，生成侧无 PII 来源）。
         if self._pii_masking_enabled:
-            masked_message = self._pii_masker.mask_text(message)
-            if masked_message != message:
+            pii_detection = self._pii_masker.mask_text_detailed(message)
+            if pii_detection.total_masked > 0:
                 logger.info(
                     "用户消息检出 PII，已入口掩码",
                     extra={"session_id": session_id, "message_preview": message[:20]},
                 )
-                message = masked_message
+                self._audit(
+                    category="security",
+                    action="pii.masked",
+                    session_id=session_id,
+                    result="masked",
+                    detail={
+                        "phone": pii_detection.phone_count,
+                        "id_card": pii_detection.id_card_count,
+                        "bank_card": pii_detection.bank_card_count,
+                        "email": pii_detection.email_count,
+                        "validation_blocked": pii_detection.skipped_by_validation,
+                    },
+                )
+                message = pii_detection.masked
 
         try:
             # 1. 세션 처리 (비스트리밍)
@@ -779,6 +860,64 @@ class ChatService:
                     },
                 }
                 return
+
+            # [MOD] 提示注入防护接线（改造⑦ Guard 上线，2026-11-10）：
+            # 此前 InputGuard 仅存在于测试脚本，线上从未执行（EXP-009 的拦截率
+            # 是脚本回归结果）。block 拒绝并记审计；warn 剥离可疑句后继续。
+            guard_result = scan_input(message)
+            if guard_result.level == "block":
+                self._audit(
+                    category="security",
+                    action="injection.blocked",
+                    session_id=final_session_id,
+                    result="blocked",
+                    detail={
+                        "hits": [h.category for h in guard_result.hits],
+                        "total_weight": guard_result.total_weight,
+                        "matched": [h.matched for h in guard_result.hits],
+                    },
+                )
+                refusal = self._INJECTION_REFUSAL_ANSWER
+                yield {
+                    "event": "metadata",
+                    "data": {
+                        "session_id": final_session_id,
+                        "search_results": 0,
+                        "ranked_results": 0,
+                        "reranking_applied": False,
+                        "message_id": message_id,
+                        "sources": [],
+                        "route": "injection_blocked",
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                }
+                yield {"event": "chunk", "data": refusal, "chunk_index": 0}
+                yield {
+                    "event": "done",
+                    "data": {
+                        "session_id": final_session_id,
+                        "message_id": message_id,
+                        "total_chunks": 1,
+                        "processing_time": time.time() - start_time,
+                        "tokens_used": 0,
+                        "sources": [],
+                        "route": "injection_blocked",
+                        "model_info": {"provider": "internal", "model": "input_guard"},
+                    },
+                }
+                return
+            if guard_result.level == "warn":
+                self._audit(
+                    category="security",
+                    action="injection.warn",
+                    session_id=final_session_id,
+                    result="masked",
+                    detail={
+                        "hits": [h.category for h in guard_result.hits],
+                        "total_weight": guard_result.total_weight,
+                    },
+                )
+                message = guard_result.cleaned
 
             route_decision = await self.rag_pipeline.route_query(
                 message, final_session_id or "", start_time
