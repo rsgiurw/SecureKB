@@ -268,11 +268,18 @@ class AgentSynthesizer:
                 documents = result.data
 
             for doc in documents:
-                metadata = doc.get("metadata", {}) if isinstance(doc, dict) else {}
+                if not isinstance(doc, dict):
+                    continue
+                metadata = doc.get("metadata", {}) or {}
+                content = str(doc.get("content", "") or "")
+                # [MOD] 文档名兜底链：metadata.source_file → content 首行
+                # （Qdrant payload 的标题习惯放在 content 首行，如"员工考勤与请假制度 # …"）
+                first_line = content.splitlines()[0].strip() if content else ""
+                title_guess = first_line.split("#")[0].split("##")[0].strip() or first_line[:24]
                 source = (
                     metadata.get("source", "")
                     or metadata.get("source_file", "")
-                    or (doc.get("metadata", {}).get("source_file", "") if isinstance(doc, dict) else "")
+                    or title_guess
                 )
 
                 # 빈 소스나 이미 추가된 소스는 건너뜀
