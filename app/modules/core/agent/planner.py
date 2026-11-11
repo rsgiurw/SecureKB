@@ -245,7 +245,7 @@ class AgentPlanner:
             )
 
             # 5. 응답 파싱
-            return self._parse_response(response, state.original_query)
+            return self._parse_response(response, state.original_query, iteration=state.current_iteration)
 
         except Exception as e:
             logger.error(f"AgentPlanner 에러: {e}")
@@ -255,6 +255,7 @@ class AgentPlanner:
         self,
         response: str,
         original_query: str,
+        iteration: int = 0,
     ) -> tuple[list[ToolCall], str, bool]:
         """
         LLM 응답 파싱
@@ -282,11 +283,22 @@ class AgentPlanner:
 
             # 도구 호출 리스트 생성
             tool_calls = []
+            # [MOD] 服务端工具白名单校验（SecureKB，2026-11-11）：LLM 可能幻觉
+            # 选出被禁用/未注册的工具（实测 query_sql 已禁用仍被选中）——
+            # 此处仅丢弃无效调用；"全部被拦"的兜底在 plan() 主流程处理。
+            enabled_tools = set(self._mcp_server.get_enabled_tools())
+
             for tc in data.get("tool_calls", []):
                 tool_name = tc.get("tool_name", "")
                 if not tool_name:
                     # tool_name이 없으면 건너뜀
                     logger.warning("tool_name 누락된 도구 호출 건너뜀")
+                    continue
+                if tool_name not in enabled_tools:
+                    logger.warning(
+                        f"비활성화/미등록 도구 호출 차단: {tool_name} "
+                        f"(enabled={sorted(enabled_tools)})"
+                    )
                     continue
 
                 arguments = tc.get("arguments", {})
@@ -304,6 +316,15 @@ class AgentPlanner:
                 f"AgentPlanner: {len(tool_calls)}개 도구 선택 "
                 f"({[tc.tool_name for tc in tool_calls]})"
             )
+
+            # [MOD] 兜底：LLM 选出的工具全部被白名单拦截（幻觉选了禁用工具，
+            # 实测 glm-4-flash 反复幻觉 query_sql）时，回退到默认检索工具——
+            # 保证至少检索一次，否则 synthesizer 用通用知识回答（无来源）。
+            # 仅第一轮触发（iteration==0），后续轮交给 LLM 基于观察自行收敛。
+            # current_iteration 在 plan 调用前已被 orchestrator 自增（首轮=1）
+            if not tool_calls and iteration <= 1:
+                logger.warning("有效工具选择为空（白名单拦截），回退默认检索")
+                return self._fallback(original_query)
 
             return tool_calls, reasoning, should_continue
 

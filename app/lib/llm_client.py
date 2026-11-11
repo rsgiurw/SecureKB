@@ -445,15 +445,21 @@ class OpenAILLMClient(BaseLLMClient):
         super().__init__(config)
         import httpx
 
-        self.client = OpenAI(
-            api_key=config.get("api_key"),
-            timeout=self.timeout,
-            max_retries=0,  # 재시도 없이 바로 폴백
-            http_client=httpx.Client(
+        # [MOD] base_url 支持（SecureKB）：openai 兼容网关（智谱 GLM 等）需
+        # 把请求发到自定义 endpoint——不配置时 SDK 用官方默认值（回归 0）。
+        client_kwargs: dict[str, Any] = {
+            "api_key": config.get("api_key"),
+            "timeout": self.timeout,
+            "max_retries": 0,  # 재시도 없이 바로 폴백
+            "http_client": httpx.Client(
                 timeout=httpx.Timeout(self.timeout, connect=10.0),
                 limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
             ),
-        )
+        }
+        base_url = config.get("base_url")
+        if base_url:
+            client_kwargs["base_url"] = base_url
+        self.client = OpenAI(**client_kwargs)
         # GPT-5 전용 파라미터
         self.verbosity = config.get("verbosity", "medium")  # low, medium, high
         self.reasoning_effort = config.get(

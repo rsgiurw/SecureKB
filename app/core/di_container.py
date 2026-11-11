@@ -208,6 +208,29 @@ def _create_pii_policy_engine(policy_config: Any = None) -> Any:
     return PIIPolicyEngine(policy)
 
 
+def _create_agent_llm_client(config: dict[str, Any] | None) -> Any:
+    """[MOD] Agent（Planner/Synthesizer/Reflector）用的 generate_text client。
+
+    AgentPlanner 期望的接口是 generate_text(prompt, system_prompt)——
+    LLMClientFactory 是工厂类自身，没有该方法（Agent 首次启用时报
+    'LLMClientFactory object has no attribute generate_text'）。
+    复用 generation.yaml 的智谱 openai 兼容配置构造 OpenAILLMClient。
+    """
+    from app.lib.llm_client import OpenAILLMClient
+
+    gen = (config or {}).get("generation") or {}
+    openai_cfg = gen.get("openai") or {}
+    client_config = {
+        "api_key": openai_cfg.get("api_key") or os.getenv("OPENAI_API_KEY") or os.getenv("ZHIPU_API_KEY"),
+        "base_url": openai_cfg.get("base_url") or "https://open.bigmodel.cn/api/paas/v4/",
+        "model": openai_cfg.get("default_model") or "glm-4-flash",
+        "temperature": 0.0,
+        "max_tokens": 2048,
+        "timeout": 30,
+    }
+    return OpenAILLMClient(config=client_config)
+
+
 def _create_chat_store(config: dict[str, Any] | None, db_manager: Any) -> Any | None:
     """채팅 영속화 스토어를 생성합니다(선택적 백엔드).
 
@@ -1455,6 +1478,9 @@ class AppContainer(containers.DeclarativeContainer):
 
     llm_factory = providers.Singleton(initialize_llm_factory_wrapper, config=config)
 
+    # [MOD] Agent 专用 LLM client（generate_text 接口，智谱 openai 兼容）
+    agent_llm_client = providers.Singleton(_create_agent_llm_client, config=config)
+
     tool_loader = providers.Singleton(ToolLoader)
 
     external_api_caller = providers.Singleton(ExternalAPICaller)
@@ -1820,7 +1846,8 @@ class AppContainer(containers.DeclarativeContainer):
     agent_orchestrator = providers.Singleton(
         AgentFactory.create,
         config=providers.Callable(get_agent_config_with_timeout, base_config=config),
-        llm_client=llm_factory,
+        # [MOD] Agent 需要 generate_text 接口的具体 client（非工厂）
+        llm_client=agent_llm_client,
         mcp_server=mcp_server,
     )
 
@@ -2025,6 +2052,18 @@ async def _init_weaviate_retriever(
             signals.weaviate_retriever_done.set()
 
 
+async def _init_mcp_server(container: AppContainer) -> None:
+    """[MOD] MCPServer 를 해결하고 initialize()（도구 함수 등록）를 호출한다.
+
+    Agent 모드의 도구 실행은 initialize 단계에서 동적 로딩된 도구 함수에
+    의존한다——미등록 상태로 두면 모든 도구가 '함수 미등록'으로 실패한다.
+    mcp_server 는 async provider 이므로 Future 를 await 으로 푼다.
+    """
+    instance = await _await_if_needed(container.mcp_server())
+    if instance is not None and hasattr(instance, "initialize"):
+        await instance.initialize()
+
+
 async def _init_retrieval_orchestrator(
     container: AppContainer, signals: _StartupSignals | None = None
 ) -> None:
@@ -2119,6 +2158,15 @@ def _build_startup_modules(
             priority=ModulePriority.CRITICAL,
             initializer=container.tool_executor().initialize,
             **timing(10.0, 1),
+        ),
+        # [MOD] MCPServer 工具函数注册（SecureKB，2026-11-11）：Agent 模式的
+        # 工具执行依赖 initialize 时动态加载的工具函数——缺失则所有工具报
+        # "도구 함수 미등록"（函数未注册）静默失败。
+        ModuleConfig(
+            name="MCPServer",
+            priority=ModulePriority.IMPORTANT,
+            initializer=lambda: _init_mcp_server(container),
+            **timing(8.0, 1),
         ),
         ModuleConfig(
             name="WeaviateRetriever",

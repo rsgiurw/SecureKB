@@ -64,6 +64,11 @@ async def search_weaviate(
     top_k = arguments.get("top_k", default_top_k)
     alpha = arguments.get("alpha", default_alpha)
 
+    # [MOD] Security Trimming（SecureKB）：服务端注入的部门过滤——经
+    # global_config 副本传入（MCPServer.execute_tool），不在 LLM 生成的
+    # arguments 通道内，无法被伪造或覆盖。员工仅检索"全员"+本部门文档。
+    retrieval_filters = global_config.get("retrieval_filters")
+
     logger.info(f"🔍 search_weaviate: query='{query}', top_k={top_k}, alpha={alpha}")
 
     try:
@@ -72,14 +77,18 @@ async def search_weaviate(
             query=query,
             top_k=top_k,
             alpha=alpha,
+            filters=retrieval_filters,
         )
 
         # 응답 형식으로 변환
         results = []
         for doc in search_results:
+            # [MOD] 字段兼容：QdrantRetriever 返回 SearchResult（.content），
+            # 旧 weaviate 链路返回 LangChain Document（.page_content）
+            content = getattr(doc, "content", None) or getattr(doc, "page_content", "")
             result = {
-                "content": doc.page_content,
-                "metadata": doc.metadata,
+                "content": content,
+                "metadata": getattr(doc, "metadata", {}) or {},
             }
 
             # score가 있는 경우 포함

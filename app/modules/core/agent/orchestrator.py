@@ -151,6 +151,7 @@ class AgentOrchestrator:
         self,
         query: str,
         session_context: str = "",
+        retrieval_filters: dict[str, Any] | None = None,
     ) -> AgentResult:
         """
         에이전트 루프 실행
@@ -197,9 +198,14 @@ class AgentOrchestrator:
                 )
 
                 # 2. Execute: 도구 실행
+                # [MOD] retrieval_filters 服务端注入（SecureKB Security Trimming）：
+                # 经 executor→MCPServer 传入工具调用配置副本，LLM 生成的工具参数
+                # 无法覆盖（filters 不经过 planner/arguments 通道）。
                 tool_results = []
                 if tool_calls:
-                    tool_results = await self._executor.execute(tool_calls)
+                    tool_results = await self._executor.execute(
+                        tool_calls, retrieval_filters=retrieval_filters
+                    )
 
                 # 3. Observe: 스텝 기록
                 step = AgentStep(

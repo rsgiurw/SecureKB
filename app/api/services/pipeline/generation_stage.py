@@ -299,7 +299,8 @@ class GenerationStageMixin(PipelineStateBase):
 
 
     async def _execute_agent_mode(
-        self, message: str, session_id: str, start_time: float
+        self, message: str, session_id: str, start_time: float,
+        retrieval_filters: dict[str, Any] | None = None,
     ) -> RAGResultDict:
         """
         Agent 모드 실행 (Agentic RAG)
@@ -342,6 +343,7 @@ class GenerationStageMixin(PipelineStateBase):
                 agent_result = await self.agent_orchestrator.run(
                     query=message,
                     session_context=session_context,
+                    retrieval_filters=retrieval_filters,
                 )
 
             # Agent 결과를 RAGResultDict 형식으로 변환

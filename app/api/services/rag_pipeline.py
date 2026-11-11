@@ -929,7 +929,12 @@ class RAGPipeline(
         use_agent = options.get("use_agent", False)
         if use_agent and self.agent_orchestrator:
             logger.info("Agent 모드 활성화", extra={"orchestrator": "AgentOrchestrator"})
-            return await self._execute_agent_mode(message, session_id, start_time)
+            # [MOD] Security Trimming 透传：员工 filters 注入 Agent 检索工具
+            # （EXP-007 教训：权限过滤必须覆盖每条召回路——Agent 也不例外）
+            return await self._execute_agent_mode(
+                message, session_id, start_time,
+                retrieval_filters=options.get("filters"),
+            )
 
         if enable_debug_trace:
             debug_trace_data["original_query"] = message

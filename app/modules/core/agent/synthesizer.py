@@ -259,24 +259,34 @@ class AgentSynthesizer:
             if not result.success or not result.data:
                 continue
 
-            # 문서 검색 결과에서 소스 추출
-            if "documents" in result.data:
-                for doc in result.data["documents"]:
-                    metadata = doc.get("metadata", {})
-                    source = metadata.get("source", "")
+            # [MOD] 兼容 search_weaviate 结果形态（SecureKB）：list[dict]
+            # （content/metadata/score），文档名在 metadata.source_file
+            documents: list[dict[str, Any]] = []
+            if isinstance(result.data, dict):
+                documents = result.data.get("documents", [])
+            elif isinstance(result.data, list):
+                documents = result.data
 
-                    # 빈 소스나 이미 추가된 소스는 건너뜀
-                    if not source or source in seen:
-                        continue
+            for doc in documents:
+                metadata = doc.get("metadata", {}) if isinstance(doc, dict) else {}
+                source = (
+                    metadata.get("source", "")
+                    or metadata.get("source_file", "")
+                    or (doc.get("metadata", {}).get("source_file", "") if isinstance(doc, dict) else "")
+                )
 
-                    seen.add(source)
-                    sources.append(
-                        {
-                            "source": source,
-                            "title": metadata.get("title", source),
-                            "score": doc.get("score", 0.0),
-                        }
-                    )
+                # 빈 소스나 이미 추가된 소스는 건너뜀
+                if not source or source in seen:
+                    continue
+
+                seen.add(source)
+                sources.append(
+                    {
+                        "source": source,
+                        "title": metadata.get("title", source),
+                        "score": doc.get("score", 0.0),
+                    }
+                )
 
         # 상위 N개만 반환
         return sources[:MAX_SOURCES]

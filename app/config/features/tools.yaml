@@ -23,7 +23,12 @@ mcp: &mcp_section
   # ========================================
   # 전역 설정
   # ========================================
-  enabled: false                      # 도구/에이전트 기능 전체 On/Off (기본 비활성)
+  # [MOD] SecureKB（2026-11-11）：Agent 最小启用——仅零外部依赖的向量检索
+  # 工具（search_weaviate 实际走 QdrantRetriever）。Security Trimming 由
+  # MCPServer.execute_tool 的服务端 retrieval_filters 注入保证（员工只检索
+  # "全员"+本部门文档）。外部依赖工具（web_search 需 Tavily key、search_graph
+  # 需 neo4j、search_structured 需 SQL）保持禁用。
+  enabled: true
   server_name: "rag-tools"            # 서버 이름 (로깅용)
   default_timeout: 30                 # 도구 실행 기본 타임아웃 (초)
   max_concurrent_tools: 3             # 동시 실행 가능한 도구 수
@@ -35,7 +40,7 @@ mcp: &mcp_section
     # ------ 벡터 검색 도구 ------
     search_weaviate:
       enabled: true
-      description: "벡터 DB에서 정보를 하이브리드 검색합니다 (Dense + BM25)"
+      description: "在企业知识库中检索公司制度文档（考勤、休假、报销、安全规范等）。回答公司内部制度问题时优先使用"
       timeout: 15
       parameters:
         default_top_k: 10
@@ -43,19 +48,19 @@ mcp: &mcp_section
 
     get_document_by_id:
       enabled: true
-      description: "문서 ID로 벡터 DB에서 직접 조회합니다"
+      description: "按文档 ID 直接查询知识库文档"
       timeout: 5
 
     # ------ 그래프 검색 도구 ------
     search_graph:
-      enabled: true
-      description: "지식 그래프에서 엔티티와 관계를 검색합니다"
+      enabled: false  # [MOD] 外部依赖未部署，禁用
+      description: "在知识图谱中检索实体与关系（未部署，勿用）"
       timeout: 10
       parameters:
         default_top_k: 10
 
     get_neighbors:
-      enabled: true
+      enabled: false  # [MOD] 外部依赖未部署，禁用
       description: "엔티티의 이웃 엔티티와 관계를 조회합니다"
       timeout: 10
       parameters:
@@ -63,7 +68,7 @@ mcp: &mcp_section
 
     # ------ 웹 검색 도구 ------
     web_search:
-      enabled: true
+      enabled: false  # [MOD] 外部依赖未部署，禁用
       description: "인터넷에서 실시간 정보를 검색합니다 (Fallback: Tavily -> Brave -> DuckDuckGo)"
       timeout: 15
       parameters:
@@ -75,20 +80,20 @@ mcp: &mcp_section
 
     # ------ 구조화 데이터 검색 도구 ------
     search_structured:
-      enabled: true
+      enabled: false  # [MOD] 外部依赖未部署，禁用
       description: "구조화된 메타데이터 소스에서 정보를 검색합니다"
       timeout: 10
 
     # ------ SQL 검색 도구 ------
     query_sql:
-      enabled: true
+      enabled: false  # [MOD] 外部依赖未部署，禁用
       description: "자연어 질문을 SQL로 변환하여 메타데이터 DB를 검색합니다"
       timeout: 20
       parameters:
         max_rows: 100
 
     get_table_schema:
-      enabled: true
+      enabled: false  # [MOD] 外部依赖未部署，禁用
       description: "테이블 스키마(컬럼 정보)를 조회합니다"
       timeout: 5
 
@@ -115,7 +120,29 @@ mcp: &mcp_section
     # 에이전트(synthesizer/planner/reflector) 출력 언어.
     # 생략 시 한국어 기본값을 사용한다(하위 호환).
     # 비한국어 외주는 이 값을 해당 언어로 바꿔 답변/추론 출력 언어를 전환한다.
-    output_language: "한국어"
+    # [MOD] SecureKB（2026-11-11）：改为中文——glm-4-flash 对韩文 prompt 的
+    # 工具选择服从性差（反复幻觉已禁用的 query_sql），中文 prompt 修复。
+    output_language: "中文"
+
+    # [MOD] 中文 prompt 覆盖（SecureKB）：planner/synthesizer/reflector 内置
+    # 模板为韩文，glm-4-flash 对韩文模板的工具选择服从性差（反复幻觉 query_sql）。
+    # 占位符契约（勿删）：planner_system={output_language},{tool_schemas}；
+    # synthesizer_system={output_language}；reflector_system={output_language}
+    prompts:
+      planner_system: |
+        你是企业知识库助手的工具选择器。回答语言：{output_language}。
+        可用工具（JSON Schema）：
+        {tool_schemas}
+        规则：
+        1. 涉及公司制度/文档内容的问题，优先调用 search_weaviate（query 为中文检索词）。
+        2. 无需工具即可回答的寒暄类问题，tool_calls 返回空数组且 should_continue=false。
+        3. 严格只输出 JSON（不要输出其它文字），格式：
+           {{"reasoning": "中文 1-2 句说明选择理由", "tool_calls": [{{"tool_name": "工具名", "arguments": {{...}}}}], "should_continue": true}}
+      synthesizer_system: |
+        你是企业知识库助手。回答语言：中文。请严格基于提供的检索结果回答用户问题，
+        并在回答中点名依据的制度文档名。检索结果不足以回答时明确说明。
+      reflector_system: |
+        你是回答质量评审员。回答语言：中文。
 
     # ----------------------------------------
     # 프롬프트 오버라이드 (코드 포크 없이 언어/도메인별 프롬프트 교체)

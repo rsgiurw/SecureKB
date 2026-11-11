@@ -254,6 +254,7 @@ class ToolServer:
         self,
         tool_name: str,
         arguments: dict[str, Any],
+        retrieval_filters: dict[str, Any] | None = None,
     ) -> ToolResult:
         """
         도구 실행
@@ -297,8 +298,15 @@ class ToolServer:
             # 타임아웃 적용
             timeout = tool_config.timeout
 
+            # [MOD] Security Trimming（SecureKB）：retrieval_filters 由服务端
+            # 注入 per-call 配置副本——不进 arguments（LLM 生成的工具参数通道），
+            # 因此 planner/LLM 无法伪造或覆盖部门过滤。单例 MCPServer 的
+            # _global_config 是共享引用，绝不原地修改。
+            call_config = dict(self._global_config)
+            if retrieval_filters:
+                call_config["retrieval_filters"] = retrieval_filters
             result = await asyncio.wait_for(
-                func(arguments, self._global_config),
+                func(arguments, call_config),
                 timeout=timeout,
             )
 

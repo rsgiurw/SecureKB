@@ -66,6 +66,7 @@ class AgentExecutor:
     async def execute(
         self,
         tool_calls: list[ToolCall],
+        retrieval_filters: dict[str, Any] | None = None,
     ) -> list[ToolResult]:
         """
         도구 실행
@@ -96,12 +97,12 @@ class AgentExecutor:
             # QA-003: 전체 작업 타임아웃 적용
             if self._config.parallel_execution and len(tool_calls) > 1:
                 results = await asyncio.wait_for(
-                    self._execute_parallel(tool_calls),
+                    self._execute_parallel(tool_calls, retrieval_filters=retrieval_filters),
                     timeout=self._config.timeout_seconds,
                 )
             else:
                 results = await asyncio.wait_for(
-                    self._execute_sequential(tool_calls),
+                    self._execute_sequential(tool_calls, retrieval_filters=retrieval_filters),
                     timeout=self._config.timeout_seconds,
                 )
 
@@ -123,6 +124,7 @@ class AgentExecutor:
     async def _execute_parallel(
         self,
         tool_calls: list[ToolCall],
+        retrieval_filters: dict[str, Any] | None = None,
     ) -> list[ToolResult]:
         """
         도구 병렬 실행
@@ -143,7 +145,7 @@ class AgentExecutor:
 
         # 각 도구 호출에 대해 래핑된 태스크 생성
         tasks = [
-            self._execute_with_semaphore(tc)
+            self._execute_with_semaphore(tc, retrieval_filters=retrieval_filters)
             for tc in tool_calls
         ]
 
@@ -171,6 +173,7 @@ class AgentExecutor:
     async def _execute_with_semaphore(
         self,
         tool_call: ToolCall,
+        retrieval_filters: dict[str, Any] | None = None,
     ) -> ToolResult:
         """
         세마포어로 제한된 단일 도구 실행
@@ -182,11 +185,12 @@ class AgentExecutor:
             ToolResult
         """
         async with self._semaphore:
-            return await self._execute_single(tool_call)
+            return await self._execute_single(tool_call, retrieval_filters=retrieval_filters)
 
     async def _execute_sequential(
         self,
         tool_calls: list[ToolCall],
+        retrieval_filters: dict[str, Any] | None = None,
     ) -> list[ToolResult]:
         """
         도구 순차 실행
@@ -201,7 +205,7 @@ class AgentExecutor:
 
         results = []
         for tc in tool_calls:
-            result = await self._execute_single(tc)
+            result = await self._execute_single(tc, retrieval_filters=retrieval_filters)
             results.append(result)
 
         return results
@@ -209,6 +213,7 @@ class AgentExecutor:
     async def _execute_single(
         self,
         tool_call: ToolCall,
+        retrieval_filters: dict[str, Any] | None = None,
     ) -> ToolResult:
         """
         단일 도구 실행
@@ -235,6 +240,7 @@ class AgentExecutor:
                 self._mcp_server.execute_tool(
                     tool_name=tool_call.tool_name,
                     arguments=tool_call.arguments,
+                    retrieval_filters=retrieval_filters,
                 ),
                 timeout=self._config.tool_timeout,
             )
