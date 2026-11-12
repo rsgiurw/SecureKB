@@ -358,6 +358,8 @@ async def chat(
             options["use_agent"] = True
         if chat_request.enable_debug_trace:
             options["enable_debug_trace"] = True
+        # [MOD EXP-019] 前置分流（清单/帮助）需要身份做权限过滤；经 options 通道传递
+        options["_user"] = principal
         rag_result = await chat_service.execute_rag_pipeline(
             chat_request.message, session_id, options
         )

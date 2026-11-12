@@ -13,6 +13,7 @@ Phase 3.2: chat.py에서 추출한 검증된 비즈니스 로직
 """
 
 import asyncio
+from app.security.users import visible_departments  # [MOD EXP-019]
 import re
 import time
 import uuid
@@ -143,6 +144,92 @@ class ChatService:
         "（例如：考勤与请假制度、信息安全规范、差旅报销细则），"
         "我会为您检索并总结对应的内容。"
     )
+
+    # [MOD EXP-019] 清单型问题分流（"我们公司有哪些文档"）：
+    # 语义检索召回不了"全部"（top_k 按相关性截断）——清单型问题需要文档列表而非检索。
+    # 锚定：文档类集合名词 + 哪些/什么/清单/列表；排除含具体主题词的问题
+    # （"考勤制度有哪些规定"是具体问题，不能分流）。
+    _DOC_INVENTORY_PATTERN = re.compile(
+        r"(?:有哪些|都有什么|有什么|什么|清单|列表)"
+        r"(?:内部|公司|企业)?"
+        r"(?:的)?"
+        r"(?:文档|文件|资料|制度|规范|手册|办法|总纲)"
+        r"|文档(?:清单|列表|一览)",
+        re.IGNORECASE,
+    )
+    _TOPIC_WORDS = re.compile(
+        r"年假|考勤|报销|发票|差旅|合同|印章|证照|访客|外包|密码|权限|漏洞|"
+        r"备份|竞业|转正|体检|公积金|薪酬|加班|调休|病假|事假|招聘|离职|"
+        r"数据分级|泄露|钓鱼|防火墙|堡垒机|大模型|客户信息|导 师日志"
+    )
+    # [MOD EXP-019] 系统使用帮助分流（"怎么上传文档/文档在哪看"）：
+    # meta 问题（关于系统本身的使用）知识库里没有答案——内置引导话术。
+    _HELP_PATTERN = re.compile(
+        r"(?:怎么|如何|在哪|哪里|什么入口|在哪个页面|不能|无法)"
+        r"[^？?]{0,12}"
+        r"(?:上传|传文档|看文档|查看文档|浏览文档|预览|下载文档|打开文档|看到文档)"
+        r"|(?:上传|下载|预览|查看)(?:文档|文件)(?:的)?(?:入口|页面|地方|功能|位置)"
+        r"|文档(?:在哪|哪里)(?:可以|能)?(?:看|浏览|预览|下载)",
+        re.IGNORECASE,
+    )
+    _HELP_ANSWER_ADMIN = (
+        "文档管理入口：\n\n"
+        "· **上传**：左侧「文档管理 → 文档上传」，支持 PDF / Word / Markdown 等，单个最大 1GB；\n"
+        "· **查看 / 下载**：左侧「文档管理 → 文档管理」列表——点击文件名可在线预览内容，⬇ 按钮下载，ⓘ 查看元数据；\n"
+        "· **删除 / 重处理**：列表行内对应按钮（仅管理员可见）。"
+    )
+    _HELP_ANSWER_EMPLOYEE = (
+        "文档查看入口：\n\n"
+        "· 左侧「文档中心」列表只展示您有权限查看的文档；\n"
+        "· 点击文件名可在线预览内容，⬇ 按钮可下载；\n"
+        "· 上传新文档由管理员负责，如需上传请联系您的管理员。"
+    )
+
+    async def _doc_inventory_answer_if_needed(
+        self, message: str, user: dict[str, Any] | None
+    ) -> str | None:
+        """[MOD EXP-019] 清单型问题 → 按用户权限返回文档清单（非检索）。"""
+        text = message or ""
+        if not self._DOC_INVENTORY_PATTERN.search(text) or len(text) > 40:
+            return None
+        if self._TOPIC_WORDS.search(text):
+            return None  # 含具体主题词 = 普通问题，走检索
+        try:
+            retrieval_module = self.modules.get("retrieval")
+            if not retrieval_module:
+                return None
+            documents_data = await retrieval_module.list_documents(page=1, page_size=200)
+            docs = documents_data.get("documents", [])
+            visible = visible_departments(user or {})
+            grouped: dict[str, list[str]] = {}
+            for d in docs:
+                depts = d.get("departments") or ["全员"]
+                if visible is not None and not (set(depts) & set(visible)):
+                    continue
+                label = "全员" if "全员" in depts else "/".join(depts)
+                grouped.setdefault(label, []).append(str(d.get("filename") or "未命名"))
+            if not grouped:
+                return None
+            lines = ["知识库当前收录以下文档："]
+            for label in sorted(grouped):
+                lines.append(f"\n**{label}**（{len(grouped[label])} 篇）")
+                lines.extend(f"- 《{name}》" for name in sorted(grouped[label]))
+            lines.append(
+                f"\n共 {sum(len(v) for v in grouped.values())} 篇。"
+                "以上为您有权限查看的文档，可在左侧「文档管理」中点击文件名在线预览或下载。"
+            )
+            return "\n".join(lines)
+        except Exception as e:  # noqa: BLE001 - 清单失败静默降级走检索
+            logger.warning("文档清单回答生成失败", extra={"error": str(e)})
+            return None
+
+    def _help_answer_if_needed(self, message: str, user: dict[str, Any] | None) -> str | None:
+        """[MOD EXP-019] 系统使用帮助问题 → 内置引导话术（按角色区分入口说明）。"""
+        text = message or ""
+        if not self._HELP_PATTERN.search(text) or len(text) > 40:
+            return None
+        role = (user or {}).get("role")
+        return self._HELP_ANSWER_ADMIN if role == "admin" else self._HELP_ANSWER_EMPLOYEE
 
     async def _clarification_answer_if_needed(
         self, message: str, session_id: str
@@ -542,6 +629,65 @@ class ChatService:
                     "performance_metrics": None,
                 },
             )
+
+        # [MOD EXP-019] 清单型问题分流："公司有哪些文档"需要文档列表而非检索
+        # （top_k 按相关性截断，召回不了"全部"）；按用户权限过滤后分组列出。
+        _user_for_routes = (options or {}).get("_user")
+        inventory_answer = await self._doc_inventory_answer_if_needed(message, _user_for_routes)
+        if inventory_answer:
+            logger.info(
+                "清单命中：返回文档列表",
+                extra={"session_id": session_id, "message_preview": message[:30]},
+            )
+            return cast(
+                RAGResultDict,
+                {
+                    "answer": inventory_answer,
+                    "sources": [],
+                    "tokens_used": 0,
+                    "topic": "doc_inventory",
+                    "processing_time": 0.0,
+                    "search_results": 0,
+                    "ranked_results": 0,
+                    "model_info": {
+                        "provider": "internal",
+                        "model": "rule-based",
+                        "streaming": False,
+                    },
+                    "routing_metadata": {"route": "doc_inventory"},
+                    "performance_metrics": None,
+                },
+            )
+
+        # [MOD EXP-019] 系统使用帮助分流："怎么上传/文档在哪看" → 内置引导话术。
+        help_answer = self._help_answer_if_needed(message, _user_for_routes)
+        if help_answer:
+            logger.info(
+                "帮助命中：返回使用引导",
+                extra={"session_id": session_id, "message_preview": message[:30]},
+            )
+            return cast(
+                RAGResultDict,
+                {
+                    "answer": help_answer,
+                    "sources": [],
+                    "tokens_used": 0,
+                    "topic": "help",
+                    "processing_time": 0.0,
+                    "search_results": 0,
+                    "ranked_results": 0,
+                    "model_info": {
+                        "provider": "internal",
+                        "model": "rule-based",
+                        "streaming": False,
+                    },
+                    "routing_metadata": {"route": "help"},
+                    "performance_metrics": None,
+                },
+            )
+
+        # 分流未命中：清掉路由通道里的身份，不向下游生成层泄漏
+        (options or {}).pop("_user", None)
 
         # [MOD EXP-018] 澄清式对话：指代不明（无先行词的"解析这个文档"类）→
         # 追问澄清而非盲目检索。位于寒暄之后、注入扫描之前。
@@ -976,6 +1122,75 @@ class ChatService:
                     },
                 }
                 return
+
+            # [MOD EXP-019] 清单型/帮助分流（流式路径，与 execute() 同策略）。
+            _user_for_routes = (options or {}).get("_user")
+            inventory_answer = await self._doc_inventory_answer_if_needed(
+                message, _user_for_routes
+            )
+            help_answer = self._help_answer_if_needed(message, _user_for_routes)
+            route_answer = inventory_answer or help_answer
+            if route_answer:
+                route_kind = "doc_inventory" if inventory_answer else "help"
+                logger.info(
+                    "%s命中（流式）",
+                    "清单" if inventory_answer else "帮助",
+                    extra={"session_id": final_session_id, "message_preview": message[:30]},
+                )
+                yield {
+                    "event": "metadata",
+                    "data": {
+                        "session_id": final_session_id,
+                        "search_results": 0,
+                        "ranked_results": 0,
+                        "reranking_applied": False,
+                        "message_id": message_id,
+                        "sources": [],
+                        "route": route_kind,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                }
+                yield {"event": "chunk", "data": route_answer, "chunk_index": 0}
+                processing_time = time.time() - start_time
+                if final_session_id:
+                    try:
+                        await self.add_conversation_to_session(
+                            final_session_id,
+                            message,
+                            route_answer,
+                            {
+                                "tokens_used": 0,
+                                "processing_time": processing_time,
+                                "sources": [],
+                                "topic": route_kind,
+                                "model_info": {"provider": "internal", "model": "rule-based"},
+                                "message_id": message_id,
+                                "route": route_kind,
+                                "can_evaluate": False,
+                            },
+                        )
+                    except Exception as persist_error:  # noqa: BLE001 - 存储失败非致命
+                        logger.warning(
+                            "清单/帮助应答存储失败",
+                            extra={"session_id": final_session_id, "error": str(persist_error)},
+                        )
+                yield {
+                    "event": "done",
+                    "data": {
+                        "session_id": final_session_id,
+                        "message_id": message_id,
+                        "total_chunks": 1,
+                        "processing_time": processing_time,
+                        "tokens_used": 0,
+                        "sources": [],
+                        "route": route_kind,
+                        "model_info": {"provider": "internal", "model": "rule-based"},
+                        "token_estimation": f"{route_kind}_short_circuit",
+                    },
+                }
+                return
+
+            (options or {}).pop("_user", None)  # 分流未命中：清路由通道身份
 
             # [MOD EXP-018] 澄清式对话（流式路径，与 execute() 同策略）：指代不明
             # → 追问澄清而非盲目检索。事件序列（metadata→chunk→done）与正常路径一致。

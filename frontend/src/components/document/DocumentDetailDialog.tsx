@@ -4,8 +4,8 @@
  * 선택한 문서의 메타데이터(파일명, ID, 크기, MIME 타입, 업로드 일시,
  * 상태, 청크 수, 페이지 수, 단어 수)를 다이얼로그로 표시합니다.
  */
-import React, { useState } from 'react';
-import { BookOpen, MoreHorizontal } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -89,6 +89,16 @@ export const DocumentDetailDialog: React.FC<DocumentDetailDialogProps> = ({
       setPreviewLoading(false);
     }
   };
+
+  // [FIX 用户报告] 弹窗打开即自动加载内容——"点开文件名就可以浏览"，无需再点按钮
+  useEffect(() => {
+    if (open && doc) {
+      setPreviewText(null);
+      setPreviewError('');
+      void loadPreview();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, doc?.id]);
   // 기존 toLocaleString() 기본 출력(날짜 + 시:분:초)을 바이트 동일하게 보존하기 위한 옵션
   const uploadedAtOptions: Intl.DateTimeFormatOptions = {
     year: 'numeric', month: 'numeric', day: 'numeric',
@@ -115,19 +125,12 @@ export const DocumentDetailDialog: React.FC<DocumentDetailDialogProps> = ({
                 {hasPositiveCount(doc.metadata?.pageCount) && <DetailRow label={messages.docDetail.pageCount} value={format(messages.docDetail.pageCountValue, { count: doc.metadata?.pageCount ?? 0 })} />}
                 {hasPositiveCount(doc.metadata?.wordCount) && <DetailRow label={messages.docDetail.wordCount} value={format(messages.docDetail.wordCountValue, { count: doc.metadata?.wordCount ?? 0 })} />}
 
-                {/* [FIX 用户报告] 在线预览：点击拉取文档全文展示 */}
+                {/* [FIX 用户报告] 在线预览：弹窗打开自动加载（点文件名即浏览） */}
                 <div className="space-y-2">
-                  <Button
-                    variant="secondary"
-                    className="w-full rounded-xl font-bold gap-2"
-                    onClick={loadPreview}
-                    disabled={previewLoading}
-                  >
-                    <BookOpen className="w-4 h-4" />
-                    {previewLoading ? '加载中...' : '查看文档内容'}
-                  </Button>
+                  <p className="text-[10px] uppercase font-black text-muted-foreground/60 tracking-wider">
+                    {previewLoading ? '内容加载中...' : '文档内容'}
+                  </p>
                   {previewError && <p className="text-xs text-destructive">{previewError}</p>}
-                  {/* [FIX] Markdown 渲染：知识库语料为 .md，纯文本 pre 丢失标题/列表结构 */}
                   {previewText !== null && (
                     <div className="bg-muted/30 border border-border/40 rounded-xl p-4 max-h-[40vh] overflow-auto text-sm [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mt-3 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mt-3 [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_p]:mb-2 [&_strong]:font-bold [&_hr]:my-3 [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground">
                       <MarkdownRenderer content={previewText} />

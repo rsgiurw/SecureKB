@@ -118,7 +118,12 @@ export const DocumentListView: React.FC<DocumentListViewProps> = ({
                     {getStatusIcon(doc.status)}
                   </div>
                   {/* 긴 파일명(공백 없는 CJK/URL)도 셀 안에서 줄바꿈되도록 break-words 적용 + 2줄 제한 */}
-                  <p className="min-w-0 text-sm font-bold leading-snug whitespace-normal break-words [overflow-wrap:anywhere] line-clamp-2" title={doc.originalName || doc.filename}>
+                  {/* [FIX 用户报告] 文件名可点击 → 直接打开内容预览（用户期望"点开文件名即浏览"） */}
+                  <p
+                    className="min-w-0 text-sm font-bold leading-snug whitespace-normal break-words [overflow-wrap:anywhere] line-clamp-2 cursor-pointer hover:text-primary hover:underline underline-offset-2 transition-colors"
+                    title={(doc.originalName || doc.filename) + '（点击预览）'}
+                    onClick={(event) => { event.stopPropagation(); onViewDetails(doc); }}
+                  >
                     {doc.originalName || doc.filename}
                   </p>
                 </div>
