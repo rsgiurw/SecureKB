@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ToastMessage,
   SourceAdditionalMetadata,
@@ -114,6 +114,20 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast, embedMode = false }
     scrollToBottom,
   } = useChatInteraction({ messages, showToast });
 
+  // [FIX 用户报告] 切换会话前中断进行中的流式：流式完成回调会把回答固化进
+  // "当前消息列表"——切换后当前列表已是目标会话的，旧会话的回答会污染新会话，
+  // 且旧会话界面停留在流式中断状态。中断后该轮问答由后端 finally 兜底保存，
+  // 切回来时从历史恢复。
+  const handleSelectSession = useCallback(
+    async (targetSessionId: string) => {
+      if (isStreaming) {
+        handleStop();
+      }
+      await switchSession(targetSessionId);
+    },
+    [isStreaming, handleStop, switchSession]
+  );
+
   // 임베드 모드일 때만 부모 윈도우와의 postMessage 브리지를 활성화한다.
   // host가 보낸 메시지는 handleSend(directMessage)로 정확히 전달된다.
   useEmbedBridge({
@@ -184,7 +198,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast, embedMode = false }
           sessionId={sessionId}
           messages={messages}
           onNewSession={handleNewSession}
-          onSelectSession={switchSession}
+          onSelectSession={handleSelectSession}
         />
       )}
 

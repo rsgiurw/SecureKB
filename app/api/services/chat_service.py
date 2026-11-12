@@ -52,6 +52,9 @@ except ImportError:
 
 logger = get_logger(__name__)
 
+# [FIX 用户报告] 流式中断兜底保存的后台任务集（强引用防 GC，完成回调自动移除）
+_STREAM_PERSIST_TASKS: set[asyncio.Task] = set()
+
 
 # 스트리밍(SSE/WS)에서 검색 결과가 0건일 때 사용자에게 chunk로 안내하는 informational
 # 메시지의 코드 내장 기본값(한국어). 에러가 아닌 안내성 문자열이라 ErrorCode 카탈로그를
@@ -769,6 +772,9 @@ class ChatService:
         final_session_id = session_id
         message_id = str(uuid.uuid4())
         answer_chunks: list[str] = []
+        # [FIX 用户报告] 持久化跟踪：正常完成/拒答分支各自保存后置 True；
+        # finally 兜底仅在"未保存且已有部分内容"时保存（客户端流式中途断开场景）。
+        stream_persisted = False
         # GAP #5: 직전 청크 전송 시각(time.monotonic). 첫 청크는 None이라 페이싱
         # 무동작이며, chunk_min_interval_seconds=0이면 전체 구간에서 무동작이다.
         last_chunk_sent_at: float | None = None
@@ -1092,6 +1098,7 @@ class ChatService:
                 # 历史为空（后端实测 history=0 条）。保存失败仅记日志（响应
                 # 已发出，协议上无法再报错——与尾部保存的容错语义一致）。
                 try:
+                    stream_persisted = True
                     await self.add_conversation_to_session(
                         final_session_id,
                         message,
@@ -1368,6 +1375,7 @@ class ChatService:
                 final_session_id and answer_text and not canned_no_answer
             )
             if persisted_real_answer:
+                stream_persisted = True
                 try:
                     await self.add_conversation_to_session(
                         str(final_session_id),
@@ -1434,3 +1442,55 @@ class ChatService:
                 "error_code": ErrorCode.GENERAL_004.value,
                 "message": "스트리밍 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
             }
+
+        # [FIX 用户报告] 客户端流式中途断开（如等待回答时切换会话）→ FastAPI 取消
+        # generator（GeneratorExit，BaseException 不被上方 except 捕获），正常尾部
+        # 保存被跳过 → 切回来这一轮问答从历史里消失。
+        # 兜底用独立 asyncio task 保存：generator 取消场景下 finally 里的直接
+        # await 会被连带取消（CancelledError 也是 BaseException），独立任务
+        # 在事件循环里继续跑完保存；后台集引用防 GC。
+        finally:
+            partial_text = "".join(answer_chunks)
+            # 断开常发生在检索阶段（尚未产出任何 chunk）——answer_chunks 为空时
+            # 问题本身也从未保存过（正常路径的保存是问+答一起），此时保存问题 +
+            # 中断占位，保证"切回来问题还在"。
+            if not partial_text.strip():
+                partial_text = "（回答生成被中断）"
+            if not stream_persisted and final_session_id:
+                _bg = asyncio.create_task(
+                    self._persist_partial_stream(
+                        str(final_session_id), message, partial_text, chunk_index
+                    )
+                )
+                _STREAM_PERSIST_TASKS.add(_bg)
+                _bg.add_done_callback(_STREAM_PERSIST_TASKS.discard)
+
+    async def _persist_partial_stream(
+        self, session_id: str, message: str, partial_text: str, chunk_index: int
+    ) -> None:
+        """流式中断兜底保存：客户端断开（切会话/关页/网络）时保存已生成的部分回答。
+
+        独立 asyncio task 执行——generator 被取消时其 finally 里的直接 await
+        会被连带取消，独立任务在事件循环里继续完成保存。
+        """
+        try:
+            await self.add_conversation_to_session(
+                session_id,
+                message,
+                partial_text,
+                {
+                    "tokens_used": self._estimate_stream_tokens(partial_text, chunk_index),
+                    "message_id": str(uuid.uuid4()),
+                    "partial_stream": True,
+                    "can_evaluate": False,
+                },
+            )
+            logger.info(
+                "流式中断兜底保存完成（客户端断开/异常场景）",
+                extra={"session_id": session_id, "len": len(partial_text)},
+            )
+        except Exception as e:  # noqa: BLE001 - 保存失败仅日志（数据丢失优于进程崩溃）
+            logger.warning(
+                "流式中断兜底保存失败",
+                extra={"session_id": session_id, "error": str(e)},
+            )
