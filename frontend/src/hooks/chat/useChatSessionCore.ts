@@ -410,12 +410,28 @@ export function useChatSessionCore(
    * 현재 세션을 버리고 새로운 세션을 생성
    */
   const handleNewSession = useCallback(async () => {
+    // [FIX 用户报告] 新建会话的三重防护：
+    // ①乐观清空（在 await 网络往返之前就清 messages/sessionInfo）——
+    //   此前清空发生在 await 之后的响应回调里，网络窗口内 touch effect 看到
+    //   (新sessionId, 旧messages) 中间态，把旧会话首条消息写成了新会话标题；
+    // ②标记 latestSelectRef——在途的 switchSession 历史响应会被竞态 guard 丢弃；
+    // ③响应回来后二次竞态仲裁。
+    latestSelectRef.current = '__new_session__';
+    setMessages([]);
+    setSessionInfo(null);
     try {
       logger.log('새 세션 시작 요청');
       const response = await chatAPI.startNewSession();
       const newSessionId = response.data.session_id;
 
+      // race 가드: await 동안 사용자가 다른 세션을 선택했다면 이 응답은 버린다.
+      if (latestSelectRef.current !== '__new_session__') {
+        logger.log('새 세션 응답 무시 (더 최신 전환 존재)');
+        return;
+      }
+
       setSessionId(newSessionId);
+      latestSelectRef.current = newSessionId;
       persistChatSessionId(newSessionId);
       persistSessionAccessTokens(newSessionId, response.data);
       setMessages([]);
@@ -427,8 +443,13 @@ export function useChatSessionCore(
       });
     } catch (error) {
       logger.error('새 세션 시작 失败:', error);
+      // 失败路径同样要接受竞态仲裁：期间用户点了别的会话则以那个为准
+      if (latestSelectRef.current !== '__new_session__') {
+        return;
+      }
       const fallbackSessionId = generateFallbackSessionId();
       setSessionId(fallbackSessionId);
+      latestSelectRef.current = fallbackSessionId;
       setMessages([]);
       setSessionInfo(null);
 

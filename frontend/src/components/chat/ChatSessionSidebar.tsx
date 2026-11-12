@@ -53,6 +53,16 @@ export function ChatSessionSidebar({ sessionId, messages, onNewSession, onSelect
   const [editingTitle, setEditingTitle] = useState('');
   const deletedSessionIdsRef = useRef<Set<string>>(new Set());
   const sessionsHydratedRef = useRef(false);
+  // sessions 镜像（供 touch 判定 effect 读取当前列表，且不进依赖数组造成循环）
+  const sessionsRef = useRef<StoredChatSession[]>([]);
+  useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
+  // [FIX 用户报告] 追踪 sessionId 变化：切换/新建会话时加载历史也会让 messages
+  // 变化，但"查看"不应被视为"活跃"——只有同一会话内消息发生新增时才更新
+  // updatedAt 并置顶，否则点开旧会话它就跳到列表顶部（用户尚未提问）。
+  const lastTouchedSessionRef = useRef<string | null>(null);
+  const lastMessageCountRef = useRef<number>(0);
 
   useEffect(() => {
     setSessions(readSessions());
@@ -73,11 +83,43 @@ export function ChatSessionSidebar({ sessionId, messages, onNewSession, onSelect
     if (!sessionId) return;
     if (deletedSessionIdsRef.current.has(sessionId)) return;
 
+    // [FIX 用户报告] "查看≠活跃"：判定本次 effect 的触发原因。
+    // - 切换/新建会话（sessionId 与上次不同）：加载历史会让 messages 变化，
+    //   但不应更新 updatedAt、不应置顶——用户只是查看，还没提问。
+    // - 同一会话内消息数增加：真实对话发生 → touch updatedAt 并置顶。
+    // refs 全部在 updater 外更新（updater 保持纯函数，StrictMode 双调用安全）。
+    const previousSessions = sessionsRef.current;
+    const sessionChanged = lastTouchedSessionRef.current !== sessionId;
+    const prevCount = lastTouchedSessionRef.current === sessionId ? lastMessageCountRef.current : -1;
+    const isRealActivity = !sessionChanged && messages.length > prevCount && prevCount >= 0;
+
+    lastTouchedSessionRef.current = sessionId;
+    lastMessageCountRef.current = messages.length;
+
+    if (!isRealActivity) {
+      // 查看/历史加载：仅确保条目存在（新建会话首轮消息走 isRealActivity 正常路径），
+      // 不改 updatedAt、不重排。
+      if (sessionChanged && !previousSessions.some((session) => session.id === sessionId) && messages.length > 0) {
+        // 从后端历史恢复了一个列表里没有的会话（如清缓存后）→ 以"较旧"身份补录，
+        // 不抢置顶：updatedAt 用消息数占位为最小值会破坏排序语义，这里按现有最旧条目
+        // 之前插入。简化：直接以当前时间补录（首次出现，用户无置顶预期差异）。
+        const now = new Date().toISOString();
+        const recovered: StoredChatSession = {
+          id: sessionId,
+          title: createDefaultTitle(messages, i18n.chatSidebar.defaultTitle),
+          updatedAt: now,
+          messageCount: messages.length,
+        };
+        const next = [recovered, ...previousSessions].sort(
+          (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
+        setSessions(next);
+      }
+      return;
+    }
+
     setSessions((previous) => {
       const existing = previous.find((session) => session.id === sessionId);
-      if (messages.length === 0) {
-        return previous;
-      }
 
       const now = new Date().toISOString();
       const nextSession: StoredChatSession = {

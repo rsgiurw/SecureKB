@@ -68,7 +68,7 @@ describe('ChatSessionSidebar', () => {
       />
     );
 
-    fireEvent.click(screen.getByTitle('삭제'));
+    fireEvent.click(screen.getByTitle('删除'));
 
     expect(onNewSession).toHaveBeenCalled();
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')).toEqual([]);

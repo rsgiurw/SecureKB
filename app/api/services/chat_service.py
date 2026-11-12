@@ -162,8 +162,11 @@ class ChatService:
         真正被回答使用的往往只有考勤制度一篇。轻量启发式：LLM 的提示词风格
         倾向于在回答中点名文档（"根据《员工考勤与请假制度》…"），因此文档名
         （含前缀剥离变体）出现在回答文本中即视为被引用。
-        兜底：回答未点名任何文档（改写了标题/无引用风格）时保留前 3 篇候选，
-        避免把来源全部滤空。
+        兜底（2026-11-12 收紧）：回答未点名任何文档时保留 top-1 而非前 3——
+        无引用证据时"前 3 篇候选"会让用户误读为"这 3 篇都被回答使用"
+        （实际案例：数据分级问题的回答只用了管理制度的四级分类，来源却展示
+        3 篇——其中总纲是同内容冗余召回、应急手册是"事件分级"近似语义召回）。
+        top-1 是无引用追踪下对"回答最可能基于的文档"的最诚实近似。
         """
         if not sources or not answer:
             return sources
@@ -172,7 +175,7 @@ class ChatService:
             name = cls._source_display_name(source)
             if cls._title_in_answer(name, answer):
                 cited.append(source)
-        return cited if cited else sources[:3]
+        return cited if cited else sources[:1]
 
     def __init__(self, modules: dict[str, Any], config: dict[str, Any]):
         """
