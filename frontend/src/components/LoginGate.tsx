@@ -75,6 +75,9 @@ export function LoginGate({ onSuccess }: LoginGateProps) {
           <p className="text-xs text-muted-foreground text-center">
             管理员可见全部文档；普通员工仅可检索"全员"及本部门文档
           </p>
+          <p className="text-[10px] text-muted-foreground/70 text-center">
+            账号由管理员统一开通，如需使用请联系管理员
+          </p>
         </CardContent>
       </Card>
     </div>

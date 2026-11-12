@@ -137,6 +137,8 @@ export interface StreamDoneEvent {
   sources?: Source[];
   // [MOD] 后端 done 内层还带模型统计（信封解包后可见），用于消息卡片 Model 显示
   model_info?: ChatMessage['model_info'];
+  // [MOD EXP-021] 相关问题推荐（后端基于问题+回答生成 3 个追问）
+  followup_questions?: string[];
 }
 
 /** 에러 이벤트 (백엔드 StreamErrorEvent) */

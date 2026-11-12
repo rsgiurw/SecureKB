@@ -64,6 +64,8 @@ export function ChatSessionSidebar({ sessionId, messages, onNewSession, onSelect
   const [sessions, setSessions] = useState<StoredChatSession[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  // [MOD EXP-021] 会话搜索：按标题包含过滤（纯前端）
+  const [searchQuery, setSearchQuery] = useState('');
   const deletedSessionIdsRef = useRef<Set<string>>(new Set());
   const sessionsHydratedRef = useRef(false);
   // sessions 镜像（供 touch 判定 effect 读取当前列表，且不进依赖数组造成循环）
@@ -173,7 +175,9 @@ export function ChatSessionSidebar({ sessionId, messages, onNewSession, onSelect
   }, [sessionId, messages, i18n.chatSidebar.defaultTitle]);
 
   const sortedSessions = useMemo(
-    () => [...sessions].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+    () => [...sessions]
+      .filter((s) => !searchQuery.trim() || s.title.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
     [sessions]
   );
 
@@ -222,6 +226,13 @@ export function ChatSessionSidebar({ sessionId, messages, onNewSession, onSelect
             <Plus className="w-4 h-4" />
           </Button>
         </div>
+        {/* [MOD EXP-021] 会话搜索：按标题过滤（纯前端） */}
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="搜索会话..."
+          className="h-8 text-xs rounded-lg"
+        />
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2">

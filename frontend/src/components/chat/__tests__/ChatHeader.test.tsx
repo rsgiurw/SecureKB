@@ -8,6 +8,7 @@ describe('ChatHeader', () => {
     const mockOnNewSession = vi.fn();
     const defaultProps = {
         sessionId: 'session-12345678',
+        messages: [],
         showDevTools: false,
         setShowDevTools: mockSetShowDevTools,
         onNewSession: mockOnNewSession,

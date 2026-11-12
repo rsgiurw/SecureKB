@@ -240,6 +240,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast, embedMode = false }
         >
           <ChatHeader
             sessionId={sessionId}
+            messages={messages}
             showDevTools={showDevTools}
             setShowDevTools={setShowDevTools}
             onNewSession={handleNewSession}
@@ -247,11 +248,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast, embedMode = false }
 
           <ChatMessageList
             messages={messages}
+            sessionId={sessionId}
             loading={loading}
             messageAnimations={messageAnimations}
             messagesEndRef={messagesEndRef}
             onChunkClick={handleChunkClick}
             onSuggestionClick={handleSuggestionClick}
+            onFollowupClick={(question) => void handleSend(question)}
             copyToClipboard={copyToClipboard}
             showScrollButton={showScrollButton}
             handleScroll={handleScroll}

@@ -21,8 +21,11 @@ interface ChatMessageListProps {
     loading: boolean;
     messageAnimations: Set<string>;
     copyToClipboard: (text: string, successMessage?: string) => void;
+    sessionId?: string;
     onChunkClick: (source: SourceType) => void;
     onSuggestionClick: (suggestion: string) => void;
+    // [MOD EXP-021] 相关问题推荐点击（最后一条 AI 回答下方 chips）
+    onFollowupClick: (question: string) => void;
     messagesEndRef: React.RefObject<HTMLDivElement | null>;
     showScrollButton?: boolean;
     handleScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
@@ -74,8 +77,10 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
     loading,
     messageAnimations,
     copyToClipboard,
+    sessionId,
     onChunkClick,
     onSuggestionClick,
+    onFollowupClick,
     messagesEndRef,
     showScrollButton,
     handleScroll,
@@ -119,7 +124,9 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                                 message={message}
                                 isAnimated={messageAnimations.has(message.id)}
                                 copyToClipboard={copyToClipboard}
+                                sessionId={sessionId}
                                 onChunkClick={onChunkClick}
+                                onFollowupClick={onFollowupClick}
                             />
                         ))}
 

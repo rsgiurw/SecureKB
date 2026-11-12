@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { ThumbsDown, ThumbsUp } from 'lucide-react';
 import { User, Copy, BookOpen } from 'lucide-react';
 import { ChatMessage, Source as SourceType } from '../../types';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { ChatbotIcon } from '../icons';
+import api from '../../services/api';
 import {
     Avatar,
     AvatarFallback,
@@ -30,21 +32,42 @@ import { useMenuMessages } from '../../i18n/useMenuLocale';
 import { format } from '../../i18n/format';
 
 interface ChatMessageItemProps {
+  sessionId?: string | undefined;
     message: ChatMessage;
     isAnimated: boolean;
     copyToClipboard: (text: string, successMessage?: string) => void;
     onChunkClick: (source: SourceType) => void;
+  // [MOD EXP-021] 相关问题推荐点击回调
+  onFollowupClick: (question: string) => void;
 }
 
 export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
+    sessionId,
     message,
     isAnimated,
     copyToClipboard,
     onChunkClick,
+  onFollowupClick,
 }) => {
     // i18n: 복사 버튼 등 메시지 액션 라벨 + 타임스탬프 로케일
     const { messages, locale } = useMenuMessages();
     const isUser = message.role === 'user';
+    // [MOD EXP-022] 反馈状态与提交（一次反馈后可切换，最终态落审计表）
+    const [feedbackGiven, setFeedbackGiven] = useState<'up' | 'down' | null>(null);
+    const sendFeedback = async (rating: 'up' | 'down') => {
+        setFeedbackGiven(rating);
+        try {
+            await api.post('/api/chat/feedback', {
+                session_id: sessionId,
+                message_id: message.id,
+                rating: rating === 'up' ? 1 : -1,
+                query: undefined,
+                response: undefined,
+            });
+        } catch {
+            // 反馈失败静默（不打扰用户阅读）
+        }
+    };
 
     return (
         <div
@@ -97,6 +120,37 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
                                     <TooltipContent>{messages.chat.message.copyAnswer}</TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
+                            {/* [MOD EXP-022] 回答反馈 👍/👎（落审计表，admin 可见 bad case） */}
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className={"h-7 w-7 rounded-md transition-colors " + (feedbackGiven === 'up' ? 'text-emerald-500 bg-emerald-500/10' : 'hover:bg-muted')}
+                                            aria-label="有帮助"
+                                            onClick={() => void sendFeedback('up')}
+                                        >
+                                            <ThumbsUp className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>有帮助</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className={"h-7 w-7 rounded-md transition-colors " + (feedbackGiven === 'down' ? 'text-destructive bg-destructive/10' : 'hover:bg-muted')}
+                                            aria-label="没帮助"
+                                            onClick={() => void sendFeedback('down')}
+                                        >
+                                            <ThumbsDown className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>没帮助</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         </div>
                     )}
 
@@ -123,7 +177,23 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
                     )}>
                         {formatTimestamp(message.timestamp, locale)}
                     </span>
-                </div>
+
+                    </div>
+
+                    {/* [MOD EXP-021] 相关问题推荐：AI 回答下方追问 chips（点击即发送） */}
+                    {!isUser && (message.followup_questions?.length ?? 0) > 0 && (
+                        <div className="w-full mt-3 flex flex-wrap gap-2">
+                            {message.followup_questions!.map((q, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => onFollowupClick(q)}
+                                    className="text-xs px-3 py-1.5 rounded-full border border-border/50 bg-muted/20 text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all text-left"
+                                >
+                                    {q}
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
                 {!isUser && message.sources && message.sources.length > 0 && (
                     <div className="w-full mt-3">

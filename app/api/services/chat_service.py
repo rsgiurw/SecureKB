@@ -217,6 +217,11 @@ class ChatService:
             "聊天记录保存在服务器端，**保留 7 天**——隔天回来继续同一个会话即可。"
             "左侧「聊天记录」可切换最近会话；删除会话后其记录不可恢复。"
         ),
+        (
+            r"(?:怎么|如何|在哪).{0,4}(?:修改|更改|重置)(?:我的)?密码|(?:修改|更改)密码",
+            "修改密码：点击右上角的用户名 → 「修改密码」→ 输入原密码与新密码即可。"
+            "忘记原密码的请联系管理员重置。"
+        ),
     ]
 
     async def _doc_inventory_answer_if_needed(
@@ -1826,6 +1831,13 @@ class ChatService:
                     "token_estimation": "estimated_from_stream",
                 },
             }
+            # [MOD EXP-021] 相关问题推荐：基于问题+回答生成 3 个追问（业界标配，
+            # 对话流畅度）。失败静默省略，不影响主回答。
+            followups = await self._generate_followup_questions(
+                message, "".join(answer_chunks)
+            )
+            if followups:
+                done_event["data"]["followup_questions"] = followups
             # 환각 게이트(기간 불일치)는 전체 답변을 본 뒤 판정하므로 스트리밍 텍스트를 바꾸지는
             # 않고, 비스트리밍과 같은 기준의 판정 결과를 done 이벤트에 실어 클라이언트가 안내할 수
             # 있게 한다.
@@ -1868,6 +1880,35 @@ class ChatService:
                 )
                 _STREAM_PERSIST_TASKS.add(_bg)
                 _bg.add_done_callback(_STREAM_PERSIST_TASKS.discard)
+
+    async def _generate_followup_questions(self, message: str, answer: str) -> list[str]:
+        """[MOD EXP-021] 相关问题推荐：基于问题与回答生成 3 个追问。
+
+        async 方法（与 _rewrite_standalone_query 同款 llm_factory 模式）；
+        失败静默返回空列表——推荐是增益不是依赖，不影响主回答。
+        """
+        if self.llm_factory is None or not answer.strip():
+            return []
+        prompt = (
+            "基于以下用户问题与系统回答，生成 3 个用户可能接着追问的相关问题。"
+            "要求：每个问题一句话、口语化、与公司制度主题相关；只输出 JSON 数组"
+            "（如 [\"问题1\",\"问题2\",\"问题3\"]），不要解释。\n\n"
+            f"用户问题：{message}\n\n系统回答：{answer[:600]}"
+        )
+        try:
+            content, _provider = await self.llm_factory.generate_with_fallback(
+                prompt=prompt, system_prompt=None, temperature=0.7, max_tokens=200,
+            )
+            import json as _json
+
+            start = (content or "").find("[")
+            end = (content or "").rfind("]")
+            if start == -1 or end <= start:
+                return []
+            arr = _json.loads(content[start:end + 1])
+            return [str(x).strip()[:60] for x in arr if str(x).strip()][:3]
+        except Exception:  # noqa: BLE001 - 推荐失败静默
+            return []
 
     async def _persist_partial_stream(
         self, session_id: str, message: str, partial_text: str, chunk_index: int

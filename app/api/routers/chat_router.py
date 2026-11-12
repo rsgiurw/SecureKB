@@ -895,8 +895,6 @@ async def process_feedback(
             - golden_candidate: Golden Dataset 후보 등록 여부
     """
     try:
-        # 피드백 서비스를 통해 저장 (향후 구현)
-        # 현재는 로깅만 수행하고 성공 응답 반환
         feedback_id = str(uuid4())
 
         logger.info(
@@ -905,6 +903,26 @@ async def process_feedback(
             message_id=feedback_request.message_id,
             rating=feedback_request.rating,
             has_comment=bool(feedback_request.comment),
+        )
+
+        # [MOD EXP-022] 反馈落库：写入审计事件表（category=feedback，admin 界面
+        # category=feedback 筛选即"bad case 列表"——README Roadmap 承诺的
+        # "反馈→bad case"闭环的数据侧）
+        principal = _resolve_principal(http_request) if http_request else None
+        get_secure_audit_service().record(
+            category="feedback",
+            action="thumbs_up" if feedback_request.rating == 1 else "thumbs_down",
+            actor_username=(principal or {}).get("username"),
+            session_id=feedback_request.session_id,
+            ip=get_real_client_ip(http_request) if http_request else None,
+            result="ok",
+            detail={
+                "message_id": feedback_request.message_id,
+                "rating": feedback_request.rating,
+                "comment": feedback_request.comment,
+                "question": (feedback_request.query or "")[:200],
+                "answer": (feedback_request.response or "")[:200],
+            },
         )
 
         # Golden Dataset 후보 등록 여부 결정
@@ -1094,8 +1112,11 @@ async def list_secure_audit_events(
 from app.security.users import (  # noqa: E402
     DEFAULT_DEPARTMENTS,
     VALID_ROLES,
+    create_department,
     create_user,
+    delete_department,
     delete_user,
+    list_departments,
     list_users,
     update_user,
 )
@@ -1188,3 +1209,47 @@ async def admin_delete_user(request: Request, username: str) -> dict[str, Any]:
         detail={"target": username},
     )
     return {"deleted": username}
+
+
+@router.get("/admin/departments")
+async def admin_list_departments(request: Request) -> dict[str, Any]:
+    """部门列表（登录即可读——员工也需要知道部门选项）。"""
+    _require_admin(request)
+    return {"departments": list_departments()}
+
+
+@router.post("/admin/departments")
+async def admin_create_department(request: Request) -> dict[str, Any]:
+    """新增部门（管理员）。"""
+    principal = _require_admin(request)
+    body = await request.json()
+    departments, error = create_department(str(body.get("name") or ""))
+    if error:
+        raise HTTPException(status_code=400, detail={"error": "创建失败", "message": error})
+    get_secure_audit_service().record(
+        category="admin",
+        action="department.created",
+        actor_username=principal.get("username"),
+        actor_role=principal.get("role"),
+        result="ok",
+        detail={"name": str(body.get("name"))},
+    )
+    return {"departments": departments}
+
+
+@router.delete("/admin/departments/{name}")
+async def admin_delete_department(request: Request, name: str) -> dict[str, Any]:
+    """删除部门（'全员'不可删；有用户归属不可删）。"""
+    principal = _require_admin(request)
+    departments, error = delete_department(name)
+    if error:
+        raise HTTPException(status_code=400, detail={"error": "删除失败", "message": error})
+    get_secure_audit_service().record(
+        category="admin",
+        action="department.deleted",
+        actor_username=principal.get("username"),
+        actor_role=principal.get("role"),
+        result="ok",
+        detail={"name": name},
+    )
+    return {"departments": departments}

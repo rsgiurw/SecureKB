@@ -337,6 +337,7 @@ export const useChatMessages = ({
             processingTime?: number | undefined;
             tokensUsed?: number | undefined;
             modelInfo?: ChatMessage['model_info'];
+            followups?: string[] | undefined;
         } = { content: '' };
 
         // 표시/수신 버퍼와 타이프라이터 타이머
@@ -447,6 +448,8 @@ export const useChatMessages = ({
                     accumulated.processingTime = event.processing_time;
                     accumulated.tokensUsed = event.tokens_used;
                     accumulated.modelInfo = event.model_info;
+                    // [MOD EXP-021] 相关问题推荐透传
+                    accumulated.followups = event.followup_questions;
                     // 남은 표시 버퍼가 있으면 타이프라이터가 마저 흘려보내고, 없으면 즉시 해제
                     if (pendingContent.length === 0) {
                         resolveVisualDrainOnce();
@@ -486,6 +489,7 @@ export const useChatMessages = ({
                 processing_time: accumulated.processingTime,
                 tokens_used: accumulated.tokensUsed,
                 model_info: accumulated.modelInfo,
+                followup_questions: accumulated.followups,
             } : m)));
             setRagProgress(withProgressLabel({ phase: 'completed' }));
 

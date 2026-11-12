@@ -80,6 +80,8 @@ export interface ChatMessage {
   processing_time?: number | undefined;
   tokens_used?: number | undefined;
   model_info?: ModelInfo | undefined;
+  // [MOD EXP-021] 相关问题推荐（最后一条 AI 回答的追问 chips 数据源）
+  followup_questions?: string[] | undefined;
 }
 
 export interface SourceAdditionalMetadata {

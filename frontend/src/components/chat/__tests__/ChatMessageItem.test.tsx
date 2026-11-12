@@ -33,22 +33,22 @@ describe('ChatMessageItem', () => {
     };
 
     it('should render user message correctly', () => {
-        renderWithContext(<ChatMessageItem message={userMessage} isAnimated={true} copyToClipboard={mockCopyToClipboard} onChunkClick={mockOnChunkClick} />);
+        renderWithContext(<ChatMessageItem message={userMessage} isAnimated={true} copyToClipboard={mockCopyToClipboard} onChunkClick={mockOnChunkClick} onFollowupClick={vi.fn()} />);
         expect(screen.getByText('Hello')).toBeInTheDocument();
     });
 
     it('should render assistant message with markdown', () => {
-        renderWithContext(<ChatMessageItem message={botMessage} isAnimated={true} copyToClipboard={mockCopyToClipboard} onChunkClick={mockOnChunkClick} />);
+        renderWithContext(<ChatMessageItem message={botMessage} isAnimated={true} copyToClipboard={mockCopyToClipboard} onChunkClick={mockOnChunkClick} onFollowupClick={vi.fn()} />);
         expect(screen.getByTestId('markdown')).toHaveTextContent('Hi there');
     });
 
     it('should show sources for assistant message if present', () => {
-        renderWithContext(<ChatMessageItem message={botMessage} isAnimated={true} copyToClipboard={mockCopyToClipboard} onChunkClick={mockOnChunkClick} />);
+        renderWithContext(<ChatMessageItem message={botMessage} isAnimated={true} copyToClipboard={mockCopyToClipboard} onChunkClick={mockOnChunkClick} onFollowupClick={vi.fn()} />);
         expect(screen.getByText(/참고한 문서/)).toBeInTheDocument();
     });
 
     it('should call onChunkClick when source is clicked', () => {
-        renderWithContext(<ChatMessageItem message={botMessage} isAnimated={true} copyToClipboard={mockCopyToClipboard} onChunkClick={mockOnChunkClick} />);
+        renderWithContext(<ChatMessageItem message={botMessage} isAnimated={true} copyToClipboard={mockCopyToClipboard} onChunkClick={mockOnChunkClick} onFollowupClick={vi.fn()} />);
         const trigger = screen.getByText(/참고한 문서/);
         fireEvent.click(trigger);
 
@@ -58,7 +58,7 @@ describe('ChatMessageItem', () => {
     });
 
     it('should render copy button for assistant message and handle click', () => {
-        renderWithContext(<ChatMessageItem message={botMessage} isAnimated={true} copyToClipboard={mockCopyToClipboard} onChunkClick={mockOnChunkClick} />);
+        renderWithContext(<ChatMessageItem message={botMessage} isAnimated={true} copyToClipboard={mockCopyToClipboard} onChunkClick={mockOnChunkClick} onFollowupClick={vi.fn()} />);
         const copyBtn = screen.getByLabelText('답변 복사');
         fireEvent.click(copyBtn);
         expect(mockCopyToClipboard).toHaveBeenCalledWith('Hi there', expect.any(String));

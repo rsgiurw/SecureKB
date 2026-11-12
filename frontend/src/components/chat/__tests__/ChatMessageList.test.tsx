@@ -29,6 +29,7 @@ describe('ChatMessageList', () => {
         messageAnimations: new Set<string>(),
         copyToClipboard: mockCopyToClipboard,
         onChunkClick: mockOnChunkClick,
+        onFollowupClick: vi.fn(),
         onSuggestionClick: mockOnSuggestionClick,
         messagesEndRef: messagesEndRef as unknown as React.MutableRefObject<HTMLDivElement | null>,
         showScrollButton: false,

@@ -205,3 +205,81 @@ def delete_user(username: str, operator: str) -> tuple[bool, str | None]:
     del users[username]
     _save_users(users)
     return True, None
+
+
+# ============================================================================
+# [MOD EXP-022] 部门管理：部门列表动态化（管理员可增删），存 data/departments.json。
+# 用户管理页下拉与文档权限语义联动（部门即权限范围）。
+# ============================================================================
+
+DEPARTMENTS_FILE = ROOT / "data" / "departments.json"
+
+
+def list_departments() -> list[str]:
+    """部门列表：文件存在读文件，否则落默认种子并返回。"""
+    if DEPARTMENTS_FILE.exists():
+        try:
+            data = json.loads(DEPARTMENTS_FILE.read_text(encoding="utf-8"))
+            if isinstance(data, list) and data:
+                return [str(d) for d in data]
+        except (ValueError, OSError):
+            pass
+    _save_departments(list(DEFAULT_DEPARTMENTS))
+    return list(DEFAULT_DEPARTMENTS)
+
+
+def _save_departments(departments: list[str]) -> None:
+    DEPARTMENTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    DEPARTMENTS_FILE.write_text(
+        json.dumps(departments, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+def create_department(name: str) -> tuple[list[str] | None, str | None]:
+    """新增部门（重名/空名拒绝）。"""
+    name = (name or "").strip()
+    if not name:
+        return None, "部门名不能为空"
+    if len(name) > 20:
+        return None, "部门名过长（最多 20 字）"
+    departments = list_departments()
+    if name in departments:
+        return None, "部门已存在"
+    departments.append(name)
+    _save_departments(departments)
+    return departments, None
+
+
+def delete_department(name: str) -> tuple[list[str] | None, str | None]:
+    """删除部门。保护：'全员'不可删（检索过滤基石）；有用户归属的部门不可删。"""
+    name = (name or "").strip()
+    if name == "全员":
+        return None, "'全员'是默认可见范围，不可删除"
+    departments = list_departments()
+    if name not in departments:
+        return None, "部门不存在"
+    users = _load_users()
+    in_use = [u["username"] for u in users.values() if u.get("department") == name]
+    if in_use:
+        return None, f"仍有 {len(in_use)} 名用户属于该部门（{', '.join(in_use[:3])}），请先调整其部门"
+    departments.remove(name)
+    _save_departments(departments)
+    return departments, None
+
+
+def change_password(username: str, old_password: str, new_password: str) -> tuple[bool, str | None]:
+    """[MOD EXP-023] 用户自助修改密码（需验证旧密码）。"""
+    users = _load_users()
+    u = users.get(username)
+    if not u:
+        return False, "用户不存在"
+    if not hmac.compare_digest(u["password_hash"], _hash_password(old_password, u["salt"])):
+        return False, "原密码不正确"
+    if len(new_password or "") < 6:
+        return False, "新密码至少 6 位"
+    if new_password == old_password:
+        return False, "新密码不能与原密码相同"
+    u["salt"] = secrets.token_hex(8)
+    u["password_hash"] = _hash_password(new_password, u["salt"])
+    _save_users(users)
+    return True, None

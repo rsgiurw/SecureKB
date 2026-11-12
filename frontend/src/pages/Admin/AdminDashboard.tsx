@@ -36,6 +36,7 @@ import {
 import { adminService } from '../../services/adminService';
 import PromptManager from '../../components/PromptManager';
 import { UsersManager } from './UsersManager';
+import { AuditViewer } from './AuditViewer';
 import { useToast } from '@/hooks/use-toast';
 import { useMenuMessages } from '../../i18n/useMenuLocale';
 import { format, formatDate } from '../../i18n/format';
@@ -558,6 +559,10 @@ const AdminDashboard: React.FC = () => {
             <Users className="w-4 h-4 mr-1" />
             用户管理
           </TabsTrigger>
+          <TabsTrigger value="audit" className="flex-1 rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
+            <FileText className="w-4 h-4 mr-1" />
+            审计与反馈
+          </TabsTrigger>
           <TabsTrigger value="settings" className="flex-1 rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
             <Settings className="w-4 h-4" /> <span className="hidden sm:inline">{messages.adminDashboard.tabSettings}</span>
           </TabsTrigger>
@@ -981,6 +986,9 @@ const AdminDashboard: React.FC = () => {
         </TabsContent>
           <TabsContent value="users" className="space-y-6">
             <UsersManager />
+          </TabsContent>
+          <TabsContent value="audit" className="space-y-6">
+            <AuditViewer />
           </TabsContent>
 
         {/* 탭 6: 설정 */}

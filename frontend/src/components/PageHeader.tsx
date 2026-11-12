@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Sun,
   Moon,
@@ -6,6 +6,7 @@ import {
   MessageSquare,
   BrainCircuit,
   LogOut,
+  KeyRound,
   AlertTriangle,
 } from 'lucide-react';
 import { useIsDarkMode } from '../hooks/useIsDarkMode';
@@ -20,6 +21,13 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useMenuMessages } from '../i18n/useMenuLocale';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface PageHeaderProps {
   pageName?: string;
@@ -46,6 +54,13 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 }) => {
   const isDark = useIsDarkMode();
   const { messages } = useMenuMessages();
+  // [MOD EXP-023] 自助修改密码：用户名下拉菜单 + 弹窗
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [pwDialogOpen, setPwDialogOpen] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [pwError, setPwError] = useState('');
+  const [pwLoading, setPwLoading] = useState(false);
 
   // [FIX 用户报告] 右上角登录用户名（securekb_user 由登录门写入）
   const displayName = (() => {
@@ -152,13 +167,42 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             </div>
 
             {/* [FIX 用户报告] 登录用户名显示：登录后右上角至少能看到"我是谁" */}
-            <div className="hidden sm:flex items-center gap-2 mr-1 px-2.5 py-1 rounded-full bg-muted/40 border border-border/40">
-              <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">
-                {displayName.charAt(0)}
-              </span>
-              <span className="text-xs font-semibold text-foreground max-w-[8rem] truncate">
-                {displayName}
-              </span>
+            <div className="hidden sm:flex items-center mr-1 relative">
+              {/* [MOD EXP-023] 账户菜单：简易 state 菜单（无 shadcn dropdown 组件依赖） */}
+              <button
+                className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-muted/40 border border-border/40 hover:bg-muted/60 transition-colors"
+                title="账户菜单"
+                onClick={() => setUserMenuOpen((open) => !open)}
+              >
+                <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">
+                  {displayName.charAt(0)}
+                </span>
+                <span className="text-xs font-semibold text-foreground max-w-[8rem] truncate">
+                  {displayName}
+                </span>
+              </button>
+              {userMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 w-40 rounded-xl border border-border/40 bg-background shadow-lg z-50 py-1">
+                  <button
+                    className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-muted/50 flex items-center gap-2"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      setPwDialogOpen(true);
+                      setOldPassword('');
+                      setNewPassword('');
+                      setPwError('');
+                    }}
+                  >
+                    <KeyRound className="w-4 h-4" /> 修改密码
+                  </button>
+                  <button
+                    className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-muted/50 flex items-center gap-2"
+                    onClick={onLogout}
+                  >
+                    <LogOut className="w-4 h-4" /> {messages.nav.logout}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="h-4 w-px bg-border/40 mx-2 hidden sm:block" />
@@ -203,6 +247,54 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
               </TooltipContent>
             </Tooltip>
           </div>
+
+          {/* [MOD EXP-023] 修改密码弹窗 */}
+          <Dialog open={pwDialogOpen} onOpenChange={setPwDialogOpen}>
+            <DialogContent className="max-w-xs">
+              <DialogHeader>
+                <DialogTitle className="text-base font-black">修改密码</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <input
+                  type="password"
+                  value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  placeholder="原密码"
+                  className="w-full h-9 rounded-lg border border-input bg-transparent px-3 text-sm"
+                />
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="新密码（至少 6 位）"
+                  className="w-full h-9 rounded-lg border border-input bg-transparent px-3 text-sm"
+                />
+                {pwError && <p className="text-xs text-destructive">{pwError}</p>}
+              </div>
+              <DialogFooter>
+                <Button variant="secondary" onClick={() => setPwDialogOpen(false)}>取消</Button>
+                <Button
+                  disabled={pwLoading || !oldPassword || newPassword.length < 6}
+                  onClick={async () => {
+                    setPwLoading(true);
+                    setPwError('');
+                    try {
+                      const { default: api } = await import('../services/api');
+                      await api.put('/api/auth/change-password', { old_password: oldPassword, new_password: newPassword });
+                      setPwDialogOpen(false);
+                    } catch (e) {
+                      const msg = (e as { response?: { data?: { detail?: string } } }).response?.data?.detail;
+                      setPwError(typeof msg === 'string' ? msg : '修改失败，请检查原密码');
+                    } finally {
+                      setPwLoading(false);
+                    }
+                  }}
+                >
+                  {pwLoading ? '提交中...' : '确认修改'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </header>
     </TooltipProvider>
