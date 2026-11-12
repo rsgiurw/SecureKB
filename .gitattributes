@@ -1,0 +1,3 @@
+# Shell 脚本强制 LF：容器内 /bin/sh 无法执行 CRLF 脚本，
+# 而 Windows git autocrlf=true 会在 checkout 时把 LF 转成 CRLF（曾导致 entrypoint 进容器即挂）。
+*.sh text eol=lf

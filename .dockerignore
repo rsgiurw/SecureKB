@@ -17,3 +17,23 @@
 !Dockerfile
 !docker-entrypoint.sh
 !.dockerignore
+
+# [MOD] SecureKB：easy_start 需要进镜像——output_guard 读取 easy_start/prompts/
+# 的提示词特征文件，sample_data 供 demo API 使用。
+# 运行时数据（.qdrant_data / BM25 索引）由 compose 卷挂载提供，不进镜像。
+!easy_start/
+!easy_start/**
+easy_start/.qdrant_data
+easy_start/__pycache__
+
+# [MOD] SecureKB 初始数据：users.json（演示账户）等开箱即用；
+# sqlite/快照等运行时产物由卷挂载覆盖，不进镜像。
+!data/
+!data/**
+data/*.sqlite3*
+data/chat_snapshot.json
+data/__pycache__
+
+# [MOD] 本地预下载模型直拷进镜像（hf-mirror 在构建容器内不可达，且省去 2.3GB 构建期下载）
+!models/
+!models/**

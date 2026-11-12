@@ -7,22 +7,23 @@
 mkdir -p /app/logs
 
 # 1. LLM API 키 확인 및 안내
-if [ -z "$GOOGLE_API_KEY" ] && [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ]; then
+# [MOD] SecureKB：LLM 为智谱 GLM（ZHIPU_API_KEY），OpenAI key 仅作兼容备用
+if [ -z "$ZHIPU_API_KEY" ] && [ -z "$OPENAI_API_KEY" ]; then
     echo ""
     echo "╔══════════════════════════════════════════════════════════════════╗"
-    echo "║  ⚠️  LLM API 키가 설정되지 않았습니다                            ║"
+    echo "║  ⚠️  未检测到 LLM API 密钥                                       ║"
     echo "╠══════════════════════════════════════════════════════════════════╣"
     echo "║                                                                  ║"
-    echo "║  RAG 시스템의 답변 생성 기능을 사용하려면 API 키가 필요합니다.   ║"
+    echo "║  RAG 系统的回答生成功能需要 API 密钥。                           ║"
     echo "║                                                                  ║"
-    echo "║  🔑 Gemini API 키 발급 (무료, 30초):                             ║"
-    echo "║     https://aistudio.google.com/apikey                           ║"
+    echo "║  🔑 智谱开放平台（本项目默认 LLM）：                              ║"
+    echo "║     https://open.bigmodel.cn                                     ║"
     echo "║                                                                  ║"
-    echo "║  📝 설정 방법:                                                   ║"
-    echo "║     1. .env 파일에 추가: GOOGLE_API_KEY=\"your-api-key\"           ║"
-    echo "║     2. 컨테이너 재시작: docker compose restart api               ║"
+    echo "║  📝 设置方法：                                                   ║"
+    echo "║     1. 在 .env 文件添加：ZHIPU_API_KEY=\"your-api-key\"            ║"
+    echo "║     2. 重启容器：docker compose -f docker-compose.securekb.yml restart api ║"
     echo "║                                                                  ║"
-    echo "║  ℹ️  검색 기능은 API 키 없이도 사용 가능합니다.                   ║"
+    echo "║  ℹ️  检索功能无需 API 密钥也可使用。                              ║"
     echo "║                                                                  ║"
     echo "╚══════════════════════════════════════════════════════════════════╝"
     echo ""

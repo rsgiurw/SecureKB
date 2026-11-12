@@ -108,6 +108,23 @@ cd frontend && npm install && npm run dev          # http://localhost:5000
 
 轻量体验（无需前端构建）：`chat.bat`（CLI 问答）· `admin.bat`（管理菜单）· `demo.bat`（轻量 Web 页）。
 
+### Docker 一键部署（推荐演示方式）
+
+```bash
+# 1. 配置 .env（同上，另含 FASTAPI_AUTH_KEY）
+# 2. 首次构建前：bge 模型不入 git，从本机 HF 缓存拷入构建上下文（Windows）
+#    xcopy /E /I "%USERPROFILE%\.cache\huggingface\hub\models--BAAI--bge-reranker-v2-m3\snapshots\*" models\bge-reranker-v2-m3
+# 3. 构建并启动（首次约 10-20 分钟）
+docker compose -f docker-compose.securekb.yml up -d --build
+# 4. 打开 http://localhost:5000（admin/Admin@2026）
+```
+
+镜像特性：torch CPU 版（镜像省 ~2.5GB）· bge-reranker-v2-m3 模型直拷内置
+（`HF_HUB_OFFLINE=1` 离线加载，运行时不依赖 HF Hub）· 国内源构建（apt 阿里云 /
+PyPI 清华 / npm npmmirror）· nginx same-origin 反代（无跨域）。
+注意：容器与本机直跑共用 `easy_start/.qdrant_data`（Qdrant 本地模式文件锁），
+两者不能同时运行。
+
 ### 评测回归
 
 ```bash
@@ -125,7 +142,12 @@ cd frontend && npm install && npm run dev          # http://localhost:5000
   （混合检索下的常见漏洞：只过滤其中一路导致权限泄露，EXP-007 有完整复盘）。
 - **输出侧泄露检测**（`app/security/output_guard.py`）：系统提示词指纹比对、密钥形态、越狱信号。
 - **间接注入扫描**：检索结果中的文档若携带针对 AI 的指令特征，剔除后再生成。
-- 规划中：PII 脱敏规则引擎、审计日志持久化、管理员 JWT 完整版。
+- **中国 PII 入口清洗**（`app/security/cn_pii.py`）：手机号/身份证/银行卡/邮箱，
+  正则初筛 + 算法校验（GB11643/Luhn）双层规则，入口即掩、全链路只见掩码。
+- **审计日志**（`secure_audit_service`）：SQLite append-only，security/query/admin
+  三类事件，注入拦截、PII 掩码、越权访问（401/403）全量落库。
+- **输出合规规则引擎**（`app/security/output_compliance.py`）：提示词泄漏 block、
+  注入回声/密钥形态/PII 片段 mask，分级处置 + 审计。
 
 ## 与上游的主要差异
 
@@ -139,13 +161,14 @@ cd frontend && npm install && npm run dev          # http://localhost:5000
 
 ## Roadmap
 
-- [ ] 文档上传 Web 入口（上传 → 解析 → 打标 → 入库闭环）
-- [ ] PII 脱敏规则引擎
-- [ ] 审计日志持久化
+- [x] 文档上传 Web 入口（上传 → 解析 → 打标 → 入库闭环）
+- [x] PII 脱敏规则引擎（中国 PII 双层规则）
+- [x] 审计日志持久化（SQLite append-only）
+- [x] Docker Compose 一键部署（`docker-compose.securekb.yml`）
+- [x] 前端简体中文语言包（zhHans，仅中文）
+- [x] Agent 模式最小启用（ReAct + 工具白名单 + Security Trimming 六层透传）
 - [ ] 反馈按钮（👍/👎）→ bad case 自动进入评测集
-- [ ] 管理员 JWT 完整版
-- [ ] Docker Compose 一键部署
-- [ ] 前端简体中文语言包（zhHans）
+- [ ] 忠实度拒答联动评测（distractor / 世界知识拼凑 bad case）
 
 ## 致谢
 

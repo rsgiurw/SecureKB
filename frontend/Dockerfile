@@ -8,6 +8,9 @@ WORKDIR /app
 # package.json과 package-lock.json만 먼저 복사 (의존성 캐싱 최적화)
 COPY package*.json ./
 
+# [MOD] 国内网络：npm 走 npmmirror 镜像（官方源在国内构建容器内不稳定）
+RUN npm config set registry https://registry.npmmirror.com
+
 # 프로덕션 의존성만 설치 (개발 의존성 제외)
 RUN npm ci --only=production --frozen-lockfile
 
@@ -15,9 +18,14 @@ RUN npm ci --only=production --frozen-lockfile
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# [MOD] 默认语言构建期注入：Vite 会把 VITE_ 变量烘焙进产物。
+# dev 模式由 frontend/.env 提供；容器构建上下文不含 .env，必须经 build arg 传入。
+ARG VITE_DEFAULT_LOCALE=zhHans
+ENV VITE_DEFAULT_LOCALE=${VITE_DEFAULT_LOCALE}
+
 # 전체 의존성 설치 (devDependencies 포함)
 COPY package*.json ./
-RUN npm ci --frozen-lockfile
+RUN npm config set registry https://registry.npmmirror.com && npm ci --frozen-lockfile
 
 # 소스 코드 복사
 COPY . .

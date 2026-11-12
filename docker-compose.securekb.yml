@@ -1,0 +1,75 @@
+# SecureKB 一键部署（Docker Compose）
+# 架构：完整版后端（FastAPI + Qdrant 本地模式 + bge rerank）+ 官方前端（nginx 静态 + same-origin 反代）
+#
+# 用法：
+#   docker compose -f docker-compose.securekb.yml up -d --build
+#   浏览器打开 http://localhost:5000（登录 admin/Admin@2026）
+#
+# 注意：
+#   1. 首次构建约 10-20 分钟（依赖 + bge-reranker-v2-m3 模型 568M，走 hf-mirror）
+#   2. Qdrant 本地模式有文件锁：容器与本机直跑（start.bat）不能同时使用 ./easy_start/.qdrant_data
+#      —— 用容器前先停掉本机服务，反之亦然
+#   3. .env 需包含 ZHIPU_API_KEY / FASTAPI_AUTH_KEY（同本机直跑配置）
+
+name: securekb
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # bge reranker 需要 torch + transformers（local-embedding extra）
+        INSTALL_LOCAL_EMBEDDING_DEPS: "true"
+        # 镜像自带 bge-reranker-v2-m3，容器启动无需联网下载模型（离线可用）
+        PRELOAD_BGE_RERANKER_MODEL: "true"
+        # 国内网络默认走 hf-mirror（可在 .env 用 HF_ENDPOINT 覆盖）
+        HF_ENDPOINT: "${HF_ENDPOINT:-https://hf-mirror.com}"
+    container_name: securekb-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # 宿主 .env 里是 Windows 绝对路径，容器内覆盖为 WORKDIR 相对路径（卷挂载点）
+      QDRANT_PATH: /app/easy_start/.qdrant_data
+    volumes:
+      # 知识库（Qdrant 本地模式存储 + 语料 + 提示词）—— 与本机直跑共用同一份数据
+      - ./easy_start:/app/easy_start
+      # 运行时数据：审计 sqlite / 聊天持久化 / 用户表 / 会话快照
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      # lifespan 加载知识库 + reranker 模型冷启动约 2-3 分钟
+      start_period: 240s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # 默认语言构建期烘焙（Vite VITE_ 变量）
+        VITE_DEFAULT_LOCALE: zhHans
+    container_name: securekb-frontend
+    restart: unless-stopped
+    ports:
+      - "5000:80"
+    environment:
+      # nginx same-origin 反代指向后端容器（浏览器只访问 5000，无跨域问题）
+      API_PROXY_PASS: http://api:8000
+      # 文档管理功能开关（entrypoint 运行时注入 config.js，对齐 dev 的 frontend/.env）
+      FEATURE_DOCUMENTS: "true"
+      FEATURE_DOCUMENTS_UPLOAD: "true"
+      FEATURE_DOCUMENTS_BULK_DELETE: "true"
+      FEATURE_DOCUMENTS_SEARCH: "true"
+      FEATURE_DOCUMENTS_PAGINATION: "true"
+      FEATURE_DOCUMENTS_DND: "true"
+      FEATURE_DOCUMENTS_PREVIEW: "true"
+    depends_on:
+      api:
+        condition: service_healthy
