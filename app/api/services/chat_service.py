@@ -19,7 +19,7 @@ import time
 import uuid
 from collections.abc import AsyncGenerator, Callable
 from datetime import datetime
-from typing import Any, cast
+from typing import Any, cast, ClassVar
 
 from ...lib.errors import ErrorCode, SessionError
 from ...lib.langfuse_client import langfuse_context, observe
@@ -184,6 +184,40 @@ class ChatService:
         "· 点击文件名可在线预览内容，⬇ 按钮可下载；\n"
         "· 上传新文档由管理员负责，如需上传请联系您的管理员。"
     )
+    # [FIX 用户反馈] 系统功能知识表：内置功能（设置/Agent/来源等）知识库里没有，
+    # 但用户会问——模式 → 话术映射，命中即答（比通用引导更精准）。
+    _FEATURE_KB: ClassVar[list[tuple[str, str]]] = [
+        (
+            r"(?:聊天机器人|机器人|对话|应答|回答).{0,6}(?:设置|配置)|(?:设置|配置).{0,6}(?:有哪些|什么)",
+            "聊天机器人设置（管理员可见，「文档管理 → 聊天机器人设置」）：\n\n"
+            "· **空白状态设置**：新会话欢迎消息与个性化推荐问题（按语言环境管理，服务器端保存）；\n"
+            "· **应答模式**：严谨 / 通俗双档，管理后台可切换；\n"
+            "· 修改即时生效，普通员工无需感知配置细节。"
+        ),
+        (
+            r"agent|智能体|代理模式",
+            "Agent 模式是本系统的进阶问答方式：由 AI 规划工具调用（ReAct 循环）逐步检索"
+            "并综合答案，适合复杂的多步问题。提问时开启 Agent 开关即可使用；"
+            "普通问答已覆盖绝大多数场景，Agent 模式延迟较高（多轮 LLM 调用）。"
+        ),
+        (
+            r"(?:检索|参考|回答的?)来源|sources?",
+            "「检索来源」是本次回答参考的知识库文档：\n\n"
+            "· 按相关度排序，徽章 #N 表示名次；\n"
+            "· 只展示回答实际引用的文档（无引用证据时展示最相关的一篇）；\n"
+            "· 员工只能看到自己有权限的文档来源。"
+        ),
+        (
+            r"token|令牌",
+            "Token 是大模型计量文本长度的单位。每次问答的消耗显示在 RAG Trace 面板的"
+            "统计区（Tokens），涵盖提问理解、检索、生成全过程。"
+        ),
+        (
+            r"(?:聊天|会话|对话)(?:记录|历史).{0,8}(?:保存|保留|存|多久|消失)|(?:聊天|会话|对话)记录.{0,4}(?:在哪|保留)",
+            "聊天记录保存在服务器端，**保留 7 天**——隔天回来继续同一个会话即可。"
+            "左侧「聊天记录」可切换最近会话；删除会话后其记录不可恢复。"
+        ),
+    ]
 
     async def _doc_inventory_answer_if_needed(
         self, message: str, user: dict[str, Any] | None
@@ -224,8 +258,12 @@ class ChatService:
             return None
 
     def _help_answer_if_needed(self, message: str, user: dict[str, Any] | None) -> str | None:
-        """[MOD EXP-019] 系统使用帮助问题 → 内置引导话术（按角色区分入口说明）。"""
+        """[MOD EXP-019] 系统使用帮助问题 → 功能知识表 + 引导话术（按角色区分）。"""
         text = message or ""
+        # 功能知识表优先（精准匹配具体功能问法）
+        for pattern, answer in self._FEATURE_KB:
+            if re.search(pattern, text, re.IGNORECASE) and len(text) <= 40:
+                return answer
         if not self._HELP_PATTERN.search(text) or len(text) > 40:
             return None
         role = (user or {}).get("role")

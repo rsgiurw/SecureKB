@@ -112,31 +112,40 @@ export const DocumentDetailDialog: React.FC<DocumentDetailDialogProps> = ({
           <DialogDescription className="text-sm font-medium">{messages.docDetail.description}</DialogDescription>
         </DialogHeader>
         <div className="p-6 pt-0 space-y-4">
-          <ScrollArea className="max-h-[60vh] pr-4">
+          <ScrollArea className="max-h-[65vh] pr-4">
             {doc && (
               <div className="space-y-4">
-                <DetailRow label={messages.docDetail.filename} value={doc.originalName} />
-                <DetailRow label={messages.docDetail.documentId} value={doc.id} copyable />
-                <DetailRow label={messages.docDetail.fileSize} value={formatFileSize(doc.size)} />
-                <DetailRow label={messages.docDetail.mimeType} value={doc.mimeType} />
-                <DetailRow label={messages.docDetail.uploadedAt} value={formatDate(doc.uploadedAt, locale, uploadedAtOptions)} />
-                <DetailRow label={messages.docDetail.status} value={doc.status} />
-                {hasPositiveCount(doc.chunks) && <DetailRow label={messages.docDetail.chunkCount} value={format(messages.docDetail.chunkCountValue, { count: doc.chunks })} />}
-                {hasPositiveCount(doc.metadata?.pageCount) && <DetailRow label={messages.docDetail.pageCount} value={format(messages.docDetail.pageCountValue, { count: doc.metadata?.pageCount ?? 0 })} />}
-                {hasPositiveCount(doc.metadata?.wordCount) && <DetailRow label={messages.docDetail.wordCount} value={format(messages.docDetail.wordCountValue, { count: doc.metadata?.wordCount ?? 0 })} />}
-
-                {/* [FIX 用户报告] 在线预览：弹窗打开自动加载（点文件名即浏览） */}
+                {/* [FIX 用户反馈] 内容优先：打开即见文档内容（元数据收到底部折叠），
+                    此前内容被 8 行元数据挤到折叠线以下，用户误以为"查看不了内容" */}
                 <div className="space-y-2">
                   <p className="text-[10px] uppercase font-black text-muted-foreground/60 tracking-wider">
                     {previewLoading ? '内容加载中...' : '文档内容'}
                   </p>
                   {previewError && <p className="text-xs text-destructive">{previewError}</p>}
                   {previewText !== null && (
-                    <div className="bg-muted/30 border border-border/40 rounded-xl p-4 max-h-[40vh] overflow-auto text-sm [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mt-3 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mt-3 [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_p]:mb-2 [&_strong]:font-bold [&_hr]:my-3 [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground">
+                    <div className="bg-muted/30 border border-border/40 rounded-xl p-4 text-sm [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mt-3 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mt-3 [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_p]:mb-2 [&_strong]:font-bold [&_hr]:my-3 [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground">
                       <MarkdownRenderer content={previewText} />
                     </div>
                   )}
                 </div>
+
+                {/* 元数据（折叠区：点开查看） */}
+                <details className="group rounded-xl border border-border/40">
+                  <summary className="px-3 py-2 text-xs font-bold text-muted-foreground cursor-pointer hover:bg-muted/40 rounded-xl select-none">
+                    文件信息（大小 / 类型 / 上传时间等）
+                  </summary>
+                  <div className="px-3 pb-3 pt-1 space-y-3">
+                    <DetailRow label={messages.docDetail.filename} value={doc.originalName} />
+                    <DetailRow label={messages.docDetail.documentId} value={doc.id} copyable />
+                    <DetailRow label={messages.docDetail.fileSize} value={formatFileSize(doc.size)} />
+                    <DetailRow label={messages.docDetail.mimeType} value={doc.mimeType} />
+                    <DetailRow label={messages.docDetail.uploadedAt} value={formatDate(doc.uploadedAt, locale, uploadedAtOptions)} />
+                    <DetailRow label={messages.docDetail.status} value={doc.status} />
+                    {hasPositiveCount(doc.chunks) && <DetailRow label={messages.docDetail.chunkCount} value={format(messages.docDetail.chunkCountValue, { count: doc.chunks })} />}
+                    {hasPositiveCount(doc.metadata?.pageCount) && <DetailRow label={messages.docDetail.pageCount} value={format(messages.docDetail.pageCountValue, { count: doc.metadata?.pageCount ?? 0 })} />}
+                    {hasPositiveCount(doc.metadata?.wordCount) && <DetailRow label={messages.docDetail.wordCount} value={format(messages.docDetail.wordCountValue, { count: doc.metadata?.wordCount ?? 0 })} />}
+                  </div>
+                </details>
               </div>
             )}
           </ScrollArea>
