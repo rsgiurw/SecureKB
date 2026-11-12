@@ -36,6 +36,14 @@ rag:
   # 仅在 rerank 实际生效时启用（未 rerank 的 RRF 归一化分数 ~0.33 口径不可比，EXP-016 实测）。
   # 删除该键或置 null 可关闭；请求 options.refusal_threshold 可临时覆盖（评测调参用）。
   refusal_relevance_threshold: 0.05
+  # [MOD EXP-017] HyDE（Hypothetical Document Embeddings）：LLM 生成假设答案段落
+  # 作为额外扩展查询参与 Multi-Query RRF。答案-答案向量相似度高于问题-答案
+  # （词汇鸿沟），针对"口语问法 vs 制度书面措辞"错位导致的检索缺位。
+  # 每问多一次 LLM 调用（约 +1-2s）；失败静默降级不影响检索。
+  hyde:
+    enabled: false
+    weight: 0.8
+    max_chars: 400
 
   # ==========================================================================
   # 스트리밍(SSE/WS) 응답 설정 - opt-in

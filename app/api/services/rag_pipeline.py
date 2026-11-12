@@ -353,6 +353,15 @@ class RAGPipeline(
         rewrite_config = rag_config.get("multiturn_rewrite", {})
         self.multiturn_rewrite_enabled = bool(rewrite_config.get("enabled", False))
         self.multiturn_rewrite_provider = rewrite_config.get("provider", "google")
+
+        # [MOD EXP-017] HyDE（Hypothetical Document Embeddings）配置：LLM 生成
+        # 假设答案段落作为额外扩展查询参与 Multi-Query RRF——答案-答案的向量相似度
+        # 高于问题-答案（词汇鸿沟），对"口语问法 vs 制度书面措辞"错位的检索缺位
+        # 尤其有效（动机 case：问"举报渠道"vs 原文"举报与申诉"）。
+        hyde_config = rag_config.get("hyde", {})
+        self.hyde_enabled = bool(hyde_config.get("enabled", False))
+        self.hyde_weight = float(hyde_config.get("weight", 0.8))
+        self.hyde_max_chars = int(hyde_config.get("max_chars", 400))
         configured_dependent = rewrite_config.get("followup_dependent_patterns")
         self.multiturn_followup_dependent_patterns: tuple[str, ...] = (
             tuple(str(p) for p in configured_dependent)

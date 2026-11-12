@@ -395,6 +395,42 @@ class RoutingStageMixin(PipelineStateBase):
         return str(first_line)
 
 
+    async def _hyde_expansion_query(self, message: str) -> str | None:
+        """[MOD EXP-017] HyDE：生成假设答案段落作为扩展查询。
+
+        答案-答案的向量相似度通常高于问题-答案（词汇鸿沟），LLM 按制度书面措辞
+        生成的假设段落能把"口语问法"翻译成"制度原文措辞"，提升召回。
+        前置条件：rag.hyde.enabled 且 llm_factory 可用；任何失败静默返回 None
+        （检索继续走原查询，HyDE 是增益不是依赖）。
+        """
+        if not getattr(self, "hyde_enabled", False):
+            return None
+        if self.llm_factory is None:
+            return None
+
+        prompt = (
+            "你是企业制度知识库的检索助手。请针对下面的问题，写一段假设性的答案段落"
+            "（80-150 字），按企业制度的常见书面措辞组织（条款式、正式用语）。"
+            "不要解释、不要铺垫，只输出答案段落本身。\n\n"
+            f"问题：{message}"
+        )
+        try:
+            content, _provider = await self.llm_factory.generate_with_fallback(
+                prompt=prompt,
+                system_prompt=None,
+                temperature=0.0,
+                max_tokens=400,
+            )
+            text = (content or "").strip().strip('"“”').strip()
+            max_chars = int(getattr(self, "hyde_max_chars", 400))
+            if not text or len(text) > max_chars:
+                logger.warning("HyDE 生成结果异常，跳过", extra={"len": len(text)})
+                return None
+            return text
+        except Exception as e:  # noqa: BLE001 - HyDE 失败不阻断检索
+            logger.warning("HyDE 生成失败，跳过", extra={"error": str(e)})
+            return None
+
     async def _rewrite_standalone_query(
         self, message: str, session_context: str | None
     ) -> str:
@@ -593,6 +629,19 @@ class RoutingStageMixin(PipelineStateBase):
             expanded_queries,
             query_weights,
         )
+
+        # [MOD EXP-017] HyDE 假设文档查询：LLM 按制度书面措辞生成假设答案段落，
+        # 作为一条扩展查询参与 Multi-Query RRF（答案-答案相似度 > 问题-答案，
+        # 弥补口语问法与制度原文的词汇鸿沟）。失败静默降级（不阻断检索）。
+        hyde_query = await self._hyde_expansion_query(message)
+        if hyde_query:
+            expanded_queries.append(hyde_query)
+            query_weights.append(float(getattr(self, "hyde_weight", 0.8)))
+            logger.info(
+                "HyDE 假设文档已加入扩展查询",
+                extra={"hyde_len": len(hyde_query), "queries": len(expanded_queries)},
+            )
+
         expanded_query = expanded_queries[0] if expanded_queries else expanded_query
 
         # 멀티턴 anchor 추출(GAP B, 기본 OFF): 원본 질문(message)으로 오염 게이트를
