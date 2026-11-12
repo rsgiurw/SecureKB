@@ -31,6 +31,11 @@ rag:
   top_k: 8
   rerank_top_k: 8
   relevance_threshold: 0.5
+  # [MOD EXP-016] 检索相关性阈值 + 拒答联动：rerank 后 top1 分数低于阈值时跳过 LLM 生成，
+  # 直接返回罐头拒答（根治"世界知识拼凑"——检索无据时 LLM 用内部知识编答案）。
+  # 仅在 rerank 实际生效时启用（未 rerank 的 RRF 归一化分数 ~0.33 口径不可比，EXP-016 实测）。
+  # 删除该键或置 null 可关闭；请求 options.refusal_threshold 可临时覆盖（评测调参用）。
+  refusal_relevance_threshold: 0.05
 
   # ==========================================================================
   # 스트리밍(SSE/WS) 응답 설정 - opt-in

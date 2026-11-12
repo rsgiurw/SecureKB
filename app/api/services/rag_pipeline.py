@@ -882,6 +882,34 @@ class RAGPipeline(
             context_documents=context_documents,
         )
 
+    def _refusal_gate_check(
+        self, rerank_results: Any, options: dict[str, Any] | None
+    ) -> tuple[float, float] | None:
+        """[MOD EXP-016] rerank 后 top1 分数低于阈值 → 返回 (top1, 阈值) 触发拒答短路。
+
+        仅在 rerank 实际生效（reranked=True）时启用：未 rerank 的分数是 RRF 归一化
+        口径（真答案 0.03 与假相关 0.48 交叉，EXP-016 实测不可分），bge rerank 分数
+        才有区分度（EXP-013：相关 0.81 / 噪声 0.0001）。
+        阈值优先级：options.refusal_threshold > rag.refusal_relevance_threshold > 关闭。
+        """
+        rag_section = self.config.get("rag", {}) if isinstance(self.config, dict) else {}
+        threshold = (options or {}).get("refusal_threshold")
+        if threshold is None:
+            threshold = rag_section.get("refusal_relevance_threshold")
+        if threshold is None:
+            return None
+        if not getattr(rerank_results, "reranked", False):
+            return None
+        documents = getattr(rerank_results, "documents", None) or []
+        if not documents:
+            return None
+        top_score = _document_score(documents[0])
+        if top_score is None:
+            return None
+        if top_score < float(threshold):
+            return (top_score, float(threshold))
+        return None
+
     @observe(name="RAG Pipeline", capture_input=False, capture_output=False)
     async def execute(
         self, message: str, session_id: str, options: dict[str, Any] | None = None
@@ -971,6 +999,41 @@ class RAGPipeline(
         sql_search_result = phase.sql_search_result
         rerank_results = phase.rerank_results
         context_documents = phase.context_documents
+
+        # [MOD EXP-016] 检索相关性阈值 + 拒答联动：rerank 后 top1 分数低于阈值
+        # → 跳过 LLM 生成，罐头拒答。根治 EXP-003 遗留的"世界知识拼凑"：
+        # 检索无据时 prompt 约束挡不住 LLM 用内部知识补答案（基线实测拒答正确率仅 3/8）。
+        refusal_gate = self._refusal_gate_check(rerank_results, options)
+        if refusal_gate is not None:
+            top_score, threshold = refusal_gate
+            logger.info(
+                "拒答门触发：rerank top1=%.3f < 阈值 %.3f，跳过生成",
+                top_score,
+                threshold,
+                extra={"message_preview": message[:30]},
+            )
+            tracker.start_stage("refusal_gate")
+            refusal_answer = (
+                "抱歉，知识库中没有找到与您的问题相关的内容，"
+                "我无法提供有依据的回答。请尝试换个问法，"
+                "或确认该问题是否属于公司制度知识库的覆盖范围。"
+            )
+            result = self.build_result(
+                answer=refusal_answer,
+                sources=[],
+                tokens_used=0,
+                topic=self.extract_topic_func(message),
+                processing_time=time.time() - start_time,
+                search_count=retrieval_results.count,
+                ranked_count=0,
+                model_info={},
+                routing_metadata=route_decision.metadata,
+                refusal_reason="low_relevance_top1",
+            )
+            tracker.end_stage("refusal_gate")
+            tracker.end_pipeline()
+            result["performance_metrics"] = tracker.get_metrics()
+            return result
 
         tracker.start_stage("generate_answer")
         generation_options = {**options}

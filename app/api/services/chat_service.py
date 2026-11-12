@@ -1046,6 +1046,45 @@ class ChatService:
             except Exception as e:
                 # 검색 실패는 비치명적: 문서 없음 경로(canned no-answer)로 계속 진행한다.
                 logger.warning(f"스트리밍: 검색 국면 실패, 빈 컨텍스트로 진행 - {e}")
+
+            # [MOD EXP-016] 检索相关性阈值 + 拒答联动（流式路径，与 execute() 同策略）：
+            # rerank 后 top1 分数低于阈值 → 跳过 LLM 生成，直接流式输出罐头拒答，
+            # 不发 sources（检索无据，来源卡片无意义）。根治"世界知识拼凑"。
+            refusal_gate = None
+            try:
+                refusal_gate = self.rag_pipeline._refusal_gate_check(
+                    phase.rerank_results, options
+                )
+            except Exception:  # noqa: BLE001 - 门失败不阻断主链路，退回 prompt 约束
+                refusal_gate = None
+            if refusal_gate is not None:
+                top_score, threshold = refusal_gate
+                logger.info(
+                    "拒答门触发（流式）：rerank top1=%.3f < 阈值 %.3f", top_score, threshold
+                )
+                refusal_answer = (
+                    "抱歉，知识库中没有找到与您的问题相关的内容，"
+                    "我无法提供有依据的回答。请尝试换个问法，"
+                    "或确认该问题是否属于公司制度知识库的覆盖范围。"
+                )
+                yield {"event": "metadata", "data": {
+                    "session_id": final_session_id,
+                    "search_results": len(search_results),
+                    "ranked_results": 0,
+                    "reranking_applied": reranking_applied,
+                    "message_id": message_id,
+                    "sources": [],
+                    "refusal_reason": "low_relevance_top1",
+                    "timestamp": datetime.now().isoformat(),
+                }}
+                yield {"event": "message", "data": {"content": refusal_answer}}
+                yield {"event": "done", "data": {
+                    "session_id": final_session_id,
+                    "message_id": message_id,
+                    "tokens_used": 0,
+                    "refusal_reason": "low_relevance_top1",
+                }}
+                return
             try:
                 langfuse_context.update_current_trace(session_id=final_session_id)
             except Exception:  # noqa: BLE001 - 관측 실패는 파이프라인에 비치명적
