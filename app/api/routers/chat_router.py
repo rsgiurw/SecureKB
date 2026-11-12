@@ -557,6 +557,11 @@ async def create_session(
             logger.info("📍 Step 2: 메타데이터 병합")
             context.update(session_request.metadata)
 
+        # [FIX 用户报告 IDOR] 会话归属：创建时记录 owner（历史/继续问答按此校验）
+        _owner = _resolve_principal(request)
+        if _owner:
+            context["owner_username"] = _owner.get("username")
+
         # Step 3: 세션 모듈 가져오기
         module_start = time.time()
         logger.info("📍 Step 3: 세션 모듈 가져오기")
@@ -654,6 +659,11 @@ async def get_chat_history(
     # 에러 메시지 언어를 요청 Accept-Language로 결정(기본 ko → 회귀 0)
     lang = _resolve_request_language(request)
     _ensure_service_initialized(lang)  # Fail-Fast: 서비스 초기화 확인
+    # [FIX 用户报告 IDOR] 会话历史按用户隔离：登录必需，owner 不符即 404
+    #（不泄露存在性）。无 owner 标记的旧会话仅管理员可查（安全优先）。
+    principal = _resolve_principal(request)
+    if principal is None:
+        raise HTTPException(status_code=401, detail="请先登录后使用")
     try:
         session_module = chat_service.modules.get("session")
         if not session_module:
@@ -664,6 +674,21 @@ async def get_chat_history(
                     lang,
                     technical_error="Session module not initialized",
                     support_email="support@example.com",
+                ),
+            )
+        session_info = await session_module.get_session(session_id, {})
+        owner = (session_info.get("session") or {}).get("metadata", {}).get("owner_username")
+        if principal.get("role") != "admin" and owner != principal.get("username"):
+            logger.warning(
+                "会话历史越权拦截",
+                extra={"session_id": session_id, "username": principal.get("username"), "owner": owner},
+            )
+            raise HTTPException(
+                status_code=404,
+                detail=format_user_facing_error(
+                    ErrorCode.SESSION_005.value,
+                    lang,
+                    session_id=session_id,
                 ),
             )
         history = await session_module.get_chat_history(session_id)
@@ -1060,3 +1085,106 @@ async def list_secure_audit_events(
         category=category, actor_username=actor, limit=limit
     )
     return {"events": events, "count": len(events)}
+
+
+# ============================================================================
+# [MOD EXP-020] 用户管理（管理员功能）：新增员工账号 / 调整部门权限 / 重置密码 / 删除
+# ============================================================================
+
+from app.security.users import (  # noqa: E402
+    DEFAULT_DEPARTMENTS,
+    VALID_ROLES,
+    create_user,
+    delete_user,
+    list_users,
+    update_user,
+)
+
+
+def _require_admin(request: Request) -> dict[str, Any]:
+    """用户管理端点的管理员鉴权（与 audit 端点同策略）。"""
+    principal = _resolve_principal(request)
+    if principal is None:
+        _record_auth_denied(request, "users_api_unauthenticated")
+        raise HTTPException(status_code=401, detail="请先登录后使用（未提供有效凭证）")
+    if principal.get("role") != "admin":
+        _record_auth_denied(request, "users_api_forbidden")
+        raise HTTPException(
+            status_code=403,
+            detail={"error": "权限不足", "message": "用户管理仅管理员可使用"},
+        )
+    return principal
+
+
+@router.get("/admin/users")
+async def admin_list_users(request: Request) -> dict[str, Any]:
+    """用户列表（管理员专用，不含哈希）。"""
+    _require_admin(request)
+    return {"users": list_users(), "roles": list(VALID_ROLES), "departments": list(DEFAULT_DEPARTMENTS)}
+
+
+@router.post("/admin/users")
+async def admin_create_user(request: Request) -> dict[str, Any]:
+    """新增用户（用户名/密码/显示名/角色/部门）。"""
+    principal = _require_admin(request)
+    body = await request.json()
+    user, error = create_user(
+        username=str(body.get("username") or ""),
+        password=str(body.get("password") or ""),
+        display_name=str(body.get("display_name") or ""),
+        role=str(body.get("role") or "employee"),
+        department=str(body.get("department") or "全员"),
+    )
+    if error:
+        raise HTTPException(status_code=400, detail={"error": "创建失败", "message": error})
+    get_secure_audit_service().record(
+        category="admin",
+        action="user.created",
+        actor_username=principal.get("username"),
+        actor_role=principal.get("role"),
+        result="ok",
+        detail={"target": user["username"], "role": user["role"], "department": user["department"]},
+    )
+    return {"user": user}
+
+
+@router.put("/admin/users/{username}")
+async def admin_update_user(request: Request, username: str) -> dict[str, Any]:
+    """修改用户（部门 = 文档可见权限；可重置密码/改显示名）。"""
+    principal = _require_admin(request)
+    body = await request.json()
+    user, error = update_user(
+        username,
+        department=body.get("department"),
+        password=body.get("password"),
+        display_name=body.get("display_name"),
+    )
+    if error:
+        raise HTTPException(status_code=400, detail={"error": "修改失败", "message": error})
+    get_secure_audit_service().record(
+        category="admin",
+        action="user.updated",
+        actor_username=principal.get("username"),
+        actor_role=principal.get("role"),
+        result="ok",
+        detail={"target": username, "department": user["department"]},
+    )
+    return {"user": user}
+
+
+@router.delete("/admin/users/{username}")
+async def admin_delete_user(request: Request, username: str) -> dict[str, Any]:
+    """删除用户（不能删自己/最后一个管理员）。"""
+    principal = _require_admin(request)
+    ok, error = delete_user(username, operator=principal.get("username") or "")
+    if not ok:
+        raise HTTPException(status_code=400, detail={"error": "删除失败", "message": error})
+    get_secure_audit_service().record(
+        category="admin",
+        action="user.deleted",
+        actor_username=principal.get("username"),
+        actor_role=principal.get("role"),
+        result="ok",
+        detail={"target": username},
+    )
+    return {"deleted": username}

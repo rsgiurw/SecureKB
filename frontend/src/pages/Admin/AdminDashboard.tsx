@@ -35,6 +35,7 @@ import {
 } from 'recharts';
 import { adminService } from '../../services/adminService';
 import PromptManager from '../../components/PromptManager';
+import { UsersManager } from './UsersManager';
 import { useToast } from '@/hooks/use-toast';
 import { useMenuMessages } from '../../i18n/useMenuLocale';
 import { format, formatDate } from '../../i18n/format';
@@ -553,6 +554,10 @@ const AdminDashboard: React.FC = () => {
           <TabsTrigger value="prompts" className="flex-1 rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
             <Brain className="w-4 h-4" /> <span className="hidden sm:inline">{messages.adminDashboard.tabPrompts}</span>
           </TabsTrigger>
+          <TabsTrigger value="users" className="flex-1 rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
+            <Users className="w-4 h-4 mr-1" />
+            用户管理
+          </TabsTrigger>
           <TabsTrigger value="settings" className="flex-1 rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
             <Settings className="w-4 h-4" /> <span className="hidden sm:inline">{messages.adminDashboard.tabSettings}</span>
           </TabsTrigger>
@@ -974,6 +979,9 @@ const AdminDashboard: React.FC = () => {
         <TabsContent value="prompts" className="animate-in slide-in-from-bottom-2 duration-400">
           <PromptManager />
         </TabsContent>
+          <TabsContent value="users" className="space-y-6">
+            <UsersManager />
+          </TabsContent>
 
         {/* 탭 6: 설정 */}
         <TabsContent value="settings" className="animate-in slide-in-from-bottom-2 duration-400">

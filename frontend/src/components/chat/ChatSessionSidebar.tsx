@@ -12,6 +12,8 @@ interface StoredChatSession {
   title: string;
   updatedAt: string;
   messageCount: number;
+  // [FIX 用户报告 IDOR] 会话归属：登录用户名——侧栏只显示当前用户的会话
+  owner?: string | undefined;
 }
 
 interface ChatSessionSidebarProps {
@@ -28,7 +30,18 @@ function readSessions(): StoredChatSession[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    // [FIX 用户报告 IDOR] 会话隔离：只显示当前登录用户的会话（换账户登录后
+    // 旧 localStorage 列表不再互通）。无 owner 的旧条目不显示（安全优先）。
+    const currentOwner = (() => {
+      try {
+        return JSON.parse(localStorage.getItem('securekb_user') || 'null')?.username || null;
+      } catch {
+        return null;
+      }
+    })();
+    if (!currentOwner) return [];
+    return parsed.filter((s) => s.owner === currentOwner);
   } catch {
     return [];
   }
@@ -55,6 +68,8 @@ export function ChatSessionSidebar({ sessionId, messages, onNewSession, onSelect
   const sessionsHydratedRef = useRef(false);
   // sessions 镜像（供 touch 判定 effect 读取当前列表，且不进依赖数组造成循环）
   const sessionsRef = useRef<StoredChatSession[]>([]);
+  // [FIX 用户报告 IDOR] 当前登录用户名（会话归属标记，侧栏按此过滤）
+  const currentOwnerRef = useRef<string | null>(null);
   useEffect(() => {
     sessionsRef.current = sessions;
   }, [sessions]);
@@ -66,6 +81,12 @@ export function ChatSessionSidebar({ sessionId, messages, onNewSession, onSelect
 
   useEffect(() => {
     setSessions(readSessions());
+    // [FIX 用户报告 IDOR] 挂载时读当前登录用户名（归属标记用）
+    try {
+      currentOwnerRef.current = JSON.parse(localStorage.getItem('securekb_user') || 'null')?.username || null;
+    } catch {
+      currentOwnerRef.current = null;
+    }
   }, []);
 
   // localStorage 영속화는 상태 업데이터(순수해야 하며 StrictMode에서 이중 호출됨)와
@@ -117,6 +138,7 @@ export function ChatSessionSidebar({ sessionId, messages, onNewSession, onSelect
           title: createDefaultTitle(messages, i18n.chatSidebar.defaultTitle),
           updatedAt: now,
           messageCount: messages.length,
+          owner: currentOwnerRef.current ?? undefined,
         };
         const next = [recovered, ...previousSessions].sort(
           (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
@@ -137,6 +159,7 @@ export function ChatSessionSidebar({ sessionId, messages, onNewSession, onSelect
           : createDefaultTitle(messages, i18n.chatSidebar.defaultTitle),
         updatedAt: now,
         messageCount: messages.length,
+        owner: currentOwnerRef.current ?? undefined,
       };
 
       const next = [
