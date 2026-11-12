@@ -77,13 +77,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       label: messages.nav.admin,
       path: '/admin',
       icon: Settings,
-      enabled: isAdminUser && isAdminEnabled
+      // [FIX 用户报告] 管理员直接可见管理入口（feature flag 只管非管理员，
+      // flag 默认关曾把管理员自己的管理入口也藏掉了）
+      enabled: isAdminUser || isAdminEnabled
     },
     {
       label: messages.nav.operationSettings,
       path: '/admin/settings',
       icon: SlidersHorizontal,
-      enabled: isAdminUser && isAdminEnabled
+      enabled: isAdminUser || isAdminEnabled
     },
   ].filter(item => item.enabled);
 

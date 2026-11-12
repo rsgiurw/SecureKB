@@ -155,7 +155,19 @@ interface ProtectedRouteProps {
 }
 
 function ProtectedRoute({ module, children }: ProtectedRouteProps) {
-  const isEnabled = useIsModuleEnabled(module);
+  // [FIX 用户报告] 管理员身份直接放行：管理功能（admin/prompts）对管理员恒可用，
+  // feature flag 只影响普通员工侧的模块可见性。此前 admin flag 默认关，
+  // 管理员自己的"管理"入口也被 404（用户报"没有管理页"的根因）。
+  // Hook 顺序：useIsModuleEnabled 必须无条件先调用（rules-of-hooks）。
+  const isModuleEnabled = useIsModuleEnabled(module);
+  const isAdminUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('securekb_user') || 'null')?.role === 'admin';
+    } catch {
+      return false;
+    }
+  })();
+  const isEnabled = isAdminUser || isModuleEnabled;
 
   if (!isEnabled) {
     return <Navigate to="/" replace />;
