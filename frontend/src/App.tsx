@@ -18,7 +18,8 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Toaster } from '@/components/ui/toaster';
 import { useMenuMessages } from './i18n/useMenuLocale';
-import { LoginGate, getStoredToken, getStoredUser } from './components/LoginGate';
+import { LoginGate } from './components/LoginGate';
+import { getStoredToken, getStoredUser } from './services/auth';
 
 // Code Splitting: 라우트별 지연 로딩
 const ChatPage = lazy(() => import('./pages/ChatPage'));
@@ -174,7 +175,7 @@ function AppRoutes() {
   const isAdminEnabled = useIsModuleEnabled('admin');
 
   // [MOD] 改造②：角色权限——管理员启用全部模块；普通员工仅问答
-  let isAdmin = false;
+  let isAdmin: boolean;
   try {
     isAdmin = JSON.parse(localStorage.getItem('securekb_user') || 'null')?.role === 'admin';
   } catch {
@@ -182,13 +183,8 @@ function AppRoutes() {
   }
   const location = useLocation();
 
-  // [MOD] 登录门：仅中文产品，未登录一律先登录（embed 内嵌路由豁免）
-  const isEmbedRoute = location.pathname.startsWith('/embed');
-  const authed = !!getStoredToken() && !!getStoredUser();
-  if (!isEmbedRoute && !authed) {
-    return <LoginGate onSuccess={() => window.location.reload()} />;
-  }
-
+  // Hooks 必须先于任何条件早退调用（react-hooks/rules-of-hooks），
+  // 登录门的条件 return 放在所有 Hook 之后。
   React.useEffect(() => {
     const isChatSurface = location.pathname === '/bot' || location.pathname === '/embed/chat';
     if (isChatSurface) {
@@ -196,6 +192,13 @@ function AppRoutes() {
       void trackAnalyticsEvent('chat_open');
     }
   }, [location.pathname]);
+
+  // [MOD] 登录门：仅中文产品，未登录一律先登录（embed 内嵌路由豁免）
+  const isEmbedRoute = location.pathname.startsWith('/embed');
+  const authed = !!getStoredToken() && !!getStoredUser();
+  if (!isEmbedRoute && !authed) {
+    return <LoginGate onSuccess={() => window.location.reload()} />;
+  }
 
   return (
     <Routes>

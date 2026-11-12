@@ -1,44 +1,10 @@
 // [MOD] 登录门：SecureKB 仅中文登录界面（用户名/密码 → 后端签发令牌）
+// 认证态存取函数已拆至 services/auth.ts（本文件仅导出组件）
 import { useState } from 'react';
 import api from '../services/api';
+import { type AuthUser, TOKEN_STORAGE_KEY, USER_STORAGE_KEY } from '../services/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-
-export interface AuthUser {
-  username: string;
-  display_name: string;
-  role: 'admin' | 'employee';
-  department: string;
-}
-
-export const TOKEN_STORAGE_KEY = 'securekb_token';
-export const USER_STORAGE_KEY = 'securekb_user';
-
-export function getStoredToken(): string | null {
-  try {
-    return localStorage.getItem(TOKEN_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function getStoredUser(): AuthUser | null {
-  try {
-    const raw = localStorage.getItem(USER_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as AuthUser) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function clearAuth(): void {
-  try {
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
-    localStorage.removeItem(USER_STORAGE_KEY);
-  } catch {
-    /* ignore */
-  }
-}
 
 interface LoginGateProps {
   onSuccess: (user: AuthUser) => void;

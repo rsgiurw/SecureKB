@@ -1,5 +1,5 @@
 import { Navigate } from 'react-router-dom';
-import { getStoredUser } from './LoginGate';
+import { getStoredUser } from '../services/auth';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;

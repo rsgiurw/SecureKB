@@ -24,6 +24,11 @@ export default tseslint.config([
     rules: {
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
+      // [MOD] 下划线前缀 = 明确不使用的参数/变量（业界惯例，如 resolveMenuLocale(_value)）
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       // 하드코딩된 색상 사용 금지 - src/config/colors.ts의 COLORS 상수 사용
       'no-restricted-syntax': [
         'error',
