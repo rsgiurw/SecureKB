@@ -121,6 +121,50 @@ class ChatService:
     def _is_small_talk(message: str) -> bool:
         return bool(ChatService._SMALL_TALK_PATTERN.match(message or ""))
 
+    # [MOD EXP-018] 澄清式对话（用户三层决策模型的中间层）：
+    # 清晰+内部→答（正常检索）｜明确外部→拒答（EXP-016 拒答门）｜
+    # 指代不明→追问澄清（本层）。触发条件（保守，避免误伤）：
+    # ①消息为"动作+无先行词指代"结构（解析/总结/查看 + 这个/那份 + 文档类名词）
+    # ②且会话无历史（新会话首条消息——多轮场景由 standalone rewrite 处理先行词）
+    # 响应不列具体文档名：员工澄清响应若列出无权限文档名即越权泄露，
+    # 通用追问让用户自行补充主题词，权限一致性最优。
+    _AMBIGUOUS_DOC_PATTERN = re.compile(
+        r"^\s*(?:帮我)?\s*"
+        r"(?:解析|总结|概括|查看|打开|读取|分析|介绍一下?|看看|读一下)"
+        r"\s*(?:一下)?\s*(?:这|那|该)(?:个|份|篇|则)?"
+        r"(?:文档|文件|资料|内容|规定|制度|手册|材料)"
+        r"[的，,。.！!？?\s]*"
+        r"(?:重点|要点|核心|内容|摘要)?"
+        r"\s*[吧呢吗？?！!。.]*\s*$",
+        re.IGNORECASE,
+    )
+    _CLARIFICATION_ANSWER = (
+        "您提到的「文档」我不太确定具体指哪一份。请告诉我文档的名称或主题"
+        "（例如：考勤与请假制度、信息安全规范、差旅报销细则），"
+        "我会为您检索并总结对应的内容。"
+    )
+
+    async def _clarification_answer_if_needed(
+        self, message: str, session_id: str
+    ) -> str | None:
+        """[MOD EXP-018] 命中模糊指代且会话无历史 → 返回澄清话术；否则 None。
+
+        "无历史"用后端会话消息数判定（新会话首条消息 = 指代无先行词可着落）；
+        多轮场景交给 standalone rewrite。查询失败按无历史处理（保守澄清）。
+        """
+        if not self._AMBIGUOUS_DOC_PATTERN.match(message or ""):
+            return None
+        try:
+            session_module = self.modules.get("session")
+            if session_module:
+                history = await session_module.get_chat_history(session_id)
+                msgs = history.get("messages", []) if isinstance(history, dict) else []
+                if msgs:
+                    return None  # 已有对话 → 指代可能有着落，不澄清
+        except Exception:  # noqa: BLE001 - 会话查询失败按无历史处理
+            pass
+        return self._CLARIFICATION_ANSWER
+
     # [MOD] 提示注入拒绝话术（InputGuard block 级处置）
     _INJECTION_REFUSAL_ANSWER = (
         "您的请求已被安全防护拦截（检测到提示注入特征）。"
@@ -484,6 +528,34 @@ class ChatService:
                         "streaming": False,
                     },
                     "routing_metadata": {"route": "small_talk"},
+                    "performance_metrics": None,
+                },
+            )
+
+        # [MOD EXP-018] 澄清式对话：指代不明（无先行词的"解析这个文档"类）→
+        # 追问澄清而非盲目检索。位于寒暄之后、注入扫描之前。
+        clarification_answer = await self._clarification_answer_if_needed(message, session_id)
+        if clarification_answer:
+            logger.info(
+                "澄清命中：指代不明，返回追问",
+                extra={"session_id": session_id, "message_preview": message[:30]},
+            )
+            return cast(
+                RAGResultDict,
+                {
+                    "answer": clarification_answer,
+                    "sources": [],
+                    "tokens_used": 0,
+                    "topic": "clarification",
+                    "processing_time": 0.0,
+                    "search_results": 0,
+                    "ranked_results": 0,
+                    "model_info": {
+                        "provider": "internal",
+                        "model": "rule-based",
+                        "streaming": False,
+                    },
+                    "routing_metadata": {"route": "clarification"},
                     "performance_metrics": None,
                 },
             )
@@ -890,6 +962,71 @@ class ChatService:
                         "route": "small_talk",
                         "model_info": {"provider": "internal", "model": "rule-based"},
                         "token_estimation": "small_talk_short_circuit",
+                    },
+                }
+                return
+
+            # [MOD EXP-018] 澄清式对话（流式路径，与 execute() 同策略）：指代不明
+            # → 追问澄清而非盲目检索。事件序列（metadata→chunk→done）与正常路径一致。
+            clarification_answer = await self._clarification_answer_if_needed(
+                message, final_session_id or session_id
+            )
+            if clarification_answer:
+                logger.info(
+                    "澄清命中（流式）：指代不明，返回追问",
+                    extra={"session_id": final_session_id, "message_preview": message[:30]},
+                )
+                answer = clarification_answer
+                yield {
+                    "event": "metadata",
+                    "data": {
+                        "session_id": final_session_id,
+                        "search_results": 0,
+                        "ranked_results": 0,
+                        "reranking_applied": False,
+                        "message_id": message_id,
+                        "sources": [],
+                        "route": "clarification",
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                }
+                yield {"event": "chunk", "data": answer, "chunk_index": 0}
+                processing_time = time.time() - start_time
+                if final_session_id:
+                    try:
+                        # 澄清对话同样持久化（用户切回来能看到追问历史）
+                        await self.add_conversation_to_session(
+                            final_session_id,
+                            message,
+                            answer,
+                            {
+                                "tokens_used": 0,
+                                "processing_time": processing_time,
+                                "sources": [],
+                                "topic": "clarification",
+                                "model_info": {"provider": "internal", "model": "rule-based"},
+                                "message_id": message_id,
+                                "route": "clarification",
+                                "can_evaluate": False,
+                            },
+                        )
+                    except Exception as persist_error:  # noqa: BLE001 - 存储失败非致命
+                        logger.warning(
+                            "澄清应答存储失败",
+                            extra={"session_id": final_session_id, "error": str(persist_error)},
+                        )
+                yield {
+                    "event": "done",
+                    "data": {
+                        "session_id": final_session_id,
+                        "message_id": message_id,
+                        "total_chunks": 1,
+                        "processing_time": processing_time,
+                        "tokens_used": 0,
+                        "sources": [],
+                        "route": "clarification",
+                        "model_info": {"provider": "internal", "model": "rule-based"},
+                        "token_estimation": "clarification_short_circuit",
                     },
                 }
                 return
