@@ -1087,6 +1087,27 @@ class ChatService:
                     "tokens_used": 0,
                     "refusal_reason": "low_relevance_top1",
                 }}
+                # [FIX 用户报告] 拒答对话同样要持久化：此前提前 return 绕过了
+                # 尾部的 add_conversation_to_session，导致拒答会话切换回来时
+                # 历史为空（后端实测 history=0 条）。保存失败仅记日志（响应
+                # 已发出，协议上无法再报错——与尾部保存的容错语义一致）。
+                try:
+                    await self.add_conversation_to_session(
+                        final_session_id,
+                        message,
+                        refusal_answer,
+                        {
+                            "tokens_used": 0,
+                            "message_id": message_id,
+                            "refusal_reason": "low_relevance_top1",
+                            "can_evaluate": False,
+                        },
+                    )
+                except Exception as save_error:  # noqa: BLE001
+                    logger.warning(
+                        "拒答对话保存失败（会话历史将缺失本轮）",
+                        extra={"session_id": final_session_id, "error": str(save_error)},
+                    )
                 return
             try:
                 langfuse_context.update_current_trace(session_id=final_session_id)

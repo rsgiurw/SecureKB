@@ -13,7 +13,7 @@ export const CHAT_EMPTY_STATE_SETTINGS: ChatEmptyStateSettings = {
   mainMessage: '有什么可以帮您吗？',
   subMessage: 'AI 分析参考文档以提供准确的回答',
   suggestions: [
-    '请总结这份文档的重点',
+    '总结公司信息安全制度的核心要求',
     '默认问题 1',
     '默认问题 2',
     '默认问题 3',

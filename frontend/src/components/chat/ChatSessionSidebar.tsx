@@ -87,11 +87,19 @@ export function ChatSessionSidebar({ sessionId, messages, onNewSession, onSelect
     // - 切换/新建会话（sessionId 与上次不同）：加载历史会让 messages 变化，
     //   但不应更新 updatedAt、不应置顶——用户只是查看，还没提问。
     // - 同一会话内消息数增加：真实对话发生 → touch updatedAt 并置顶。
+    // v2 修复（用户复测仍置顶）：仅靠 sessionId 变化判定不够——切换后"清空→
+    // 历史填充"是两次独立提交，第二轮 (同sessionId, 历史N条) 会被误判为新增。
+    // 追加可靠信号：本地新消息 id 以 'msg-' 开头（createClientId），
+    // 后端历史消息 id 是数字/时间戳/'role-index' 形态——用最后一条消息的
+    // id 前缀区分"历史填充"与"真实新消息"。
     // refs 全部在 updater 外更新（updater 保持纯函数，StrictMode 双调用安全）。
     const previousSessions = sessionsRef.current;
     const sessionChanged = lastTouchedSessionRef.current !== sessionId;
     const prevCount = lastTouchedSessionRef.current === sessionId ? lastMessageCountRef.current : -1;
-    const isRealActivity = !sessionChanged && messages.length > prevCount && prevCount >= 0;
+    const lastMessage = messages[messages.length - 1];
+    const lastMessageIsLocal = !!lastMessage && String(lastMessage.id).startsWith('msg-');
+    const isRealActivity =
+      !sessionChanged && messages.length > prevCount && prevCount >= 0 && lastMessageIsLocal;
 
     lastTouchedSessionRef.current = sessionId;
     lastMessageCountRef.current = messages.length;
