@@ -105,6 +105,12 @@ class QdrantRetriever(HybridVectorStoreRetrieverBase):
             stopword_filter=stopword_filter,
             user_dictionary=user_dictionary,
         )
+        # [MOD] 健康检查维度跟随 embedder 实际维度：基类默认硬编码 768，
+        # 与 1024 维集合（智谱 embedding-3）不匹配，启动时误报 shape mismatch。
+        try:
+            self._health_check_dimension = int(self.embedder.output_dimensionality)
+        except (AttributeError, TypeError):
+            pass  # embedder 未暴露维度时保留基类默认
 
     async def add_documents(self, documents: list[dict[str, Any]]) -> dict[str, Any]:
         """[MOD] Web 上传管道的向量入库（2026-11-10）。
