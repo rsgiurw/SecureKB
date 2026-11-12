@@ -160,7 +160,18 @@ class ChatService:
                 history = await session_module.get_chat_history(session_id)
                 msgs = history.get("messages", []) if isinstance(history, dict) else []
                 if msgs:
-                    return None  # 已有对话 → 指代可能有着落，不澄清
+                    # [FIX 用户反馈] v2：有历史不等于指代有着落——检查最近 2 条
+                    # （上一轮问答）是否在讨论"文档"话题：在讨论 → 指代有着落，
+                    # 交给多轮改写；无关（如刚问过年假）→ "这个文档"依然悬空 → 澄清。
+                    recent_text = " ".join(
+                        str(m.get("content", "") or m.get("question", "") or m.get("answer", ""))
+                        for m in msgs[-2:]
+                    )
+                    if re.search(
+                        r"文档|文件|资料|手册|制度|规定|规范|办法|总纲|解析|总结",
+                        recent_text,
+                    ):
+                        return None
         except Exception:  # noqa: BLE001 - 会话查询失败按无历史处理
             pass
         return self._CLARIFICATION_ANSWER
@@ -1223,7 +1234,10 @@ class ChatService:
                     "refusal_reason": "low_relevance_top1",
                     "timestamp": datetime.now().isoformat(),
                 }}
-                yield {"event": "message", "data": {"content": refusal_answer}}
+                # [FIX 用户报告] chunk 事件（data 为字符串）与寒暄/正常路径一致——
+                # 此前用 "message" 事件 + dict 结构，前端 dispatchChatStreamEvent
+                # 只分发 chunk/done/error，message 被丢弃 → 空气泡。
+                yield {"event": "chunk", "data": refusal_answer, "chunk_index": 0}
                 yield {"event": "done", "data": {
                     "session_id": final_session_id,
                     "message_id": message_id,
