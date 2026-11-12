@@ -28,6 +28,7 @@ describe('DocumentGridView', () => {
     onToggleSelect: vi.fn(),
     onViewDetails: vi.fn(),
     onDownload: vi.fn(),
+    onOpenInTab: vi.fn(),
     onDeleteSingle: vi.fn(),
   };
 

@@ -4,7 +4,7 @@
  * 선택한 문서의 메타데이터(파일명, ID, 크기, MIME 타입, 업로드 일시,
  * 상태, 청크 수, 페이지 수, 단어 수)를 다이얼로그로 표시합니다.
  */
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,7 +17,6 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatFileSize } from '../../utils/documentUtils';
-import { MarkdownRenderer } from '../MarkdownRenderer';
 import { useMenuMessages } from '../../i18n/useMenuLocale';
 import { format, formatDate } from '../../i18n/format';
 import type { Document } from '../../types';
@@ -70,42 +69,13 @@ export const DocumentDetailDialog: React.FC<DocumentDetailDialogProps> = ({
 }) => {
   // i18n: 현재 로케일에 해당하는 번역 사전과 로케일 코드를 가져온다.
   const { messages, locale } = useMenuMessages();
-  // [FIX 用户报告] 文档内容预览：拉取 original 文本（服务端按部门可见性校验）
-  const [previewText, setPreviewText] = useState<string | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState('');
-
-  const loadPreview = async () => {
-    if (!doc || previewLoading) return;
-    setPreviewLoading(true);
-    setPreviewError('');
-    try {
-      const { default: api } = await import('../../services/api');
-      const resp = await api.get(`/api/upload/documents/${doc.id}/original`, { responseType: 'text' });
-      setPreviewText(String(resp.data || ''));
-    } catch {
-      setPreviewError('无法加载文档内容');
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
-  // [FIX 用户报告] 弹窗打开即自动加载内容——"点开文件名就可以浏览"，无需再点按钮
-  useEffect(() => {
-    if (open && doc) {
-      setPreviewText(null);
-      setPreviewError('');
-      void loadPreview();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, doc?.id]);
   // 기존 toLocaleString() 기본 출력(날짜 + 시:분:초)을 바이트 동일하게 보존하기 위한 옵션
   const uploadedAtOptions: Intl.DateTimeFormatOptions = {
     year: 'numeric', month: 'numeric', day: 'numeric',
     hour: 'numeric', minute: 'numeric', second: 'numeric',
   };
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) { onClose(); setPreviewText(null); setPreviewError(''); } }}>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
       <DialogContent className="max-w-md rounded-[28px] border-border/40 p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-4 bg-muted/30">
           <DialogTitle className="text-xl font-black">{messages.docDetail.title}</DialogTitle>
@@ -115,21 +85,8 @@ export const DocumentDetailDialog: React.FC<DocumentDetailDialogProps> = ({
           <ScrollArea className="max-h-[65vh] pr-4">
             {doc && (
               <div className="space-y-4">
-                {/* [FIX 用户反馈] 内容优先：打开即见文档内容（元数据收到底部折叠），
-                    此前内容被 8 行元数据挤到折叠线以下，用户误以为"查看不了内容" */}
-                <div className="space-y-2">
-                  <p className="text-[10px] uppercase font-black text-muted-foreground/60 tracking-wider">
-                    {previewLoading ? '内容加载中...' : '文档内容'}
-                  </p>
-                  {previewError && <p className="text-xs text-destructive">{previewError}</p>}
-                  {previewText !== null && (
-                    <div className="bg-muted/30 border border-border/40 rounded-xl p-4 text-sm [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mt-3 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mt-3 [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_p]:mb-2 [&_strong]:font-bold [&_hr]:my-3 [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground">
-                      <MarkdownRenderer content={previewText} />
-                    </div>
-                  )}
-                </div>
-
-                {/* 元数据（折叠区：点开查看） */}
+                {/* [FIX 用户反馈] 统一链接查看：内容浏览改由文件名点击在新标签页打开
+                    （浏览器原生渲染，多格式不再乱码）——本弹窗回归纯元数据展示 */}
                 <details className="group rounded-xl border border-border/40">
                   <summary className="px-3 py-2 text-xs font-bold text-muted-foreground cursor-pointer hover:bg-muted/40 rounded-xl select-none">
                     文件信息（大小 / 类型 / 上传时间等）

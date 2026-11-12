@@ -49,6 +49,7 @@ export interface DocumentListViewProps {
   /** 단일 문서 삭제 */
   onDeleteSingle: (id: string) => void;
   readOnly?: boolean;
+  onOpenInTab: (doc: Document) => void | Promise<void>;
 }
 
 /** 문서 ID가 유효한지 확인합니다 (UI 표시용) */
@@ -78,6 +79,7 @@ export const DocumentListView: React.FC<DocumentListViewProps> = ({
   onViewDetails,
   onDownload,
   onDeleteSingle,
+  onOpenInTab,
   readOnly,
 }) => {
   // i18n: 현재 로케일에 해당하는 번역 사전을 가져온다.
@@ -121,8 +123,8 @@ export const DocumentListView: React.FC<DocumentListViewProps> = ({
                   {/* [FIX 用户报告] 文件名可点击 → 直接打开内容预览（用户期望"点开文件名即浏览"） */}
                   <p
                     className="min-w-0 text-sm font-bold leading-snug whitespace-normal break-words [overflow-wrap:anywhere] line-clamp-2 cursor-pointer hover:text-primary hover:underline underline-offset-2 transition-colors"
-                    title={(doc.originalName || doc.filename) + '（点击预览）'}
-                    onClick={(event) => { event.stopPropagation(); onViewDetails(doc); }}
+                    title={(doc.originalName || doc.filename) + '（点击在新标签页查看）'}
+                    onClick={(event) => { event.stopPropagation(); void onOpenInTab(doc); }}
                   >
                     {doc.originalName || doc.filename}
                   </p>

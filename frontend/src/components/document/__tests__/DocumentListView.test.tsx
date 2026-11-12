@@ -29,6 +29,7 @@ describe('DocumentListView', () => {
     onToggleSelectAll: vi.fn(),
     onViewDetails: vi.fn(),
     onDownload: vi.fn(),
+    onOpenInTab: vi.fn(),
     onDeleteSingle: vi.fn(),
   };
 

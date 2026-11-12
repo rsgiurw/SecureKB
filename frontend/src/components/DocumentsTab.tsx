@@ -98,6 +98,17 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
   const selection = useDocumentSelection({ showToast });
   const deletion = useDocumentDelete({ showToast, onDeleted: list.fetchDocuments, clearSelection: selection.clearSelection });
   const download = (doc: Document) => downloadDocument(doc, showToast, messages.documentsTab.downloadFailed);
+  // [FIX 用户反馈] 统一链接查看：点文件名 → 新标签页打开文件（浏览器原生渲染：
+  // md/txt 显示文本、PDF 原生预览、DOCX 等自动下载）。blob URL 继承页面 origin，
+  // 鉴权经请求头携带、令牌不暴露 URL。
+  const openInTab = async (doc: Document) => {
+    try {
+      const resp = await documentAPI.downloadDocument(doc.id);
+      const url = window.URL.createObjectURL(resp.data as Blob);
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
+    } catch { showToast({ type: 'error', message: messages.documentsTab.downloadFailed }); }
+  };
   // [FIX 用户报告] 员工只读文档中心：隐藏删除/批量删除入口（硬保障在服务端 403）
   const isAdminUser = useMemo(() => {
     try {
@@ -114,7 +125,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
     if (list.loading) return <LoadingState messages={messages} />;
     if (list.documents.length === 0) return <EmptyState messages={messages} />;
     const shared = { documents: list.documents, selectedDocuments: selection.selectedDocuments,
-      onToggleSelect: selection.toggleSelect, onViewDetails: selection.viewDetails, onDownload: download, onDeleteSingle: deletion.handleDeleteSingle, readOnly };
+      onToggleSelect: selection.toggleSelect, onViewDetails: selection.viewDetails, onDownload: download, onOpenInTab: openInTab, onDeleteSingle: deletion.handleDeleteSingle, readOnly };
     return (<>
       {list.viewMode === 'list'
         ? <DocumentListView {...shared} onToggleSelectAll={() => selection.toggleSelectAll(list.documents)} />

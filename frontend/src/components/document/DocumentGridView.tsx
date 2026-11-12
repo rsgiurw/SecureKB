@@ -34,6 +34,7 @@ export interface DocumentGridViewProps {
   onDownload: (doc: Document) => void;
   /** 단일 문서 삭제 */
   onDeleteSingle: (id: string) => void;
+  onOpenInTab: (doc: Document) => void | Promise<void>;
 }
 
 /** 문서 ID가 유효한지 확인합니다 (UI 표시용) */
@@ -52,6 +53,7 @@ export const DocumentGridView: React.FC<DocumentGridViewProps> = ({
   onViewDetails,
   onDownload,
   onDeleteSingle,
+  onOpenInTab,
 }) => {
   // i18n: 현재 로케일에 해당하는 번역 사전을 가져온다.
   const { messages, locale } = useMenuMessages();
@@ -75,7 +77,12 @@ export const DocumentGridView: React.FC<DocumentGridViewProps> = ({
           </CardHeader>
           <CardContent className="px-4 pb-2">
             {/* 긴 파일명도 카드 안에서 줄바꿈되도록 break-words 적용 + 2줄 제한 */}
-            <h3 className="text-sm font-black text-foreground leading-snug break-words [overflow-wrap:anywhere] line-clamp-2 mb-1" title={doc.originalName || doc.filename}>
+            {/* [FIX 用户反馈] 文件名点击 → 新标签页查看（统一链接风格） */}
+            <h3
+              className="text-sm font-black text-foreground leading-snug break-words [overflow-wrap:anywhere] line-clamp-2 mb-1 cursor-pointer hover:text-primary hover:underline underline-offset-2 transition-colors"
+              title={(doc.originalName || doc.filename) + '（点击在新标签页查看）'}
+              onClick={() => void onOpenInTab(doc)}
+            >
               {doc.originalName || doc.filename}
             </h3>
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">
