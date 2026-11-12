@@ -2,36 +2,359 @@
   "version": "1.0",
   "description": "企业知识库 Golden 评测集：覆盖 17 篇制度文档。type: fact=单文档事实 / cross=跨文档综合 / refusal=库外问题（应拒答，不参与 recall/MRR 统计）",
   "cases": [
-    {"id": "Q001", "type": "fact", "question": "年假有几天？", "expected_docs": ["员工考勤与请假制度"]},
-    {"id": "Q002", "type": "fact", "question": "病假期间工资怎么算？", "expected_docs": ["员工考勤与请假制度"]},
-    {"id": "Q003", "type": "fact", "question": "调休额度多长时间内有效？", "expected_docs": ["员工考勤与请假制度"]},
-    {"id": "Q004", "type": "fact", "question": "内部系统密码有什么要求？", "expected_docs": ["信息安全管理制度"]},
-    {"id": "Q005", "type": "fact", "question": "公司数据分为哪几个级别？", "expected_docs": ["信息安全管理制度"]},
-    {"id": "Q006", "type": "cross", "question": "离职员工的账号需要在什么时候注销？", "expected_docs": ["IT设备与账号管理办法", "信息安全管理制度"]},
-    {"id": "Q007", "type": "fact", "question": "高危漏洞多少天内必须修复？", "expected_docs": ["网络安全管理规定"]},
-    {"id": "Q008", "type": "fact", "question": "堡垒机和防火墙的日志要保存多久？", "expected_docs": ["网络安全管理规定"]},
-    {"id": "Q009", "type": "fact", "question": "出差期间的餐补标准是多少？", "expected_docs": ["差旅费报销细则"]},
-    {"id": "Q010", "type": "fact", "question": "出差发票丢了还能报销吗？", "expected_docs": ["差旅费报销细则"]},
-    {"id": "Q011", "type": "fact", "question": "公积金的缴存比例是多少？", "expected_docs": ["薪酬福利制度"]},
-    {"id": "Q012", "type": "fact", "question": "每月几号发工资？", "expected_docs": ["薪酬福利制度"]},
-    {"id": "Q013", "type": "fact", "question": "新员工入职培训有哪些必修课？", "expected_docs": ["招聘与入职管理制度"]},
-    {"id": "Q014", "type": "fact", "question": "试用期一般多长时间？", "expected_docs": ["招聘与入职管理制度"]},
-    {"id": "Q015", "type": "fact", "question": "合同审批需要经过哪些环节？", "expected_docs": ["合同审批流程管理办法"]},
-    {"id": "Q016", "type": "fact", "question": "合同原件什么时候归档？", "expected_docs": ["合同审批流程管理办法"]},
-    {"id": "Q017", "type": "fact", "question": "公司的公章和合同专用章分别由谁保管？", "expected_docs": ["印章与证照管理办法"]},
-    {"id": "Q018", "type": "fact", "question": "外包人员的账号有什么要求？", "expected_docs": ["访客与外包人员管理办法"]},
-    {"id": "Q019", "type": "cross", "question": "外包驻场人员一次最多可以驻场多久？到期前需要办什么手续？", "expected_docs": ["访客与外包人员管理办法"]},
-    {"id": "Q020", "type": "fact", "question": "访客可以接入公司办公网吗？", "expected_docs": ["访客与外包人员管理办法", "网络安全管理规定"]},
-    {"id": "Q021", "type": "fact", "question": "生产数据库的备份频率是怎样的？", "expected_docs": ["数据备份与恢复规程"]},
-    {"id": "Q022", "type": "fact", "question": "核心业务系统的恢复时间目标（RTO）是多少？", "expected_docs": ["数据备份与恢复规程"]},
-    {"id": "Q023", "type": "cross", "question": "把客户联系方式上传到未经审批的在线翻译工具可以吗？", "expected_docs": ["客户信息保护规范", "大模型使用管理规范"]},
-    {"id": "Q024", "type": "cross", "question": "发现客户信息疑似泄露，第一步应该做什么？", "expected_docs": ["客户信息保护规范", "数据安全事件应急响应手册"]},
-    {"id": "Q025", "type": "fact", "question": "机密级数据可以输入外部的大模型服务吗？", "expected_docs": ["大模型使用管理规范"]},
-    {"id": "Q026", "type": "fact", "question": "面向用户的大模型应用上线前需要做哪些安全测试？", "expected_docs": ["大模型使用管理规范", "AI产品研发流程规范"]},
-    {"id": "Q027", "type": "fact", "question": "竞业限制的期限最长是几年？", "expected_docs": ["保密协议与竞业限制管理办法"]},
-    {"id": "Q028", "type": "fact", "question": "涉密岗位离职时对保密资料交接有什么要求？", "expected_docs": ["保密协议与竞业限制管理办法"]},
-    {"id": "Q029", "type": "fact", "question": "代码合并的单元测试覆盖率门禁是多少？", "expected_docs": ["AI产品研发流程规范"]},
-    {"id": "Q030", "type": "refusal", "question": "食堂午饭几点开饭？", "expected_docs": []},
-    {"id": "Q031", "type": "refusal", "question": "公司老板的车是什么牌子？", "expected_docs": []}
+    {
+      "id": "Q001",
+      "type": "fact",
+      "question": "年假有几天？",
+      "expected_docs": [
+        "员工考勤与请假制度"
+      ]
+    },
+    {
+      "id": "Q002",
+      "type": "fact",
+      "question": "病假期间工资怎么算？",
+      "expected_docs": [
+        "员工考勤与请假制度"
+      ]
+    },
+    {
+      "id": "Q003",
+      "type": "fact",
+      "question": "调休额度多长时间内有效？",
+      "expected_docs": [
+        "员工考勤与请假制度"
+      ]
+    },
+    {
+      "id": "Q004",
+      "type": "fact",
+      "question": "内部系统密码有什么要求？",
+      "expected_docs": [
+        "信息安全管理制度"
+      ]
+    },
+    {
+      "id": "Q005",
+      "type": "fact",
+      "question": "公司数据分为哪几个级别？",
+      "expected_docs": [
+        "信息安全管理制度"
+      ]
+    },
+    {
+      "id": "Q006",
+      "type": "cross",
+      "question": "离职员工的账号需要在什么时候注销？",
+      "expected_docs": [
+        "IT设备与账号管理办法",
+        "信息安全管理制度"
+      ]
+    },
+    {
+      "id": "Q007",
+      "type": "fact",
+      "question": "高危漏洞多少天内必须修复？",
+      "expected_docs": [
+        "网络安全管理规定"
+      ]
+    },
+    {
+      "id": "Q008",
+      "type": "fact",
+      "question": "堡垒机和防火墙的日志要保存多久？",
+      "expected_docs": [
+        "网络安全管理规定"
+      ]
+    },
+    {
+      "id": "Q009",
+      "type": "fact",
+      "question": "出差期间的餐补标准是多少？",
+      "expected_docs": [
+        "差旅费报销细则"
+      ]
+    },
+    {
+      "id": "Q010",
+      "type": "fact",
+      "question": "出差发票丢了还能报销吗？",
+      "expected_docs": [
+        "差旅费报销细则"
+      ]
+    },
+    {
+      "id": "Q011",
+      "type": "fact",
+      "question": "公积金的缴存比例是多少？",
+      "expected_docs": [
+        "薪酬福利制度"
+      ]
+    },
+    {
+      "id": "Q012",
+      "type": "fact",
+      "question": "每月几号发工资？",
+      "expected_docs": [
+        "薪酬福利制度"
+      ]
+    },
+    {
+      "id": "Q013",
+      "type": "fact",
+      "question": "新员工入职培训有哪些必修课？",
+      "expected_docs": [
+        "招聘与入职管理制度"
+      ]
+    },
+    {
+      "id": "Q014",
+      "type": "fact",
+      "question": "试用期一般多长时间？",
+      "expected_docs": [
+        "招聘与入职管理制度"
+      ]
+    },
+    {
+      "id": "Q015",
+      "type": "fact",
+      "question": "合同审批需要经过哪些环节？",
+      "expected_docs": [
+        "合同审批流程管理办法"
+      ]
+    },
+    {
+      "id": "Q016",
+      "type": "fact",
+      "question": "合同原件什么时候归档？",
+      "expected_docs": [
+        "合同审批流程管理办法"
+      ]
+    },
+    {
+      "id": "Q017",
+      "type": "fact",
+      "question": "公司的公章和合同专用章分别由谁保管？",
+      "expected_docs": [
+        "印章与证照管理办法"
+      ]
+    },
+    {
+      "id": "Q018",
+      "type": "fact",
+      "question": "外包人员的账号有什么要求？",
+      "expected_docs": [
+        "访客与外包人员管理办法"
+      ]
+    },
+    {
+      "id": "Q019",
+      "type": "cross",
+      "question": "外包驻场人员一次最多可以驻场多久？到期前需要办什么手续？",
+      "expected_docs": [
+        "访客与外包人员管理办法"
+      ]
+    },
+    {
+      "id": "Q020",
+      "type": "fact",
+      "question": "访客可以接入公司办公网吗？",
+      "expected_docs": [
+        "访客与外包人员管理办法",
+        "网络安全管理规定"
+      ]
+    },
+    {
+      "id": "Q021",
+      "type": "fact",
+      "question": "生产数据库的备份频率是怎样的？",
+      "expected_docs": [
+        "数据备份与恢复规程"
+      ]
+    },
+    {
+      "id": "Q022",
+      "type": "fact",
+      "question": "核心业务系统的恢复时间目标（RTO）是多少？",
+      "expected_docs": [
+        "数据备份与恢复规程"
+      ]
+    },
+    {
+      "id": "Q023",
+      "type": "cross",
+      "question": "把客户联系方式上传到未经审批的在线翻译工具可以吗？",
+      "expected_docs": [
+        "客户信息保护规范",
+        "大模型使用管理规范"
+      ]
+    },
+    {
+      "id": "Q024",
+      "type": "cross",
+      "question": "发现客户信息疑似泄露，第一步应该做什么？",
+      "expected_docs": [
+        "客户信息保护规范",
+        "数据安全事件应急响应手册"
+      ]
+    },
+    {
+      "id": "Q025",
+      "type": "fact",
+      "question": "机密级数据可以输入外部的大模型服务吗？",
+      "expected_docs": [
+        "大模型使用管理规范"
+      ]
+    },
+    {
+      "id": "Q026",
+      "type": "fact",
+      "question": "面向用户的大模型应用上线前需要做哪些安全测试？",
+      "expected_docs": [
+        "大模型使用管理规范",
+        "AI产品研发流程规范"
+      ]
+    },
+    {
+      "id": "Q027",
+      "type": "fact",
+      "question": "竞业限制的期限最长是几年？",
+      "expected_docs": [
+        "保密协议与竞业限制管理办法"
+      ]
+    },
+    {
+      "id": "Q028",
+      "type": "fact",
+      "question": "涉密岗位离职时对保密资料交接有什么要求？",
+      "expected_docs": [
+        "保密协议与竞业限制管理办法"
+      ]
+    },
+    {
+      "id": "Q029",
+      "type": "fact",
+      "question": "代码合并的单元测试覆盖率门禁是多少？",
+      "expected_docs": [
+        "AI产品研发流程规范"
+      ]
+    },
+    {
+      "id": "Q030",
+      "type": "refusal",
+      "question": "食堂午饭几点开饭？",
+      "expected_docs": []
+    },
+    {
+      "id": "Q031",
+      "type": "refusal",
+      "question": "公司老板的车是什么牌子？",
+      "expected_docs": []
+    },
+    {
+      "id": "Q032",
+      "type": "fact",
+      "question": "试用期最长是多长时间？",
+      "expected_docs": [
+        "员工手册总纲"
+      ]
+    },
+    {
+      "id": "Q033",
+      "type": "fact",
+      "question": "新员工入职需要提交哪些材料？",
+      "expected_docs": [
+        "员工手册总纲"
+      ]
+    },
+    {
+      "id": "Q034",
+      "type": "fact",
+      "question": "转正申请需要提前几个工作日在 OA 发起？",
+      "expected_docs": [
+        "员工手册总纲"
+      ]
+    },
+    {
+      "id": "Q035",
+      "type": "fact",
+      "question": "收受合作方礼品价值超过多少需要申报？",
+      "expected_docs": [
+        "员工手册总纲"
+      ]
+    },
+    {
+      "id": "Q036",
+      "type": "fact",
+      "question": "举报违规行为可以通过哪些渠道？",
+      "expected_docs": [
+        "员工手册总纲"
+      ]
+    },
+    {
+      "id": "Q037",
+      "type": "fact",
+      "question": "员工离职时未休年假如何折算？",
+      "expected_docs": [
+        "员工手册总纲"
+      ]
+    },
+    {
+      "id": "Q038",
+      "type": "fact",
+      "question": "数据安全员有哪些职责？",
+      "expected_docs": [
+        "信息安全与数据管理总纲"
+      ]
+    },
+    {
+      "id": "Q039",
+      "type": "fact",
+      "question": "公司多久召开一次安全例会？",
+      "expected_docs": [
+        "信息安全与数据管理总纲"
+      ]
+    },
+    {
+      "id": "Q040",
+      "type": "fact",
+      "question": "权限复核完成率低于多少的部门会被安全委员会通报？",
+      "expected_docs": [
+        "信息安全与数据管理总纲"
+      ]
+    },
+    {
+      "id": "Q041",
+      "type": "fact",
+      "question": "数据可以传输到境外吗？",
+      "expected_docs": [
+        "信息安全与数据管理总纲"
+      ]
+    },
+    {
+      "id": "Q042",
+      "type": "fact",
+      "question": "与第三方交换敏感级数据有什么要求？",
+      "expected_docs": [
+        "信息安全与数据管理总纲"
+      ]
+    },
+    {
+      "id": "Q043",
+      "type": "fact",
+      "question": "大模型服务审批清单由谁维护、多久更新一次？",
+      "expected_docs": [
+        "信息安全与数据管理总纲"
+      ]
+    },
+    {
+      "id": "Q044",
+      "type": "fact",
+      "question": "调休额度和年假的过期规则有什么区别？",
+      "expected_docs": [
+        "员工手册总纲",
+        "员工考勤与请假制度"
+      ]
+    }
   ]
 }
