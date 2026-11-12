@@ -32,10 +32,10 @@ export const useChatInteraction = ({ messages, showToast }: UseChatInteractionPr
     const isMediumScreen = useMediaQuery('(max-width: 900px)'); // md 사이즈 이하
 
     const [showDevTools, setShowDevTools] = useState<boolean>(() => {
-        if (typeof window !== 'undefined') {
-            return window.innerWidth >= 1024; // lg 사이즈 이상에서만 기본 표시
-        }
-        return true;
+        // [FIX 设计评审 P0] 开发者工具（会话信息/API 日志）默认关闭：
+        // 大屏默认展开曾把聊天主区挤到 ~312px，且把 UUID/API 日志等工程界面
+        // 暴露给最终用户。需要时由用户手动展开。
+        return false;
     });
 
     // 반응형 처리: 화면이 좁아지면 개발자 도구 자동 숨기기

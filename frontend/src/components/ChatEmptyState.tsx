@@ -69,13 +69,15 @@ export const ChatEmptyState: React.FC<ChatEmptyStateProps> = ({ onSuggestionClic
   const settings = allSettings[locale] ?? chatSettingsService.getDefaults(locale);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] py-12 px-6 w-full max-w-2xl mx-auto animate-in fade-in zoom-in-95 duration-1000 ease-out">
+    <div className="flex flex-col items-center justify-center h-full py-10 px-6 w-full max-w-2xl mx-auto animate-in fade-in zoom-in-95 duration-1000 ease-out">
       {/* Premium Icon Assembly */}
-      <div className="mb-10 relative flex items-center justify-center transform transition-transform hover:scale-105 duration-700">
-        <div className="relative w-32 h-32 flex items-center justify-center">
+      {/* [FIX 设计评审 P2] 容器适配：min-h-[70vh] 在窄容器里把建议问题卡推出折叠线以下；
+          改随容器高度，图标缩小，标题降级——保证建议卡在任何容器宽度首屏可见 */}
+      <div className="mb-6 relative flex items-center justify-center transform transition-transform hover:scale-105 duration-700">
+        <div className="relative w-20 h-20 flex items-center justify-center">
           <svg
-            width="120"
-            height="120"
+            width="80"
+            height="80"
             viewBox="0 0 100 100"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -145,19 +147,19 @@ export const ChatEmptyState: React.FC<ChatEmptyStateProps> = ({ onSuggestionClic
         </div>
       </div>
 
-      {/* 메인 타이틀 - Premium Outfit Typography & Gradient */}
-      <h2 className="text-4xl md:text-5xl font-black text-gradient mb-4 text-center tracking-tighter leading-none">
+      {/* 메인 타이틀 - [FIX 设计评审 P2] text-5xl 在 600-900px 容器里折 3 行，降为 3xl 档 */}
+      <h2 className="text-2xl md:text-4xl font-black text-gradient mb-3 text-center tracking-tighter leading-tight">
         {settings.mainMessage}
       </h2>
 
       {/* 서브 타이틀 */}
-      <p className="text-lg text-muted-foreground mb-12 text-center max-w-md leading-relaxed font-medium tracking-tight">
+      <p className="text-base text-muted-foreground mb-8 text-center max-w-md leading-relaxed font-medium tracking-tight">
         {settings.subMessage}
       </p>
 
-      {/* 추천 질문 섹션 - Glassmorphism UI */}
-      <div className="w-full max-w-xl mt-4 animate-in slide-in-from-bottom-8 duration-1000 delay-500 fill-mode-both ease-out">
-        <div className="flex items-center gap-2 md:gap-4 mb-6 px-2">
+      {/* 추천 질문 섹션 - [FIX 设计评审 P2] 窄容器单列，保证建议问题卡首屏可见 */}
+      <div className="w-full mt-2 animate-in slide-in-from-bottom-8 duration-1000 delay-500 fill-mode-both ease-out">
+        <div className="flex items-center gap-2 md:gap-4 mb-4 px-2">
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border/50 to-transparent" />
           <span className="text-[10px] md:text-[10px] font-black text-muted-foreground/40 uppercase tracking-[0.2em] md:tracking-[0.3em] whitespace-normal md:whitespace-nowrap text-center">
             {messages.emptyState.suggestionsHeading}
@@ -165,7 +167,7 @@ export const ChatEmptyState: React.FC<ChatEmptyStateProps> = ({ onSuggestionClic
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border/50 to-transparent" />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
           {settings.suggestions.map((suggestion, index) => (
             <Card
               key={index}

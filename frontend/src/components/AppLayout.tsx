@@ -4,7 +4,6 @@ import { PageHeader } from './PageHeader';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { healthAPI } from '../services/api';
 import { removeAdminAccess } from '../utils/accessControl';
-import { useConfig } from '../core/useConfig';
 import { Toaster } from '@/components/ui/toaster';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
@@ -15,7 +14,6 @@ interface AppLayoutProps {
 }
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
-  const { config } = useConfig();
   const { messages } = useMenuMessages();
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const saved = localStorage.getItem('sidebarOpen');
@@ -121,9 +119,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   const pageName = getCurrentPageName();
 
-  // 사이드바 너비 계산 (Tailwind 클래스로 처리 권장되지만 미세조정용)
-  const sidebarWidth = isSmallScreen ? 0 : (sidebarOpen ? config.layout.sidebar.width : config.layout.sidebar.collapsedWidth);
-
   return (
     <div className="flex min-h-screen bg-background text-foreground transition-colors duration-300">
       <Sidebar
@@ -133,12 +128,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
       <main
         className={cn(
-          "flex-grow flex flex-col min-w-0 transition-all duration-300 ease-in-out",
-          !isSmallScreen && sidebarOpen ? `ml-[${config.layout.sidebar.width}px]` : !isSmallScreen ? `ml-[${config.layout.sidebar.collapsedWidth}px]` : "ml-0"
+          "flex-grow flex flex-col min-w-0 transition-all duration-300 ease-in-out"
         )}
-        style={{
-          marginLeft: !isSmallScreen ? `${sidebarWidth}px` : undefined
-        }}
+        // [FIX 设计评审 P0] Sidebar 是 relative shrink-0（文档流内已占位 240px），
+        // 此前的 inline marginLeft 造成双重偏移 → 1440px 下出现 243px 死白列、
+        // 聊天区被挤到 ~312px。删除偏移后由 Sidebar 单独占位。
       >
         {pageName && (
           <PageHeader

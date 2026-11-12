@@ -37,6 +37,15 @@ interface ChatTabProps {
 
 export const ChatTab: React.FC<ChatTabProps> = ({ showToast, embedMode = false }) => {
   const { messages: t } = useMenuMessages();
+  // [FIX 设计评审 P1] 开发者工具（会话信息/API 日志/调试面板）仅管理员可见：
+  // UUID 与 API 日志是工程界面，不应暴露给最终用户。
+  const isAdminUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('securekb_user') || 'null')?.role === 'admin';
+    } catch {
+      return false;
+    }
+  })();
   // API Logs State
   const [apiLogs, setApiLogs] = useState<ApiLog[]>([]);
   // 세션 정보(DevTools 표시용). 세션 훅이 전환/초기화 시 null로 리셋하고, 메시지 훅이 폴백으로 채운다.
@@ -179,8 +188,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast, embedMode = false }
         />
       )}
 
-      {/* 임베드 모드에서는 개발자 도구 패널을 숨긴다. */}
-      {!embedMode && (
+      {/* 임베드 모드에서는 개발자 도구 패널을 숨긴다. [FIX 设计评审 P1] 员工角色同样隐藏 */}
+      {!embedMode && isAdminUser && (
         <ChatDevTools
           showDevTools={showDevTools}
           setShowDevTools={setShowDevTools}
@@ -202,14 +211,17 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast, embedMode = false }
         className={
           embedMode
             ? 'flex-grow flex flex-col px-0 py-0'
-            : 'flex-grow flex justify-center items-center px-4 md:px-6 py-4'
+            : 'flex-grow flex flex-col px-4 md:px-6 py-4 min-h-0'
         }
       >
+        {/* [FIX 设计评审 P0] 非嵌入分支从"居中悬浮卡"（max-w-4xl h-[80vh] rounded-2xl
+            shadow-xl，embed iframe 血统）改为全高工作区范式：占满容器高度，
+            超宽屏限宽居中。嵌入模式行为不变。 */}
         <div
           className={
             embedMode
               ? 'w-full h-full flex flex-col min-h-0 bg-background overflow-hidden'
-              : 'w-full max-w-4xl h-[80vh] flex flex-col min-h-0 bg-background rounded-2xl shadow-xl overflow-hidden border border-border/60'
+              : 'w-full max-w-6xl mx-auto h-full flex flex-col min-h-0 bg-background overflow-hidden rounded-xl border border-border/60'
           }
         >
           <ChatHeader
@@ -248,8 +260,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast, embedMode = false }
         </div>
       </div>
 
-      {/* 임베드 모드에서는 RAG 추적(디버그) 패널을 숨긴다. */}
-      {!embedMode && (
+      {/* 임베드 모드에서는 RAG 추적(디버그) 패널을 숨긴다. [FIX 设计评审 P1] 员工角色同样隐藏（320px 调试面板） */}
+      {!embedMode && isAdminUser && (
         <RagTracePanel
           messages={messages}
           apiLogs={apiLogs}

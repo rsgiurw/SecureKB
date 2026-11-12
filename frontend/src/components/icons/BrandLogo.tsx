@@ -140,12 +140,31 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   }
 
   if (logoConfig.type === 'text') {
+    // [FIX 设计评审 P1] text 品牌此前忽略 variant：icon 槽里渲染完整appName 文字
+    // （10px 微缩 + 溢出裁切），旁边又渲染正式 wordmark → "SecureKBSecureKB" 双写。
+    // icon variant 改渲染品牌首字母方块（深底白字，贴 Secure 定位）；
+    // main/默认 variant 保持完整文字 wordmark。
+    if (variant === 'icon') {
+      const sizeNum = typeof height === 'number' ? height : 24;
+      return (
+        <div
+          className={cn(
+            'flex items-center justify-center rounded-lg bg-primary text-primary-foreground font-black select-none',
+            className
+          )}
+          style={{ ...style, width: sizeNum, height: sizeNum, fontSize: sizeNum * 0.52 }}
+          aria-hidden="true"
+        >
+          {brandConfig.appName.charAt(0).toUpperCase()}
+        </div>
+      );
+    }
     return (
       <div
         className={cn("flex flex-col items-center justify-center font-bold tracking-tight", className)}
         style={{
           fontSize: typeof height === 'number' ? `${height * 0.45}px` : '1.25rem',
-          color: isDark ? 'var(--foreground)' : 'var(--foreground)',
+          color: 'var(--foreground)',
           ...style,
         }}
       >

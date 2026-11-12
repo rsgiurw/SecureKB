@@ -1,7 +1,6 @@
 import React from 'react';
-import { Code, Eye, Trash2 } from 'lucide-react';
+import { Eye, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
     Tooltip,
     TooltipContent,
@@ -9,7 +8,6 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useMenuMessages } from '../../i18n/useMenuLocale';
-import { BRAND_CONFIG } from '../../config/brand';
 
 interface ChatHeaderProps {
     sessionId: string;
@@ -26,26 +24,19 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 }) => {
     // i18n: 현재 로케일 메시지 + 로케일 전환 함수
     const { messages } = useMenuMessages();
+    void sessionId; // [FIX 设计评审 P1] 会话 UUID 不再展示给最终用户（会话管理在左栏）
 
     return (
         <header className="px-6 py-4 border-b bg-gradient-to-r from-background to-muted/10 relative overflow-hidden backdrop-blur-sm">
             <div className="flex justify-between items-center relative z-10">
                 <div className="flex flex-col">
-                    {/* 브랜드명(BRAND_CONFIG.appName) + 로케일 접미 라벨 합성 → 리브랜딩 시 자동 반영 */}
-                    <h1 className="text-xl font-bold tracking-tight leading-tight">{`${BRAND_CONFIG.appName} ${messages.chat.header.title}`}</h1>
+                    {/* [FIX 设计评审 P1] 品牌名不再重复：侧栏/顶栏已有 SecureKB wordmark，
+                        聊天头只显示功能名"智能问答" */}
+                    <h1 className="text-xl font-bold tracking-tight leading-tight">{messages.chat.header.title}</h1>
                     <p className="text-sm text-muted-foreground">{messages.chat.header.subtitle}</p>
                 </div>
 
                 <div className="flex items-center gap-2">
-
-                    {!sessionId.startsWith('id-12345') && (
-                        <Badge variant="secondary" className="hidden sm:flex gap-1.5 items-center px-3 py-1 font-medium border-border/50 shrink-0">
-                            <Code className="w-4 h-4 text-primary/70" />
-                            <span className="text-xs opacity-80">
-                                {messages.chat.header.sessionPrefix}: {sessionId.replace('fallback-', '').slice(0, 8)}...
-                            </span>
-                        </Badge>
-                    )}
 
                     {!showDevTools && (
                         <TooltipProvider>
@@ -75,10 +66,12 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                                     variant="ghost"
                                     size="icon"
                                     onClick={onNewSession}
-                                    className="rounded-xl hover:bg-destructive/10 hover:text-destructive transition-all duration-300 shrink-0"
+                                    // [FIX 设计评审 P1] 新会话是创建动作：Plus 图标 + 中性 hover
+                                    //（原 Trash2 + destructive 红色 hover 是删除语义，吓人且误导）
+                                    className="rounded-xl hover:bg-muted transition-all duration-300 shrink-0"
                                     title={messages.chat.header.newSession}
                                 >
-                                    <Trash2 className="w-5 h-5" />
+                                    <Plus className="w-5 h-5" />
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent className="glass-morphism border-border/40 text-foreground font-bold text-xs rounded-xl px-3 py-1.5">
@@ -91,4 +84,3 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         </header>
     );
 };
-

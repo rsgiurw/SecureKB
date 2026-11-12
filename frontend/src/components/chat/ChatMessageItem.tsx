@@ -131,7 +131,7 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
                             <AccordionItem value="sources" className="border-none">
                                 <AccordionTrigger className="flex justify-start gap-2 py-2 px-0 hover:no-underline hover:opacity-80 transition-all border-none">
                                     <div className="flex items-center gap-2 text-[11px] font-bold text-primary/60">
-                                        <BookOpen className="h-3.5 w-3.5 text-blue-500" />
+                                        <BookOpen className="h-3.5 w-3.5 text-primary" />
                                         {format(messages.chat.message.sourcesCount, { count: message.sources.length })}
                                     </div>
                                 </AccordionTrigger>
@@ -156,7 +156,7 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
                                                     <Badge
                                                         title="按检索相关度排序的名次"
                                                         variant="outline"
-                                                        className="h-4 text-[8px] px-1 font-extrabold shrink-0 shadow-none border-none bg-slate-500/10 text-slate-600"
+                                                        className="h-4 text-[8px] px-1 font-extrabold shrink-0 shadow-none border-none bg-muted text-muted-foreground"
                                                     >
                                                         #{idx + 1}
                                                     </Badge>

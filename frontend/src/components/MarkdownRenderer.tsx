@@ -20,7 +20,7 @@ const processCitations = (text: string, onCitationClick?: (index: number) => voi
       return (
         <span
           key={index}
-          className="citation-marker inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-blue-500 rounded-sm mx-0.5 cursor-pointer hover:bg-blue-600 transition-colors align-super"
+          className="citation-marker inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-primary-foreground bg-primary rounded-sm mx-0.5 cursor-pointer hover:bg-primary/90 transition-colors align-super"
           onClick={() => onCitationClick?.(citationIndex)}
         >
           {citationIndex}
@@ -66,9 +66,9 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
         remarkPlugins={[remarkGfm]}
         components={{
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          h2: ({ node: _node, ...props }) => <h2 className="text-lg font-bold border-l-4 border-blue-500 pl-3 bg-blue-500/5 py-1 rounded-r-md mt-6 mb-4" {...props} />,
+          h2: ({ node: _node, ...props }) => <h2 className="text-lg font-bold border-l-4 border-primary/50 pl-3 bg-primary/5 py-1 rounded-r-md mt-6 mb-4" {...props} />,
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          h3: ({ node: _node, ...props }) => <h3 className="text-base font-bold border-l-4 border-blue-500 pl-3 bg-blue-500/5 py-1 rounded-r-md mt-5 mb-3" {...props} />,
+          h3: ({ node: _node, ...props }) => <h3 className="text-base font-bold border-l-4 border-primary/40 pl-3 bg-primary/5 py-1 rounded-r-md mt-5 mb-3" {...props} />,
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           p: ({ node: _node, children, ...props }) => {
             void props;
@@ -77,11 +77,11 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           ul: ({ node: _node, ...props }) => <ul className="pl-5 space-y-1 my-3 bg-muted/30 border border-border/50 rounded-lg p-3 list-disc list-inside" {...props} />,
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          ol: ({ node: _node, ...props }) => <ol className="pl-5 space-y-1 my-3 bg-blue-500/5 border border-blue-500/20 rounded-lg p-3 list-decimal list-inside" {...props} />,
+          ol: ({ node: _node, ...props }) => <ol className="pl-5 space-y-1 my-3 bg-primary/5 border border-primary/20 rounded-lg p-3 list-decimal list-inside" {...props} />,
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           li: ({ node: _node, children, ...props }) => {
             void props;
-            return <li className="leading-relaxed marker:text-blue-500 marker:font-bold">{processChildrenWithCitations(children, onCitationClick)}</li>;
+            return <li className="leading-relaxed marker:text-primary marker:font-bold">{processChildrenWithCitations(children, onCitationClick)}</li>;
           },
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           strong: ({ node: _node, ...props }) => <strong className="font-bold text-primary italic px-0.5" {...props} />,

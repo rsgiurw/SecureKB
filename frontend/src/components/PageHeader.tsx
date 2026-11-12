@@ -6,8 +6,6 @@ import {
   MessageSquare,
   BrainCircuit,
   LogOut,
-  CheckCircle,
-  HelpCircle,
   AlertTriangle,
 } from 'lucide-react';
 import { useIsDarkMode } from '../hooks/useIsDarkMode';
@@ -58,27 +56,43 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   const items = navigationItems || defaultNavigationItems;
 
   const StatusBadge = () => {
+    // [FIX 设计评审 P0] 状态可见性分层：healthy 只占 8px 绿点（正常状态不值得
+    // 占视觉权重）；仅异常时才升级为带 Tooltip 的徽章（可诊断）。
     switch (serverStatus) {
       case 'healthy':
         return (
-          <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30 gap-1.5 font-bold py-1 px-3 rounded-full transition-all hover:bg-emerald-500/20">
-            <CheckCircle className="w-3.5 h-3.5" />
-            {messages.nav.statusHealthy}
-          </Badge>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className="inline-block w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20"
+                aria-label={messages.nav.statusHealthy}
+              />
+            </TooltipTrigger>
+            <TooltipContent>{messages.nav.statusHealthy}</TooltipContent>
+          </Tooltip>
         );
       case 'checking':
         return (
-          <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/30 gap-1.5 font-bold py-1 px-3 rounded-full transition-all hover:bg-amber-500/20">
-            <HelpCircle className="w-3.5 h-3.5 animate-pulse" />
-            {messages.nav.statusChecking}
-          </Badge>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-block w-2 h-2 rounded-full bg-amber-500 ring-2 ring-amber-500/20 animate-pulse" aria-label={messages.nav.statusChecking} />
+            </TooltipTrigger>
+            <TooltipContent>{messages.nav.statusChecking}</TooltipContent>
+          </Tooltip>
         );
       case 'unhealthy':
         return (
-          <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30 gap-1.5 font-bold py-1 px-3 rounded-full transition-all hover:bg-destructive/20">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            {messages.nav.statusError}
-          </Badge>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30 gap-1.5 font-bold py-1 px-3 rounded-full transition-all hover:bg-destructive/20 cursor-help">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                {messages.nav.statusError}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              后端健康检查失败：服务可能正在启动（约 90 秒），将持续自动重试
+            </TooltipContent>
+          </Tooltip>
         );
       default:
         return null;
