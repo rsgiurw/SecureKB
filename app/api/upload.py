@@ -2559,24 +2559,64 @@ async def get_document_source_detail(
 
 @router.get(
     "/upload/documents/{document_id}/original",
-    dependencies=[Depends(get_upload_access)],
+    dependencies=[Depends(require_login_read)],
 )
-async def download_original_document(document_id: str):
+async def download_original_document(
+    document_id: str,
+    user: dict[str, Any] = Depends(require_login_read),
+):
     """보관된 원본 파일을 그대로 스트리밍 다운로드한다 (#10).
 
     업로드 시 originals/에 보관된 원본 바이너리(PDF/DOCX 등)를 변환 없이 반환한다.
-    보관 원본이 없으면 404(STORAGE-001).
+    [FIX 用户报告] 预置语料（load_kb 入库）没有归档原始文件——此前 404 造成
+    前端"下载失败"。fallback：无归档原文件时回退文本重组下载（同 /download）。
+    员工校验部门可见性，不可见文档按 404 处理不泄露存在性。
     """
-    _reload_upload_jobs_if_needed(document_id)
-    job = upload_jobs.get(document_id)
-    if not isinstance(job, dict):
-        raise HTTPException(
+    visible = visible_departments(user)
+
+    def _forbidden() -> HTTPException:
+        return HTTPException(
             status_code=404,
             detail={
                 "error_code": "UPLOAD-020",
-                "error": "未找到任务",
+                "error": "未找到文档",
                 "message": "未找到您的上传任务",
                 "document_id": document_id,
+            },
+        )
+
+    _reload_upload_jobs_if_needed(document_id)
+    job = upload_jobs.get(document_id)
+    if not isinstance(job, dict):
+        # [FIX] 无上传任务 = 预置语料（load_kb 入库，无归档原文件）→
+        # 员工先校验部门可见性，再回退文本重组下载
+        chunks = await modules.get("retrieval").get_document_chunks(document_id) if modules.get("retrieval") else []
+        if not chunks:
+            raise _forbidden()
+        first_meta = chunks[0].get("metadata", {})
+        if visible is not None:
+            doc_depts = set(first_meta.get("departments", ["全员"]) or ["全员"])
+            if not doc_depts & set(visible):
+                raise _forbidden()
+        sorted_chunks = sorted(
+            chunks,
+            key=lambda c: (
+                c.get("metadata", {}).get("page", 0),
+                c.get("metadata", {}).get("chunk_index", 0),
+            ),
+        )
+        content = "\n\n".join(chunk.get("content", "") for chunk in sorted_chunks)
+        filename = first_meta.get("source_file", first_meta.get("filename", "document"))
+        if "." not in Path(filename).name:
+            filename = f"{filename}.md"
+        import io as _io
+
+        return StreamingResponse(
+            _io.BytesIO(content.encode("utf-8")),
+            media_type="text/markdown; charset=utf-8",
+            headers={
+                "Content-Disposition": _content_disposition(filename),
+                "Content-Length": str(len(content.encode("utf-8"))),
             },
         )
     upload_dir = get_upload_directory()
