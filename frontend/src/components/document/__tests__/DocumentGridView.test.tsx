@@ -62,7 +62,7 @@ describe('DocumentGridView', () => {
     const onViewDetails = vi.fn();
     const doc = createMockDocument();
     render(<DocumentGridView {...defaultProps} documents={[doc]} onViewDetails={onViewDetails} />);
-    fireEvent.click(screen.getByText('상세'));
+    fireEvent.click(screen.getByText('详情'));
     expect(onViewDetails).toHaveBeenCalledWith(doc);
   });
 
@@ -70,7 +70,7 @@ describe('DocumentGridView', () => {
     const onDownload = vi.fn();
     const doc = createMockDocument();
     render(<DocumentGridView {...defaultProps} documents={[doc]} onDownload={onDownload} />);
-    fireEvent.click(screen.getByText('받기'));
+    fireEvent.click(screen.getByText('下载'));
     expect(onDownload).toHaveBeenCalledWith(doc);
   });
 
@@ -78,14 +78,14 @@ describe('DocumentGridView', () => {
     const onDeleteSingle = vi.fn();
     const doc = createMockDocument();
     render(<DocumentGridView {...defaultProps} documents={[doc]} onDeleteSingle={onDeleteSingle} />);
-    fireEvent.click(screen.getByText('삭제'));
+    fireEvent.click(screen.getByText('删除'));
     expect(onDeleteSingle).toHaveBeenCalledWith('doc-1');
   });
 
   it('유효하지 않은 문서 ID의 삭제 버튼은 비활성화됩니다', () => {
     const doc = createMockDocument({ id: 'temp-999' });
     render(<DocumentGridView {...defaultProps} documents={[doc]} />);
-    const deleteButton = screen.getByText('삭제');
+    const deleteButton = screen.getByText('删除');
     expect(deleteButton).toBeDisabled();
   });
 

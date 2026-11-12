@@ -32,13 +32,13 @@ describe('DocumentListView', () => {
     onDeleteSingle: vi.fn(),
   };
 
-  it('문서가 없을 때 테이블 헤더만 렌더링합니다', () => {
+  it('没有文档时 테이블 헤더만 렌더링합니다', () => {
     render(<DocumentListView {...defaultProps} />);
-    expect(screen.getByText('파일명')).toBeInTheDocument();
-    expect(screen.getByText('크기')).toBeInTheDocument();
-    expect(screen.getByText('업로드 일시')).toBeInTheDocument();
-    expect(screen.getByText('상태')).toBeInTheDocument();
-    expect(screen.getByText('액션')).toBeInTheDocument();
+    expect(screen.getByText('文件名')).toBeInTheDocument();
+    expect(screen.getByText('大小')).toBeInTheDocument();
+    expect(screen.getByText('上传时间')).toBeInTheDocument();
+    expect(screen.getByText('状态')).toBeInTheDocument();
+    expect(screen.getByText('操作')).toBeInTheDocument();
   });
 
   it('문서 행을 올바르게 렌더링합니다', () => {

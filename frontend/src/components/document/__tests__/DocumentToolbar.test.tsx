@@ -27,17 +27,17 @@ describe('DocumentToolbar', () => {
 
   it('검색 입력 필드를 렌더링합니다', () => {
     render(<DocumentToolbar {...defaultProps} />);
-    expect(screen.getByPlaceholderText('문서 검색...')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('搜索文档...')).toBeInTheDocument();
   });
 
   it('아이콘 전용 컨트롤에 접근 가능한 이름을 제공합니다', async () => {
     const { container } = render(<DocumentToolbar {...defaultProps} />);
 
-    expect(screen.getByRole('textbox', { name: '문서 검색' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '내림차순 정렬' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '목록 보기' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: '격자 보기' })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: '문서 새로고침' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '搜索文档' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '降序排序' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '列表视图' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '网格视图' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: '刷新文档' })).toBeInTheDocument();
 
     const results = await checkA11y(container);
     expect(results.violations).toHaveLength(0);
@@ -46,7 +46,7 @@ describe('DocumentToolbar', () => {
   it('검색어 입력 시 onSearchChange를 호출합니다', () => {
     const onSearchChange = vi.fn();
     render(<DocumentToolbar {...defaultProps} onSearchChange={onSearchChange} />);
-    const input = screen.getByPlaceholderText('문서 검색...');
+    const input = screen.getByPlaceholderText('搜索文档...');
     fireEvent.change(input, { target: { value: '테스트' } });
     expect(onSearchChange).toHaveBeenCalledWith('테스트');
   });
@@ -78,31 +78,31 @@ describe('DocumentToolbar', () => {
 
   it('선택된 문서가 없으면 선택 삭제 버튼이 표시되지 않습니다', () => {
     render(<DocumentToolbar {...defaultProps} selectedCount={0} />);
-    expect(screen.queryByText(/선택 삭제/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/删除所选/)).not.toBeInTheDocument();
   });
 
   it('선택된 문서가 있으면 선택 삭제 버튼이 표시됩니다', () => {
     render(<DocumentToolbar {...defaultProps} selectedCount={3} />);
-    expect(screen.getByText(/선택 삭제 \(3\)/)).toBeInTheDocument();
+    expect(screen.getByText(/删除所选（3）/)).toBeInTheDocument();
   });
 
   it('선택 삭제 버튼 클릭 시 onBulkDelete를 호출합니다', () => {
     const onBulkDelete = vi.fn();
     render(<DocumentToolbar {...defaultProps} selectedCount={2} onBulkDelete={onBulkDelete} />);
-    const bulkDeleteButton = screen.getByText(/선택 삭제/);
+    const bulkDeleteButton = screen.getByText(/删除所选/);
     fireEvent.click(bulkDeleteButton);
     expect(onBulkDelete).toHaveBeenCalled();
   });
 
-  it('전체 삭제 버튼이 항상 표시됩니다', () => {
+  it('全部删除 버튼이 항상 표시됩니다', () => {
     render(<DocumentToolbar {...defaultProps} />);
-    expect(screen.getByText('전체 삭제')).toBeInTheDocument();
+    expect(screen.getByText('全部删除')).toBeInTheDocument();
   });
 
-  it('전체 삭제 버튼 클릭 시 onDeleteAll을 호출합니다', () => {
+  it('全部删除 버튼 클릭 시 onDeleteAll을 호출합니다', () => {
     const onDeleteAll = vi.fn();
     render(<DocumentToolbar {...defaultProps} onDeleteAll={onDeleteAll} />);
-    fireEvent.click(screen.getByText('전체 삭제'));
+    fireEvent.click(screen.getByText('全部删除'));
     expect(onDeleteAll).toHaveBeenCalled();
   });
 

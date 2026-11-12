@@ -1,7 +1,7 @@
 /**
  * DocumentDetailDialog 컴포넌트 테스트
  *
- * 문서 상세 정보 다이얼로그의 렌더링과 닫기 동작을 검증합니다.
+ * 查看文档的元数据与状态 다이얼로그의 렌더링과 닫기 동작을 검증합니다.
  */
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
@@ -31,7 +31,7 @@ describe('DocumentDetailDialog', () => {
 
   it('다이얼로그 제목을 렌더링합니다', () => {
     render(<DocumentDetailDialog {...defaultProps} />);
-    expect(screen.getByText('문서 상세 정보')).toBeInTheDocument();
+    expect(screen.getByText('查看文档的元数据与状态')).toBeInTheDocument();
   });
 
   it('문서 파일명을 표시합니다', () => {
@@ -61,7 +61,7 @@ describe('DocumentDetailDialog', () => {
 
   it('청크 수를 표시합니다', () => {
     render(<DocumentDetailDialog {...defaultProps} />);
-    expect(screen.getByText('15개')).toBeInTheDocument();
+    expect(screen.getByText('15')).toBeInTheDocument();
   });
 
   it('페이지 수를 표시합니다 (metadata 있을 때)', () => {
@@ -71,13 +71,13 @@ describe('DocumentDetailDialog', () => {
 
   it('단어 수를 표시합니다 (metadata 있을 때)', () => {
     render(<DocumentDetailDialog {...defaultProps} />);
-    expect(screen.getByText('3000개')).toBeInTheDocument();
+    expect(screen.getByText('3000')).toBeInTheDocument();
   });
 
   it('닫기 버튼 클릭 시 onClose를 호출합니다', () => {
     const onClose = vi.fn();
     render(<DocumentDetailDialog {...defaultProps} onClose={onClose} />);
-    fireEvent.click(screen.getByText('닫기'));
+    fireEvent.click(screen.getByText('关闭'));
     expect(onClose).toHaveBeenCalled();
   });
 

@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatFileSize } from '../../utils/documentUtils';
+import { MarkdownRenderer } from '../MarkdownRenderer';
 import { useMenuMessages } from '../../i18n/useMenuLocale';
 import { format, formatDate } from '../../i18n/format';
 import type { Document } from '../../types';
@@ -126,10 +127,11 @@ export const DocumentDetailDialog: React.FC<DocumentDetailDialogProps> = ({
                     {previewLoading ? '加载中...' : '查看文档内容'}
                   </Button>
                   {previewError && <p className="text-xs text-destructive">{previewError}</p>}
+                  {/* [FIX] Markdown 渲染：知识库语料为 .md，纯文本 pre 丢失标题/列表结构 */}
                   {previewText !== null && (
-                    <pre className="text-xs leading-relaxed whitespace-pre-wrap break-words bg-muted/30 border border-border/40 rounded-xl p-3 max-h-[40vh] overflow-auto font-sans">
-                      {previewText}
-                    </pre>
+                    <div className="bg-muted/30 border border-border/40 rounded-xl p-4 max-h-[40vh] overflow-auto text-sm [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mt-3 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mt-3 [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_p]:mb-2 [&_strong]:font-bold [&_hr]:my-3 [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground">
+                      <MarkdownRenderer content={previewText} />
+                    </div>
                   )}
                 </div>
               </div>
