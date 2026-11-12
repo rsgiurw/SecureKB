@@ -90,7 +90,11 @@ class OutputStageMixin(PipelineStateBase):
                 content_text = self.privacy_masker.mask_text(content_text)
             content_preview = content_text[:200] if content_text else ""
 
+            # [FIX] score=None 是真实可能（上游检索器对无分文档）——getattr 默认值只对
+            # "属性缺失"生效，None 会穿透到 normalizer 崩溃；显式回退 0.0（#14 契约）
             raw_score = getattr(doc, "score", 0.0)
+            if raw_score is None:
+                raw_score = 0.0
             normalized_score = self.score_normalizer.normalize(raw_score)
 
             # file_path(서버 내부 절대경로)는 출처 응답에 노출하지 않는다.

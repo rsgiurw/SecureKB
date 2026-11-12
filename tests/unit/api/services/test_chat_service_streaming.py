@@ -799,11 +799,13 @@ class TestChatServiceStreaming:
         zero_doc.score = 0.0
         zero_doc.metadata = {"score": 0.5, "source": "a.pdf"}
         zero_doc.page_content = "내용"
+        zero_doc.content = ""  # MagicMock 自动属性会以 truthy Mock 遮蔽 page_content
 
         none_doc = MagicMock()
         none_doc.score = None
         none_doc.metadata = {"score": 0.0, "source": "b.pdf"}
         none_doc.page_content = "내용"
+        none_doc.content = ""
 
         sources = service._format_stream_sources([zero_doc, none_doc])
 
@@ -822,11 +824,13 @@ class TestChatServiceStreaming:
         hit.score = 0.9
         hit.metadata = {"source": "real.md"}
         hit.page_content = "실제 히트"
+        hit.content = ""  # MagicMock 自动属性会以 truthy Mock 遮蔽 page_content
 
         neighbor = MagicMock()
         neighbor.score = 0.86
         neighbor.metadata = {"source": "real.md", "context_expanded": True}
         neighbor.page_content = "이웃 청크"
+        neighbor.content = ""
 
         sources = service._format_stream_sources([hit, neighbor])
 

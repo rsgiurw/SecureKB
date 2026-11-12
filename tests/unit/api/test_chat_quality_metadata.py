@@ -276,8 +276,15 @@ def test_chat_exposes_self_rag_status(
     app = FastAPI()
     app.include_router(router)
     set_chat_service(service)
+    # [FIX] 登录认证上线（2026-11-09）后 /chat 强制 Bearer——测试补签发令牌
+    from app.security.users import issue_token
+
     try:
-        response = TestClient(app).post("/chat", json={"message": "질문"})
+        response = TestClient(app).post(
+            "/chat",
+            json={"message": "질문"},
+            headers={"Authorization": f"Bearer {issue_token('admin')}"},
+        )
     finally:
         set_chat_service(None)  # type: ignore[arg-type]
 
