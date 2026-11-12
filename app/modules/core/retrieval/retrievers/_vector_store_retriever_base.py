@@ -249,9 +249,16 @@ class VectorStoreRetrieverBase:
                     "filename": r.get("source_file", ""),
                     "file_type": r.get("file_type", ""),
                     "created_at": r.get("created_at", ""),
+                    # [FIX 用户报告] file_size 此前从未聚合（列表恒 0）：有 metadata
+                    # 时取原文档字节大小，无则按 chunk 文本字节数累加兜底。
+                    "file_size": int(r.get("file_size", 0) or 0),
+                    "departments": list(r.get("departments", ["全员"]) or ["全员"]),
                     "chunk_count": 0,
                 }
             doc_map[doc_id]["chunk_count"] += 1
+            # file_size 缺失的旧数据按 chunk 文本字节累加兜底；departments 取首块
+            if not doc_map[doc_id]["file_size"]:
+                doc_map[doc_id]["file_size"] += len(r.get("content", "").encode("utf-8"))
         return doc_map
 
     async def get_document_chunks(self, document_id: str) -> list[dict[str, Any]]:

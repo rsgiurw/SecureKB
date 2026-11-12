@@ -47,6 +47,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   const isDark = useIsDarkMode();
   const { messages } = useMenuMessages();
 
+  // [FIX 用户报告] 右上角登录用户名（securekb_user 由登录门写入）
+  const displayName = (() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('securekb_user') || 'null');
+      return String(user?.display_name || user?.username || '用户');
+    } catch {
+      return '用户';
+    }
+  })();
+
   const defaultNavigationItems = [
     { label: messages.nav.chatbot, path: '/bot', icon: MessageSquare },
     { label: messages.nav.upload, path: '/upload', icon: UploadCloud },
@@ -139,6 +149,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           <div className="flex items-center gap-2 ml-auto">
             <div className="mr-2">
               <StatusBadge />
+            </div>
+
+            {/* [FIX 用户报告] 登录用户名显示：登录后右上角至少能看到"我是谁" */}
+            <div className="hidden sm:flex items-center gap-2 mr-1 px-2.5 py-1 rounded-full bg-muted/40 border border-border/40">
+              <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">
+                {displayName.charAt(0)}
+              </span>
+              <span className="text-xs font-semibold text-foreground max-w-[8rem] truncate">
+                {displayName}
+              </span>
             </div>
 
             <div className="h-4 w-px bg-border/40 mx-2 hidden sm:block" />

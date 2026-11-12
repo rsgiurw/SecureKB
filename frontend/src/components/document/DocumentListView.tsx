@@ -48,6 +48,7 @@ export interface DocumentListViewProps {
   onDownload: (doc: Document) => void;
   /** 단일 문서 삭제 */
   onDeleteSingle: (id: string) => void;
+  readOnly?: boolean;
 }
 
 /** 문서 ID가 유효한지 확인합니다 (UI 표시용) */
@@ -77,6 +78,7 @@ export const DocumentListView: React.FC<DocumentListViewProps> = ({
   onViewDetails,
   onDownload,
   onDeleteSingle,
+  readOnly,
 }) => {
   // i18n: 현재 로케일에 해당하는 번역 사전을 가져온다.
   const { messages, locale } = useMenuMessages();
@@ -160,6 +162,7 @@ export const DocumentListView: React.FC<DocumentListViewProps> = ({
                   >
                     <Download className="w-4 h-4" />
                   </Button>
+                  {!readOnly && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -170,6 +173,7 @@ export const DocumentListView: React.FC<DocumentListViewProps> = ({
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
+                  )}
                 </div>
               </TableCell>
             </TableRow>

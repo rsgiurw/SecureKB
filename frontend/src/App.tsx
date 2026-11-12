@@ -248,7 +248,7 @@ function AppRoutes() {
       )}
 
       {/* 문서 관리 라우트 (조건부) */}
-      {(isDocumentsEnabled || isAdmin) && (
+      {isDocumentsEnabled && (
         <Route
           path="/upload"
           element={

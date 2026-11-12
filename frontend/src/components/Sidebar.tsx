@@ -63,7 +63,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       label: messages.nav.documents,
       path: '/upload',
       icon: UploadCloud,
-      enabled: isAdminUser && isDocumentsEnabled
+      // [FIX 用户报告] 员工也可见"文档中心"（只读列表，服务端按部门过滤；
+      // 上传/删除入口在页内按角色隐藏，管理 API 服务端 403 兜底）
+      enabled: isDocumentsEnabled
     },
     {
       label: messages.nav.prompts,

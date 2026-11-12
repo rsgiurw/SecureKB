@@ -4,6 +4,7 @@ Upload API endpoints
 """
 
 import asyncio
+import hmac
 import os
 from datetime import UTC, datetime
 from pathlib import Path
@@ -32,7 +33,7 @@ from ..lib.auth import (
 )
 from ..lib.logger import get_logger
 from ..modules.core.privacy.masker import DEFAULT_WHITELIST, PrivacyMasker
-from ..security.users import verify_token  # [MOD] SecureKB 登录令牌校验（改造②）
+from ..security.users import verify_token, visible_departments  # [MOD] SecureKB 登录令牌校验（改造②）+ 员工部门可见性（文档中心）
 from .audit_event_store import AuditEventStore, SQLiteAuditEventStore
 from .original_file_storage import (
     GCS_ORIGINAL_STORAGE_BACKEND,
@@ -71,6 +72,48 @@ _privacy_masker: PrivacyMasker | None = PrivacyMasker(whitelist=list(DEFAULT_WHI
 API_KEY_PRINCIPAL = "api-key"
 LOGIN_ADMIN_PRINCIPAL = "login-admin"
 UPLOAD_TOKEN_PRINCIPAL_PREFIX = "upload-token:"
+
+
+def _content_disposition(filename: str) -> str:
+    """[FIX 用户报告] 中文文件名的下载头：HTTP header 仅允许 latin-1，
+    直接塞中文文件名会 UnicodeEncodeError → 下载 500。
+    RFC 5987：filename* 携带 UTF-8 URL 编码名，filename 提供 ASCII 回退。"""
+    from urllib.parse import quote
+
+    ascii_fallback = filename.encode("ascii", "ignore").decode("ascii") or "document"
+    return (
+        f"attachment; filename=\"{ascii_fallback}\"; "
+        f"filename*=UTF-8''{quote(filename)}"
+    )
+
+
+def require_login_read(request: Request) -> dict[str, Any]:
+    """[FIX 用户报告] 文档"读"类端点（列表/下载）的登录鉴权。
+
+    此前 GET /upload/documents 与 /download 完全无鉴权——未登录也能拿到全部
+    文档清单（越权）。读操作放行所有登录用户（员工只读文档中心的服务端基础），
+    部门级可见性由端点内按 visible_departments 过滤；X-API-Key 兼容通道视为
+    管理员（脚本/Swagger 场景）。
+    """
+    bearer = request.headers.get("Authorization", "")
+    if bearer.startswith("Bearer "):
+        user = verify_token(bearer[len("Bearer "):])
+        if user:
+            return user
+    auth = get_api_key_auth()
+    api_key = request.headers.get("X-API-Key")
+    if auth.api_key and api_key and hmac.compare_digest(api_key, auth.api_key):
+        return {"username": "api-admin", "display_name": "管理员（API 密钥）",
+                "role": "admin", "department": "全部"}
+    raise HTTPException(
+        status_code=401,
+        detail={
+            "error_code": "AUTH-001",
+            "error": "未登录",
+            "message": "请先登录后访问文档",
+            "suggestion": "登录后即可查看您有权限的文档",
+        },
+    )
 
 
 def get_upload_access(request: Request) -> str:
@@ -216,7 +259,10 @@ def _assert_job_owner(job: dict[str, Any], principal: str, job_id: str) -> None:
 # 파일 업로드/삭제는 시스템 변경이므로 인증 필요.
 # get_upload_access는 X-API-Key 또는 단기 업로드 토큰(브라우저용, #22)을 허용한다.
 # 삭제 계열은 require_upload_admin_access로 API 키 자격만 추가 허용한다.
-router = APIRouter(tags=["Upload"], dependencies=[Depends(get_upload_access)])
+# [FIX 用户报告] 全局 get_upload_access（admin-only）移除——员工只读文档中心
+# 要求列表/下载对登录用户开放（端点内按部门可见性过滤）。鉴权改为逐端点显式：
+# 读类=require_login_read / 维持原语义=get_upload_access，写管理类=require_upload_admin_access。
+router = APIRouter(tags=["Upload"])
 modules: dict[str, Any] = {}
 config: dict[str, Any] = {}
 
@@ -1657,7 +1703,11 @@ async def process_queued_upload_job_once(worker_id: str = "local-worker") -> dic
     }
 
 
-@router.post("/upload", response_model=UploadResponse)
+@router.post(
+    "/upload",
+    response_model=UploadResponse,
+    dependencies=[Depends(require_upload_admin_access)],
+)
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -1802,7 +1852,11 @@ async def upload_document(
         ) from error
 
 
-@router.get("/upload/status/{job_id}", response_model=JobStatusResponse)
+@router.get(
+    "/upload/status/{job_id}",
+    response_model=JobStatusResponse,
+    dependencies=[Depends(get_upload_access)],
+)
 async def get_upload_status(job_id: str):
     """上传任务状态查询"""
     # 공유 스토어 사용 시 다른 인스턴스의 갱신을 반영하고, 캐시 미스 시 재로드한다.
@@ -1863,8 +1917,12 @@ def _coerce_document_upload_date(value: Any) -> str:
 
 
 @router.get("/upload/documents", response_model=DocumentListResponse)
-async def list_documents(page: int = 1, page_size: int = 20):
-    """文档列表查询"""
+async def list_documents(
+    page: int = 1,
+    page_size: int = 20,
+    user: dict[str, Any] = Depends(require_login_read),
+):
+    """文档列表查询（[FIX 用户报告] 需登录；员工按部门可见性过滤——只读文档中心基础）"""
     try:
         retrieval_module = modules.get("retrieval")
         if not retrieval_module:
@@ -1879,10 +1937,30 @@ async def list_documents(page: int = 1, page_size: int = 20):
                 },
             )
         logger.info(f"Listing documents: page={page}, page_size={page_size}")
-        documents_data = await retrieval_module.list_documents(page=page, page_size=page_size)
-        logger.info(f"Retrieved documents_data: {documents_data}")
+        # [FIX] 全量拉取后在端点层做部门过滤与分页：retriever.list_documents 的
+        # 分页发生在过滤前，员工过滤后直接切页会错位。文档量级（几十篇）下
+        # 全量拉取开销可忽略；员工只见 visible_departments 交集文档。
+        documents_data = await retrieval_module.list_documents(page=1, page_size=10000)
+        visible = visible_departments(user)
+        logger.info(
+            "文档列表部门过滤诊断",
+            extra={
+                "username": user.get("username"),
+                "role": user.get("role"),
+                "visible": visible,
+                "raw_count": len(documents_data.get("documents", [])),
+                "first_doc_keys": list((documents_data.get("documents") or [{}])[0].keys())
+                if documents_data.get("documents")
+                else [],
+                "first_doc_depts": (documents_data.get("documents") or [{}])[0].get("departments"),
+            },
+        )
         documents = []
         for doc_data in documents_data.get("documents", []):
+            if visible is not None:
+                doc_depts = set(doc_data.get("departments", ["全员"]) or ["全员"])
+                if not doc_depts & set(visible):
+                    continue
             # upload_date가 누락/None/0 등 falsy면 created_at으로 폴백한다.
             # (dict.get의 기본값은 '키 부재'에만 적용되므로, 값이 None/0인 경우를 별도 처리)
             raw_upload_date = doc_data.get("upload_date")
@@ -1900,15 +1978,17 @@ async def list_documents(page: int = 1, page_size: int = 20):
                     chunk_count=doc_data.get("chunk_count", 0),
                 )
             )
-        total_count = documents_data.get("total_count", len(documents))
+        total_count = len(documents)
+        start = (page - 1) * page_size
+        paged = documents[start:start + page_size]
         response = DocumentListResponse(
-            documents=documents,
+            documents=paged,
             total_count=total_count,
             page=page,
             page_size=page_size,
             has_next=page * page_size < total_count,
         )
-        logger.info(f"Returning response: {len(documents)} documents, total={total_count}")
+        logger.info(f"Returning response: {len(paged)} documents, total={total_count}")
         return response
     except HTTPException:
         raise
@@ -2058,7 +2138,11 @@ async def bulk_delete_documents(request: BulkDeleteRequest):
 
 
 @router.get("/upload/documents/{document_id}/download")
-async def download_document(document_id: str):
+async def download_document(
+    document_id: str,
+    user: dict[str, Any] = Depends(require_login_read),
+):
+    """文档下载（[FIX 用户报告] 需登录；员工校验部门可见性——不可见文档按 404 处理不泄露存在性）"""
     """문서 다운로드 (벡터 DB에 저장된 청크 데이터를 텍스트로 재결합)
 
     원본 파일은 업로드 처리 후 삭제되므로,
@@ -2092,6 +2176,26 @@ async def download_document(document_id: str):
                 },
             )
 
+        # [FIX 用户报告] 员工部门可见性：不可见文档按 404 处理（不泄露存在性）
+        visible = visible_departments(user)
+        if visible is not None and chunks:
+            first_meta = chunks[0].get("metadata", {})
+            doc_depts = set(first_meta.get("departments", ["全员"]) or ["全员"])
+            if not doc_depts & set(visible):
+                logger.warning(
+                    "员工下载越权拦截",
+                    extra={"document_id": document_id, "username": user.get("username")},
+                )
+                raise HTTPException(
+                    status_code=404,
+                    detail={
+                        "error": "未找到文档",
+                        "message": "未找到您请求的文档",
+                        "suggestion": "文档可能已被删除或您没有查看权限",
+                        "document_id": document_id,
+                    },
+                )
+
         # 청크 내용을 페이지/순서별로 정렬 후 결합
         sorted_chunks = sorted(
             chunks,
@@ -2121,7 +2225,7 @@ async def download_document(document_id: str):
             buffer,
             media_type="text/plain; charset=utf-8",
             headers={
-                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Disposition": _content_disposition(filename),
                 "Content-Length": str(len(content.encode("utf-8"))),
             },
         )
@@ -2380,7 +2484,10 @@ async def _get_document_chunks_for_detail(document_id: str) -> list[Any]:
     return chunks
 
 
-@router.get("/upload/documents/{document_id}/sources/{source_id}")
+@router.get(
+    "/upload/documents/{document_id}/sources/{source_id}",
+    dependencies=[Depends(get_upload_access)],
+)
 async def get_document_source_detail(
     document_id: str,
     source_id: str,
@@ -2450,7 +2557,10 @@ async def get_document_source_detail(
     )
 
 
-@router.get("/upload/documents/{document_id}/original")
+@router.get(
+    "/upload/documents/{document_id}/original",
+    dependencies=[Depends(get_upload_access)],
+)
 async def download_original_document(document_id: str):
     """보관된 원본 파일을 그대로 스트리밍 다운로드한다 (#10).
 
@@ -2505,7 +2615,7 @@ async def download_original_document(document_id: str):
     return StreamingResponse(
         chunks,
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": _content_disposition(filename)},
     )
 
 
@@ -2526,7 +2636,11 @@ def _upload_cancel_response(job_id: str, job: dict[str, Any]) -> UploadCancelRes
     )
 
 
-@router.post("/upload/status/{job_id}/cancel", response_model=UploadCancelResponse)
+@router.post(
+    "/upload/status/{job_id}/cancel",
+    response_model=UploadCancelResponse,
+    dependencies=[Depends(require_upload_admin_access)],
+)
 async def cancel_upload_job(
     job_id: str,
     principal: str = Depends(get_upload_access),
@@ -2612,7 +2726,11 @@ async def cancel_upload_job(
 # ============================================================================
 
 
-@router.post("/upload/status/{job_id}/retry", response_model=UploadRetryResponse)
+@router.post(
+    "/upload/status/{job_id}/retry",
+    response_model=UploadRetryResponse,
+    dependencies=[Depends(require_upload_admin_access)],
+)
 async def retry_upload_job(
     background_tasks: BackgroundTasks,
     job_id: str,
@@ -2841,7 +2959,11 @@ def _get_chunked_receiving_job(job_id: str) -> dict[str, Any]:
     return job
 
 
-@router.post("/upload/chunked/start", response_model=ChunkedUploadStartResponse)
+@router.post(
+    "/upload/chunked/start",
+    response_model=ChunkedUploadStartResponse,
+    dependencies=[Depends(require_upload_admin_access)],
+)
 async def start_chunked_upload(
     payload: ChunkedUploadStartRequest,
     principal: str = Depends(get_upload_access),
@@ -2894,7 +3016,11 @@ async def start_chunked_upload(
     )
 
 
-@router.post("/upload/chunked/{job_id}/chunk", response_model=ChunkedUploadChunkResponse)
+@router.post(
+    "/upload/chunked/{job_id}/chunk",
+    response_model=ChunkedUploadChunkResponse,
+    dependencies=[Depends(require_upload_admin_access)],
+)
 async def upload_chunked_chunk(
     job_id: str,
     chunk: UploadFile = File(...),
@@ -3002,7 +3128,11 @@ async def upload_chunked_chunk(
     )
 
 
-@router.post("/upload/chunked/{job_id}/complete", response_model=UploadResponse)
+@router.post(
+    "/upload/chunked/{job_id}/complete",
+    response_model=UploadResponse,
+    dependencies=[Depends(require_upload_admin_access)],
+)
 async def complete_chunked_upload(
     background_tasks: BackgroundTasks,
     job_id: str,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   UploadCloud,
   FileText,
@@ -7,16 +7,30 @@ import {
 import { UploadTab } from '../components/UploadTab';
 import { DocumentsTab } from '../components/DocumentsTab';
 import { ChatSettingsManager } from '../components/ChatSettingsManager';
-import { ProtectedRoute } from '../components/ProtectedRoute';
 import { ToastMessage } from '../types';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMenuMessages } from '../i18n/useMenuLocale';
 
+/**
+ * [FIX 用户报告] 文档页角色分层：
+ * - 管理员：上传 / 文档管理 / 聊天机器人设置 三 tab（原样）
+ * - 普通员工：只读"文档中心"——仅文档列表 tab（服务端列表/下载按部门可见性过滤，
+ *   上传/删除 API 仍仅管理员）；未登录不进页（App 层登录门已兜底）。
+ * 原 ProtectedRoute（员工重定向回问答页）移除——它是"员工不能看文档"的根因。
+ */
 export default function UploadPage() {
   const [activeTab, setActiveTab] = useState("upload");
   const { toast } = useToast();
   const { messages } = useMenuMessages();
+
+  const isAdminUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('securekb_user') || 'null')?.role === 'admin';
+    } catch {
+      return false;
+    }
+  }, []);
 
   // 토스트 메시지 표시
   const showToast = (message: Omit<ToastMessage, 'id'>) => {
@@ -27,12 +41,15 @@ export default function UploadPage() {
     });
   };
 
+  // 员工只读视图：默认落在文档列表 tab
+  const effectiveTab = isAdminUser ? activeTab : 'documents';
+
   return (
-    <ProtectedRoute title={messages.pages.documentAccessTitle}>
-      <div className="container max-w-7xl mx-auto py-6 space-y-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="border-b border-border/40 bg-background/50 backdrop-blur-sm sticky top-16 z-30 -mx-4 px-4 md:mx-0 md:px-0 rounded-t-2xl">
-            <TabsList className="h-14 w-full justify-start bg-transparent p-0 gap-2">
+    <div className="container max-w-7xl mx-auto py-6 space-y-6">
+      <Tabs value={effectiveTab} onValueChange={setActiveTab} className="w-full">
+        <div className="border-b border-border/40 bg-background/50 backdrop-blur-sm sticky top-16 z-30 -mx-4 px-4 md:mx-0 md:px-0 rounded-t-2xl">
+          <TabsList className="h-14 w-full justify-start bg-transparent p-0 gap-2">
+            {isAdminUser && (
               <TabsTrigger
                 value="upload"
                 className="h-14 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 gap-2 font-bold transition-all hover:bg-muted/50"
@@ -40,13 +57,15 @@ export default function UploadPage() {
                 <UploadCloud className="w-5 h-5" />
                 {messages.pages.documentUploadTab}
               </TabsTrigger>
-              <TabsTrigger
-                value="documents"
-                className="h-14 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 gap-2 font-bold transition-all hover:bg-muted/50"
-              >
-                <FileText className="w-5 h-5" />
-                {messages.pages.documentManagementTab}
-              </TabsTrigger>
+            )}
+            <TabsTrigger
+              value="documents"
+              className="h-14 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 gap-2 font-bold transition-all hover:bg-muted/50"
+            >
+              <FileText className="w-5 h-5" />
+              {messages.pages.documentManagementTab}
+            </TabsTrigger>
+            {isAdminUser && (
               <TabsTrigger
                 value="settings"
                 className="h-14 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-6 gap-2 font-bold transition-all hover:bg-muted/50"
@@ -54,16 +73,20 @@ export default function UploadPage() {
                 <Settings className="w-5 h-5" />
                 {messages.pages.chatSettingsTab}
               </TabsTrigger>
-            </TabsList>
-          </div>
+            )}
+          </TabsList>
+        </div>
 
-          <div className="mt-6">
+        <div className="mt-6">
+          {isAdminUser && (
             <TabsContent value="upload" className="animate-in fade-in-50 duration-300">
               <UploadTab showToast={showToast} />
             </TabsContent>
-            <TabsContent value="documents" className="animate-in fade-in-50 duration-300">
-              <DocumentsTab showToast={showToast} />
-            </TabsContent>
+          )}
+          <TabsContent value="documents" className="animate-in fade-in-50 duration-300">
+            <DocumentsTab showToast={showToast} />
+          </TabsContent>
+          {isAdminUser && (
             <TabsContent value="settings" className="animate-in fade-in-50 duration-300">
               <ChatSettingsManager
                 onSave={() => {
@@ -74,9 +97,9 @@ export default function UploadPage() {
                 }}
               />
             </TabsContent>
-          </div>
-        </Tabs>
-      </div>
-    </ProtectedRoute>
+          )}
+        </div>
+      </Tabs>
+    </div>
   );
 }

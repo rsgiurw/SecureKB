@@ -5,7 +5,7 @@
  * 비즈니스 로직은 훅에, UI는 하위 컴포넌트에 위임하며
  * 이 파일은 조합과 배치만 담당합니다.
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Search, RotateCw, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Document, ToastMessage } from '../types';
 import { documentAPI } from '../services/api';
@@ -98,6 +98,15 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
   const selection = useDocumentSelection({ showToast });
   const deletion = useDocumentDelete({ showToast, onDeleted: list.fetchDocuments, clearSelection: selection.clearSelection });
   const download = (doc: Document) => downloadDocument(doc, showToast, messages.documentsTab.downloadFailed);
+  // [FIX 用户报告] 员工只读文档中心：隐藏删除/批量删除入口（硬保障在服务端 403）
+  const isAdminUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('securekb_user') || 'null')?.role === 'admin';
+    } catch {
+      return false;
+    }
+  }, []);
+  const readOnly = !isAdminUser;
 
   // 콘텐츠 영역: 에러 → 로딩 → 빈 목록 → 문서 뷰
   const renderContent = () => {
@@ -105,7 +114,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
     if (list.loading) return <LoadingState messages={messages} />;
     if (list.documents.length === 0) return <EmptyState messages={messages} />;
     const shared = { documents: list.documents, selectedDocuments: selection.selectedDocuments,
-      onToggleSelect: selection.toggleSelect, onViewDetails: selection.viewDetails, onDownload: download, onDeleteSingle: deletion.handleDeleteSingle };
+      onToggleSelect: selection.toggleSelect, onViewDetails: selection.viewDetails, onDownload: download, onDeleteSingle: deletion.handleDeleteSingle, readOnly };
     return (<>
       {list.viewMode === 'list'
         ? <DocumentListView {...shared} onToggleSelectAll={() => selection.toggleSelectAll(list.documents)} />
@@ -119,7 +128,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
       <DocumentToolbar searchQuery={list.searchQuery} sortField={list.sortField} sortDirection={list.sortDirection}
         viewMode={list.viewMode} loading={list.loading} selectedCount={selection.selectedDocuments.size}
         onSearchChange={list.handleSearch} onSortFieldChange={list.handleSort} onSortDirectionToggle={list.handleSortDirection}
-        onViewModeChange={list.setViewMode} onRefresh={list.fetchDocuments} onBulkDelete={deletion.handleDeleteBulk} onDeleteAll={deletion.handleDeleteAll} />
+        onViewModeChange={list.setViewMode} onRefresh={list.fetchDocuments} onBulkDelete={deletion.handleDeleteBulk} onDeleteAll={deletion.handleDeleteAll} readOnly={readOnly} />
       {renderContent()}
       <DocumentDetailDialog open={selection.detailsOpen} document={selection.selectedDocument} onClose={selection.closeDetails} />
       <DocumentDeleteDialog open={deletion.deleteConfirmOpen} loading={deletion.deleteLoading} onConfirm={deletion.confirmDeleteSingle} onCancel={deletion.handleDeleteCancel} />

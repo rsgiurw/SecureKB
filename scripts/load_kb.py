@@ -9,6 +9,7 @@
 """
 
 import asyncio
+from datetime import datetime
 import os
 import sys
 from pathlib import Path
@@ -92,12 +93,32 @@ async def main(kb_dir: Path, reset: bool) -> None:
     _chunked = []
     for d in docs:
         _title = d["metadata"].get("source_file", "")
-        for _i, _piece in enumerate(_splitter.split_text(d["content"])):
+        # [FIX 用户报告] 文档管理列表/下载依赖的三类元数据此前缺失：
+        # document_id（列表聚合键+下载定位键，稳定 hash 保证重入库不变）、
+        # file_size（原文档字节数，列表"文件大小"列）、file_type/created_at。
+        # 缺失后果：每块各算一篇文档（分块恒为 1）、文件大小恒 0、下载 404。
+        import hashlib as _hashlib
+
+        _doc_id = _hashlib.md5(_title.encode("utf-8")).hexdigest()
+        _raw_text = d.get("content", "")
+        _meta_common = {
+            **d["metadata"],
+            "document_id": _doc_id,
+            "file_size": len(_raw_text.encode("utf-8")),
+            "file_type": "md",
+            "created_at": datetime.now().isoformat(),
+        }
+        _total_chunks = max(1, len(_splitter.split_text(_raw_text)))
+        for _i, _piece in enumerate(_splitter.split_text(_raw_text)):
             _chunked.append(
                 {
                     **d,
+                    # [FIX 用户报告] 每块唯一 id：Qdrant point id = hash(顶层 id)，
+                    # 同篇多块继承原文档 id 时 hash 冲突互相覆盖（22 写入剩 19、
+                    # "分块都是 1"的根因）。id 形如 <document_id>-<块序>，稳定且唯一。
+                    "id": f"{_doc_id}-{_i}",
                     "content": f"《{_title}》\n{_piece}",
-                    "metadata": {**d["metadata"], "chunk_index": _i},
+                    "metadata": {**_meta_common, "chunk_index": _i, "chunk_total": _total_chunks},
                 }
             )
     print(f"✂️ 分块：{len(docs)} 篇 → {len(_chunked)} 块（size={_dp['chunk_size']}, overlap={_dp['chunk_overlap']}）")

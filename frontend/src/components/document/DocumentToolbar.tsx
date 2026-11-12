@@ -57,8 +57,10 @@ export interface DocumentToolbarProps {
   onRefresh: () => void;
   /** 일괄 삭제 핸들러 */
   onBulkDelete: () => void;
+  // [FIX 用户报告] 员工只读文档中心：隐藏全部删除入口
   /** 전체 삭제 핸들러 */
   onDeleteAll: () => void;
+  readOnly?: boolean;
 }
 
 /**
@@ -80,6 +82,7 @@ export const DocumentToolbar: React.FC<DocumentToolbarProps> = ({
   onRefresh,
   onBulkDelete,
   onDeleteAll,
+  readOnly,
 }) => {
   // i18n: 현재 로케일에 해당하는 번역 사전을 가져온다.
   const { messages } = useMenuMessages();
@@ -154,7 +157,7 @@ export const DocumentToolbar: React.FC<DocumentToolbarProps> = ({
             <Separator orientation="vertical" className="h-8 hidden lg:block" />
 
             <div className="flex items-center gap-2">
-              {selectedCount > 0 && (
+              {selectedCount > 0 && !readOnly && (
                 <Button
                   variant="destructive"
                   size="sm"
@@ -165,6 +168,7 @@ export const DocumentToolbar: React.FC<DocumentToolbarProps> = ({
                   {format(messages.docToolbar.bulkDelete, { count: selectedCount })}
                 </Button>
               )}
+              {!readOnly && (
               <Button
                 variant="outline"
                 size="sm"
@@ -174,6 +178,7 @@ export const DocumentToolbar: React.FC<DocumentToolbarProps> = ({
                 <AlertTriangle className="w-4 h-4 mr-2" />
                 {messages.docToolbar.deleteAll}
               </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
