@@ -78,6 +78,31 @@ async def main(kb_dir: Path, reset: bool) -> None:
         d["metadata"]["departments"] = DEPARTMENT_MAP.get(title, ["全员"])
         d["metadata"]["source"] = "company_kb"
 
+    # [MOD] 真实分块（EXP-015）：prepare_documents 是整篇一块（easy_start 无切分逻辑），
+    # 此前 rag.yaml 的 chunk 配置在本链路从未生效。此处按 document_processing 段切分，
+    # 每块前置文档标题保留检索上下文（跨块 BM25 命中靠标题词）。
+    import yaml as _yaml
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+    _cfg_path = project_root / "app" / "config" / "features" / "rag.yaml"
+    _dp = _yaml.safe_load(_cfg_path.read_text(encoding="utf-8"))["document_processing"]
+    _splitter = RecursiveCharacterTextSplitter(
+        chunk_size=_dp["chunk_size"], chunk_overlap=_dp["chunk_overlap"]
+    )
+    _chunked = []
+    for d in docs:
+        _title = d["metadata"].get("source_file", "")
+        for _i, _piece in enumerate(_splitter.split_text(d["content"])):
+            _chunked.append(
+                {
+                    **d,
+                    "content": f"《{_title}》\n{_piece}",
+                    "metadata": {**d["metadata"], "chunk_index": _i},
+                }
+            )
+    print(f"✂️ 分块：{len(docs)} 篇 → {len(_chunked)} 块（size={_dp['chunk_size']}, overlap={_dp['chunk_overlap']}）")
+    docs = _chunked
+
     # [FIX] 先物理清空存储（廉价且确定），再调嵌入 API——避免 API 失败时残留旧数据
     import shutil
 
