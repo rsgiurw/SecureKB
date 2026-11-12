@@ -104,7 +104,37 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
   const openInTab = async (doc: Document) => {
     try {
       const resp = await documentAPI.downloadDocument(doc.id);
-      const url = window.URL.createObjectURL(resp.data as Blob);
+      const blob = resp.data as Blob;
+      const contentType = String(resp.headers?.['content-type'] || '').toLowerCase();
+      const filename = String(doc.originalName || doc.filename || '').toLowerCase();
+      let outBlob = blob;
+      if (filename.endsWith('.docx') || contentType.includes('officedocument.wordprocessingml')) {
+        // [FIX 用户反馈] DOCX 预览：mammoth 转 HTML（样式内联），浏览器直接查看
+        // 而非下载。转换失败回退原 blob（浏览器下载行为）。
+        try {
+          const mammoth = (await import('mammoth')).default;
+          const arrayBuffer = await blob.arrayBuffer();
+          const { value: html } = await mammoth.convertToHtml(
+            { arrayBuffer },
+            { styleMap: ["p[style-name='Title'] => h1:fresh", "p[style-name='Heading 1'] => h1:fresh"] },
+          );
+          const styled = `<!DOCTYPE html><html lang="zh"><head><meta charset="utf-8"><title>${filename}</title>`
+            + '<style>body{max-width:820px;margin:40px auto;padding:0 24px;font-family:sans-serif;line-height:1.7}'
+            // eslint-disable-next-line no-restricted-syntax -- DOCX 预览页是独立新标签 HTML（非 React 组件），不适用 COLORS token 规则
+            + 'table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:6px 10px}'
+            + 'img{max-width:100%}</style></head><body>' + html + '</body></html>';
+          outBlob = new Blob([styled], { type: 'text/html; charset=utf-8' });
+        } catch { outBlob = blob; }
+      } else if (contentType.startsWith('text/')) {
+        // [FIX 用户反馈] 文本乱码修复：blob.type 无 charset 时浏览器按系统
+        // locale（中文 Windows = GBK）解码 UTF-8 字节 → 乱码。显式重构造
+        // text/plain; charset=utf-8 的 Blob 强制按 UTF-8 渲染。
+        // 统一 text/plain（含 .html 上传文件——保持 text/html 会执行其中
+        // 脚本，XSS 洞；纯文本显示源码安全且全格式风格统一）。
+        const text = await blob.text();
+        outBlob = new Blob([text], { type: 'text/plain; charset=utf-8' });
+      }
+      const url = window.URL.createObjectURL(outBlob);
       window.open(url, '_blank', 'noopener');
       setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
     } catch { showToast({ type: 'error', message: messages.documentsTab.downloadFailed }); }
