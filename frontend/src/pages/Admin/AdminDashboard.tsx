@@ -272,6 +272,16 @@ const AdminDashboard: React.FC = () => {
   // 데이터 로딩 함수들
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
+    // [FIX 仪表板一损俱损] 原为 Promise.all：9 个端点任一 500 → 整板数据归零
+    // （概览/会话/文档/性能共用同一次加载）。改为逐端点降级：失败的端点取空
+    // 兜底并计数，全部失败才报"加载失败"，部分失败仅提示数据不完整。
+    let failedCount = 0;
+    const safe = <T,>(p: Promise<T>, fallback: T): Promise<T> =>
+      p.catch((error) => {
+        failedCount += 1;
+        logger.warn('Admin 端点加载失败（已降级为空数据）:', error);
+        return fallback;
+      });
     try {
       const [
         statusData,
@@ -284,16 +294,25 @@ const AdminDashboard: React.FC = () => {
         sessionsData,
         realtimeData
       ] = await Promise.all([
-        adminService.getSystemStatus(),
-        adminService.getMetrics(period),
-        adminService.getKeywordAnalysis(period),
-        adminService.getChunkAnalysis(period),
-        adminService.getCountryAnalysis(period),
-        adminService.getRecentChats(20),
-        adminService.getDocuments(),
-        adminService.getSessions({ status: 'all', limit: 50, offset: 0 }),
-        adminService.getRealtimeMetrics(),
+        safe(adminService.getSystemStatus(), {} as Awaited<ReturnType<typeof adminService.getSystemStatus>>),
+        safe(adminService.getMetrics(period), {
+          period,
+          totalSessions: 0,
+          totalQueries: 0,
+          avgResponseTime: 0,
+          timeSeries: [],
+        } as Awaited<ReturnType<typeof adminService.getMetrics>>),
+        safe(adminService.getKeywordAnalysis(period), { keywords: [] } as Awaited<ReturnType<typeof adminService.getKeywordAnalysis>>),
+        safe(adminService.getChunkAnalysis(period), { chunks: [] } as Awaited<ReturnType<typeof adminService.getChunkAnalysis>>),
+        safe(adminService.getCountryAnalysis(period), { countries: [] } as Awaited<ReturnType<typeof adminService.getCountryAnalysis>>),
+        safe(adminService.getRecentChats(20), { chats: [] } as Awaited<ReturnType<typeof adminService.getRecentChats>>),
+        safe(adminService.getDocuments(), { documents: [], total: 0 } as Awaited<ReturnType<typeof adminService.getDocuments>>),
+        safe(adminService.getSessions({ status: 'all', limit: 50, offset: 0 }), { sessions: [], total: 0 } as Awaited<ReturnType<typeof adminService.getSessions>>),
+        safe(adminService.getRealtimeMetrics(), {} as Awaited<ReturnType<typeof adminService.getRealtimeMetrics>>),
       ]);
+      if (failedCount > 0) {
+        logger.warn(`仪表板 ${failedCount} 个端点失败，已降级渲染其余数据`);
+      }
 
       const [
         analyticsSummaryResult,
@@ -350,6 +369,19 @@ const AdminDashboard: React.FC = () => {
       }
       if (trackingFailed) {
         logger.warn('Optional tracking data partially failed to load');
+      }
+      if (failedCount >= 9) {
+        // 全部端点失败：维持原有的"加载失败"强提示
+        toast({
+          variant: "destructive",
+          title: messages.adminDashboard.loadFailedToastTitle,
+          description: messages.adminDashboard.loadFailedToastDesc,
+        });
+      } else if (failedCount > 0) {
+        toast({
+          title: '部分数据未能加载',
+          description: `${failedCount} 个数据源失败，其余数据已正常展示。`,
+        });
       }
     } catch (error) {
       logger.error('Failed to load dashboard data:', error);

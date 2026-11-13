@@ -1159,22 +1159,31 @@ async def get_documents(page: int = 1, page_size: int = 20):
         result = await retrieval_module.list_documents(page, page_size)
         documents = []
         for doc in result.get("documents", []):
+            # [FIX 管理仪表板 500] 检索层 _build_document_map 返回 created_at(ISO 字符串)，
+            # 上游此端点硬取 doc["upload_date"](epoch) → KeyError。
+            # 统一为宽容映射：epoch 或 ISO 字符串都能转成 ISO 输出，缺失为 None。
+            raw_date = doc.get("upload_date") or doc.get("created_at")
+            last_update: str | None = None
+            if isinstance(raw_date, (int, float)) and raw_date > 0:
+                last_update = datetime.fromtimestamp(raw_date).isoformat()
+            elif isinstance(raw_date, str) and raw_date:
+                try:
+                    last_update = datetime.fromisoformat(raw_date).isoformat()
+                except ValueError:
+                    last_update = raw_date
+            file_size = doc.get("file_size") or 0
             documents.append(
                 {
                     "id": doc["id"],
-                    "name": doc["filename"],
-                    "chunkCount": doc["chunk_count"],
-                    "size": f"{doc['file_size'] / 1024:.2f} KB" if doc["file_size"] else "unknown",
-                    "lastUpdate": (
-                        datetime.fromtimestamp(doc["upload_date"]).isoformat()
-                        if doc["upload_date"]
-                        else None
-                    ),
+                    "name": doc.get("filename") or doc.get("title") or doc["id"],
+                    "chunkCount": doc.get("chunk_count", 0),
+                    "size": f"{file_size / 1024:.2f} KB" if file_size else "unknown",
+                    "lastUpdate": last_update,
                     "status": "active",
-                    "fileType": doc["file_type"],
+                    "fileType": doc.get("file_type", ""),
                     "metadata": {
-                        "file_size": doc["file_size"],
-                        "upload_timestamp": doc["upload_date"],
+                        "file_size": file_size,
+                        "upload_timestamp": raw_date,
                     },
                 }
             )

@@ -13,6 +13,25 @@ from .....lib.logger import get_logger
 logger = get_logger(__name__)
 
 
+def _as_epoch(value: Any) -> float:
+    """[FIX 管理仪表板 500] 会话时间字段类型不统一的宽容归一化。
+
+    存储层现状：create_session 写入 datetime、快照持久化恢复为 datetime、
+    部分旧路径为 epoch float/str——本服务（上游移植）假定恒为 epoch float，
+    混入 datetime 即 float - datetime TypeError。统一在读侧归一化为 epoch。
+    """
+    if isinstance(value, datetime):
+        return value.timestamp()
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value).timestamp()
+        except ValueError:
+            logger.warning("会话时间字段无法解析，按当前时间处理", extra={"value": value[:40]})
+    return time.time()
+
+
 class AdminService:
     """
     Admin API용 세션 및 채팅 로그 조회 서비스
@@ -57,7 +76,8 @@ class AdminService:
         all_sessions = []
 
         for session_id, session in sessions.items():
-            time_since_access = current_time - session["last_accessed"]
+            last_accessed = _as_epoch(session.get("last_accessed"))
+            time_since_access = current_time - last_accessed
 
             # 상태 결정 (L483-489)
             if time_since_access > self.ttl:
@@ -88,8 +108,8 @@ class AdminService:
                 "id": session_id,
                 "status": session_status,
                 "messageCount": message_count,
-                "created": datetime.fromtimestamp(session["created_at"]).isoformat(),
-                "lastActivity": datetime.fromtimestamp(session["last_accessed"]).isoformat(),
+                "created": datetime.fromtimestamp(_as_epoch(session.get("created_at"))).isoformat(),
+                "lastActivity": datetime.fromtimestamp(last_accessed).isoformat(),
                 "tokensUsed": tokens_used,
                 "processingTime": round(processing_time, 2),
                 "userAgent": session.get("metadata", {}).get("user_agent"),
@@ -134,7 +154,8 @@ class AdminService:
 
         session = sessions[session_id]
         current_time = time.time()
-        time_since_access = current_time - session["last_accessed"]
+        last_accessed = _as_epoch(session.get("last_accessed"))
+        time_since_access = current_time - last_accessed
 
         # 상태 결정 (L557-563)
         if time_since_access > self.ttl:
@@ -181,8 +202,8 @@ class AdminService:
             "tokensUsed": total_tokens,
             "processingTime": round(total_processing_time, 2),
             "avgProcessingTime": round(avg_processing_time, 2),
-            "created": datetime.fromtimestamp(session["created_at"]).isoformat(),
-            "lastActivity": datetime.fromtimestamp(session["last_accessed"]).isoformat(),
+            "created": datetime.fromtimestamp(_as_epoch(session.get("created_at"))).isoformat(),
+            "lastActivity": datetime.fromtimestamp(last_accessed).isoformat(),
             "remainingTTL": max(0, self.ttl - time_since_access),
             "userAgent": session.get("metadata", {}).get("user_agent"),
             "ipAddress": session.get("metadata", {}).get("ip_address"),
