@@ -121,13 +121,25 @@ export const DocumentListView: React.FC<DocumentListViewProps> = ({
                   </div>
                   {/* 긴 파일명(공백 없는 CJK/URL)도 셀 안에서 줄바꿈되도록 break-words 적용 + 2줄 제한 */}
                   {/* [FIX 用户报告] 文件名可点击 → 直接打开内容预览（用户期望"点开文件名即浏览"） */}
-                  <p
-                    className="min-w-0 text-sm font-bold leading-snug whitespace-normal break-words [overflow-wrap:anywhere] line-clamp-2 cursor-pointer hover:text-primary hover:underline underline-offset-2 transition-colors"
-                    title={(doc.originalName || doc.filename) + '（点击在新标签页查看）'}
-                    onClick={(event) => { event.stopPropagation(); void onOpenInTab(doc); }}
-                  >
-                    {doc.originalName || doc.filename}
-                  </p>
+                  <div className="min-w-0">
+                    {/* [FIX 用户反馈] 文件名可点击（新标签查看）+ 部门归属可见 */}
+                    <p
+                      className="min-w-0 text-sm font-bold leading-snug whitespace-normal break-words [overflow-wrap:anywhere] cursor-pointer hover:text-primary hover:underline underline-offset-2 transition-colors"
+                      title={(doc.originalName || doc.filename) + '（点击在新标签页查看）'}
+                      onClick={(event) => { event.stopPropagation(); void onOpenInTab(doc); }}
+                    >
+                      {doc.originalName || doc.filename}
+                    </p>
+                    {(doc.departments?.length ?? 0) > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {(doc.departments || []).map((d) => (
+                          <span key={d} className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-bold">
+                            {d}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </TableCell>
               <TableCell className="text-xs font-medium text-muted-foreground">

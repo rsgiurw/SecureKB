@@ -85,6 +85,15 @@ export const DocumentGridView: React.FC<DocumentGridViewProps> = ({
             >
               {doc.originalName || doc.filename}
             </h3>
+            {(doc.departments?.length ?? 0) > 0 && (
+              <div className="flex flex-wrap gap-1 mb-1">
+                {(doc.departments || []).map((d) => (
+                  <span key={d} className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-bold">
+                    {d}
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">
               <span className="flex items-center gap-1">
                 <MoreHorizontal className="w-3 h-3" /> {formatFileSize(doc.size)}

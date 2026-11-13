@@ -111,10 +111,8 @@ describe('DocumentListView', () => {
     const longName = 'very-long-document-name-without-natural-breaks-2026-final-final-final.pdf';
     const doc = createMockDocument({ originalName: longName });
     render(<DocumentListView {...defaultProps} documents={[doc]} />);
-    expect(screen.getByText(longName)).toHaveClass(
-      'break-words',
-      '[overflow-wrap:anywhere]',
-      'line-clamp-2'
-    );
+    const nameEl = screen.getByText(longName);
+    expect(nameEl).toHaveClass('break-words');
+    expect(nameEl).toHaveClass('[overflow-wrap:anywhere]');
   });
 });
