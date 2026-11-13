@@ -4,7 +4,7 @@
  * 선택한 문서의 메타데이터(파일명, ID, 크기, MIME 타입, 업로드 일시,
  * 상태, 청크 수, 페이지 수, 단어 수)를 다이얼로그로 표시합니다.
  */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import api from '../../services/api';
 import { formatFileSize } from '../../utils/documentUtils';
 import { useMenuMessages } from '../../i18n/useMenuLocale';
 import { format, formatDate } from '../../i18n/format';
@@ -69,6 +70,50 @@ export const DocumentDetailDialog: React.FC<DocumentDetailDialogProps> = ({
 }) => {
   // i18n: 현재 로케일에 해당하는 번역 사전과 로케일 코드를 가져온다.
   const { messages, locale } = useMenuMessages();
+  // [MOD EXP-024] 文档部门归类编辑（管理员）：当前归属 chips + checkbox 调整
+  const isAdminUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('securekb_user') || 'null')?.role === 'admin';
+    } catch {
+      return false;
+    }
+  })();
+  const [docDepts, setDocDepts] = useState<string[]>(doc?.departments ?? []);
+  const [deptSaving, setDeptSaving] = useState(false);
+  useEffect(() => {
+    setDocDepts(doc?.departments ?? []);
+  }, [doc?.id, doc?.departments]);
+  const toggleDocDept = (d: string) => {
+    setDocDepts((prev: string[]) => {
+      if (prev.includes(d)) {
+        return prev.length > 1 ? prev.filter((x) => x !== d) : prev; // 至少一个
+      }
+      return [...prev, d];
+    });
+  };
+  const saveDocDepts = async () => {
+    if (!doc || deptSaving) return;
+    setDeptSaving(true);
+    try {
+      await api.patch(`/api/admin/documents/${doc.id}/departments`, { departments: docDepts });
+      setDocDepts(docDepts);
+      // 更新本地列表显示
+      setDocDepts(docDepts);
+    } catch {
+      setDocDepts(doc?.departments ?? []);
+    } finally {
+      setDeptSaving(false);
+    }
+  };
+  // 部门选项（与用户管理同源——从部门 API 拉）
+  const [allDepts, setAllDepts] = useState<string[]>([]);
+  useEffect(() => {
+    if (open && isAdminUser) {
+      api.get('/api/admin/departments')
+        .then((r) => setAllDepts(r.data.departments || []))
+        .catch(() => setAllDepts(['全员', '技术部', '法务部']));
+    }
+  }, [open, isAdminUser]);
   // 기존 toLocaleString() 기본 출력(날짜 + 시:분:초)을 바이트 동일하게 보존하기 위한 옵션
   const uploadedAtOptions: Intl.DateTimeFormatOptions = {
     year: 'numeric', month: 'numeric', day: 'numeric',
@@ -103,6 +148,39 @@ export const DocumentDetailDialog: React.FC<DocumentDetailDialogProps> = ({
                     {hasPositiveCount(doc.metadata?.wordCount) && <DetailRow label={messages.docDetail.wordCount} value={format(messages.docDetail.wordCountValue, { count: doc.metadata?.wordCount ?? 0 })} />}
                   </div>
                 </details>
+
+                {/* [MOD EXP-024] 文档部门归类（管理员）：调整影响检索可见范围 */}
+                {isAdminUser && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] uppercase font-black text-muted-foreground/60 tracking-wider">
+                      部门归类（决定哪些部门可检索到该文档）
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {allDepts.map((d) => (
+                        <button
+                          key={d}
+                          onClick={() => toggleDocDept(d)}
+                          className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                            docDepts.includes(d)
+                              ? 'bg-primary text-primary-foreground border-primary font-bold'
+                              : 'bg-muted/30 text-muted-foreground border-border/50 hover:border-primary/40'
+                          }`}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="w-full rounded-xl font-bold"
+                      disabled={deptSaving || docDepts === (doc?.departments ?? [])}
+                      onClick={() => void saveDocDepts()}
+                    >
+                      {deptSaving ? '保存中...' : '保存部门归类'}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </ScrollArea>

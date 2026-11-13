@@ -70,7 +70,10 @@ def authenticate(username: str, password: str) -> dict[str, Any] | None:
         return None
     if not hmac.compare_digest(u["password_hash"], _hash_password(password, u["salt"])):
         return None
-    return {k: u[k] for k in ("username", "display_name", "role", "department")}
+    result = {k: u[k] for k in ("username", "display_name", "role", "department")}
+    # [MOD EXP-024] 多选部门透传（旧单值数据派生列表）
+    result["departments"] = u.get("departments") or [u.get("department", "全员")]
+    return result
 
 
 def issue_token(username: str) -> str:
@@ -97,17 +100,25 @@ def verify_token(token: str) -> dict[str, Any] | None:
         u = users.get(data.get("u", ""))
         if not u:
             return None
-        return {k: u[k] for k in ("username", "display_name", "role", "department")}
+        result = {k: u[k] for k in ("username", "display_name", "role", "department")}
+        result["departments"] = u.get("departments") or [u.get("department", "全员")]
+        return result
     except Exception:
         return None
 
 
 def visible_departments(user: dict[str, Any]) -> list[str] | None:
-    """按角色返回检索过滤条件：管理员 None（不过滤），员工 ['全员', 本部门]。"""
+    """按角色返回检索过滤条件：管理员 None（不过滤）。
+
+    员工 = 全员 ∪ 所选部门（[MOD EXP-024] 支持多选部门：
+    user.departments 列表优先，旧单值 department 字段向后兼容）。"""
     if user.get("role") == "admin":
         return None
-    dept = user.get("department", "全员")
-    return ["全员"] if dept == "全员" else sorted({"全员", dept})
+    selected = user.get("departments")
+    if not isinstance(selected, list) or not selected:
+        dept = user.get("department", "全员")
+        selected = [dept]
+    return sorted({"全员", *{str(d) for d in selected}})
 
 
 # ============================================================================
@@ -130,15 +141,12 @@ def _save_users(users: dict[str, dict[str, Any]]) -> None:
 
 def list_users() -> list[dict[str, Any]]:
     """管理员视角的用户列表（不含哈希与盐）。"""
-    return [
-        {
-            "username": u["username"],
-            "display_name": u["display_name"],
-            "role": u["role"],
-            "department": u["department"],
-        }
-        for u in _load_users().values()
-    ]
+    result = []
+    for u in _load_users().values():
+        item = {k: u[k] for k in ("username", "display_name", "role", "department")}
+        item["departments"] = u.get("departments") or [u.get("department", "全员")]
+        result.append(item)
+    return result
 
 
 def create_user(
@@ -166,19 +174,27 @@ def create_user(
     }
     _save_users(users)
     u = users[username]
-    return {k: u[k] for k in ("username", "display_name", "role", "department")}, None
+    result = {k: u[k] for k in ("username", "display_name", "role", "department")}
+    result["departments"] = u.get("departments") or [u.get("department", "全员")]
+    return result, None
 
 
 def update_user(
     username: str, department: str | None = None,
     password: str | None = None, display_name: str | None = None,
+    departments: list[str] | None = None,
 ) -> tuple[dict[str, Any] | None, str | None]:
-    """修改用户（部门 = 权限范围；可重置密码/改显示名）。"""
+    """修改用户（部门 = 权限范围；[MOD EXP-024] departments 多选优先；可重置密码/改显示名）。"""
     users = _load_users()
     u = users.get(username)
     if not u:
         return None, "用户不存在"
-    if department is not None:
+    if departments is not None:
+        if not isinstance(departments, list) or not departments:
+            return None, "至少选择一个部门"
+        u["departments"] = [str(d).strip() for d in departments if str(d).strip()]
+        u["department"] = u["departments"][0]  # 旧单值字段保持同步（兼容读旧代码）
+    elif department is not None:
         u["department"] = department.strip() or "全员"
     if display_name is not None and display_name.strip():
         u["display_name"] = display_name.strip()
@@ -188,7 +204,9 @@ def update_user(
         u["salt"] = secrets.token_hex(8)
         u["password_hash"] = _hash_password(password, u["salt"])
     _save_users(users)
-    return {k: u[k] for k in ("username", "display_name", "role", "department")}, None
+    result = {k: u[k] for k in ("username", "display_name", "role", "department")}
+    result["departments"] = u.get("departments") or [u.get("department", "全员")]
+    return result, None
 
 
 def delete_user(username: str, operator: str) -> tuple[bool, str | None]:

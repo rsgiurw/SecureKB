@@ -649,6 +649,8 @@ class DocumentInfo(BaseModel):
     chunk_count: int | None = None
     processing_time: float | None = None
     error_message: str | None = None
+    # [MOD EXP-024] 文档部门归类（管理端可调，影响检索可见范围）
+    departments: list[str] | None = None
 
 
 class UploadResponse(BaseModel):
@@ -1976,6 +1978,8 @@ async def list_documents(
                     upload_date=upload_date,
                     status="completed",
                     chunk_count=doc_data.get("chunk_count", 0),
+                    # [MOD EXP-024] 文档部门归类透传（前端展示+编辑）
+                    departments=list(doc_data.get("departments") or ["全员"]),
                 )
             )
         total_count = len(documents)

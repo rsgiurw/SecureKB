@@ -536,34 +536,34 @@ const AdminDashboard: React.FC = () => {
       </Card>
 
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-6">
-        <TabsList className="bg-muted/50 p-1 rounded-[20px] h-12 flex items-stretch gap-1">
-          <TabsTrigger value="overview" className="flex-1 rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
+        <TabsList className="bg-muted/50 p-1 rounded-[20px] h-12 flex items-stretch gap-1 w-full justify-start overflow-x-auto">
+          <TabsTrigger value="overview" className="shrink-0 whitespace-nowrap rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
             <Home className="w-4 h-4" /> <span className="hidden sm:inline">{messages.adminDashboard.tabOverview}</span>
           </TabsTrigger>
-          <TabsTrigger value="sessions" className="flex-1 rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
+          <TabsTrigger value="sessions" className="shrink-0 whitespace-nowrap rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
             <Users className="w-4 h-4" /> <span className="hidden sm:inline">{messages.adminDashboard.tabSessions}</span>
           </TabsTrigger>
-          <TabsTrigger value="documents" className="flex-1 rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
+          <TabsTrigger value="documents" className="shrink-0 whitespace-nowrap rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
             <FileText className="w-4 h-4" /> <span className="hidden sm:inline">{messages.adminDashboard.tabDocuments}</span>
           </TabsTrigger>
-          <TabsTrigger value="performance" className="flex-1 rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
+          <TabsTrigger value="performance" className="shrink-0 whitespace-nowrap rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
             <BarChart3 className="w-4 h-4" /> <span className="hidden sm:inline">{messages.adminDashboard.tabPerformance}</span>
           </TabsTrigger>
-          <TabsTrigger value="tracking" className="flex-1 rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
+          <TabsTrigger value="tracking" className="shrink-0 whitespace-nowrap rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
             <Eye className="w-4 h-4" /> <span className="hidden sm:inline">Tracking</span>
           </TabsTrigger>
-          <TabsTrigger value="prompts" className="flex-1 rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
+          <TabsTrigger value="prompts" className="shrink-0 whitespace-nowrap rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
             <Brain className="w-4 h-4" /> <span className="hidden sm:inline">{messages.adminDashboard.tabPrompts}</span>
           </TabsTrigger>
-          <TabsTrigger value="users" className="flex-1 rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
+          <TabsTrigger value="users" className="shrink-0 whitespace-nowrap rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
             <Users className="w-4 h-4 mr-1" />
             用户管理
           </TabsTrigger>
-          <TabsTrigger value="audit" className="flex-1 rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
+          <TabsTrigger value="audit" className="shrink-0 whitespace-nowrap rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
             <FileText className="w-4 h-4 mr-1" />
             审计与反馈
           </TabsTrigger>
-          <TabsTrigger value="settings" className="flex-1 rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
+          <TabsTrigger value="settings" className="shrink-0 whitespace-nowrap rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary font-black text-xs gap-2">
             <Settings className="w-4 h-4" /> <span className="hidden sm:inline">{messages.adminDashboard.tabSettings}</span>
           </TabsTrigger>
         </TabsList>

@@ -475,6 +475,8 @@ const transformApiDocument = (apiDoc: ApiDocument): Document => {
     uploadedAt: getValidDate(apiDoc.upload_date),
     status: (apiDoc.status as 'processing' | 'completed' | 'failed') || 'completed',
     chunks: apiDoc.chunk_count,
+    // [MOD EXP-024] 文档部门归类数据透传（管理端可调）
+    departments: apiDoc.departments,
     metadata: {
       wordCount: 0, // 백엔드에서 제공하지 않으므로 기본값
     },

@@ -26,6 +26,8 @@ interface ManagedUser {
   display_name: string;
   role: 'admin' | 'employee';
   department: string;
+  // [MOD EXP-024] 多选部门（列表优先；旧单值数据派生）
+  departments?: string[];
 }
 
 interface UsersPayload {
@@ -45,6 +47,9 @@ export const UsersManager: React.FC = () => {
   const [creating, setCreating] = useState(false);
   const [resetTarget, setResetTarget] = useState<ManagedUser | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  // [MOD EXP-024] 多选部门弹窗
+  const [deptTarget, setDeptTarget] = useState<ManagedUser | null>(null);
+  const [deptSelection, setDeptSelection] = useState<string[]>([]);
   const [me, setMe] = useState('');
 
   const load = useCallback(async () => {
@@ -84,7 +89,7 @@ export const UsersManager: React.FC = () => {
     }
   };
 
-  const handleUpdate = async (username: string, patch: Record<string, string>) => {
+  const handleUpdate = async (username: string, patch: Record<string, unknown>) => {
     try {
       await api.put(`/api/admin/users/${username}`, patch);
       toast({ title: '已更新', description: username });
@@ -156,17 +161,22 @@ export const UsersManager: React.FC = () => {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <select
-                    className="h-8 rounded-lg border border-input bg-background px-2 text-xs"
-                    value={u.department}
-                    onChange={(e) => void handleUpdate(u.username, { department: e.target.value })}
+                  {/* [MOD EXP-024] 多选部门：chips 显示，点击弹 checkbox 弹窗 */}
+                  <button
+                    className="flex flex-wrap items-center gap-1 max-w-[180px] text-left"
                     disabled={u.username === me}
-                    title={u.username === me ? '不能修改自己的部门' : '调整后即时影响该用户的文档可见范围'}
+                    onClick={() => {
+                      setDeptTarget(u);
+                      setDeptSelection(u.departments || [u.department]);
+                    }}
+                    title={u.username === me ? '不能修改自己的部门' : '点击调整文档可见部门（可多选）'}
                   >
-                    {Array.from(new Set([...departments, u.department])).map((d) => (
-                      <option key={d} value={d}>{d}</option>
+                    {(u.departments || [u.department]).map((d) => (
+                      <span key={d} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">
+                        {d}
+                      </span>
                     ))}
-                  </select>
+                  </button>
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
@@ -227,6 +237,55 @@ export const UsersManager: React.FC = () => {
             <Button variant="secondary" onClick={() => setCreateOpen(false)}>取消</Button>
             <Button onClick={() => void handleCreate()} disabled={creating || !form.username || !form.password}>
               {creating ? '创建中...' : '创建'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* [MOD EXP-024] 多选部门（权限分配） */}
+      <Dialog open={!!deptTarget} onOpenChange={(isOpen) => { if (!isOpen) setDeptTarget(null); }}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black">调整可见部门 — {deptTarget?.username}</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">勾选该用户可检索的部门（"全员"为所有用户默认可见，勾选即包含）：</p>
+          <div className="space-y-2">
+            {departments.map((d) => (
+              <label key={d} className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="accent-primary"
+                  checked={deptSelection.includes(d)}
+                  onChange={(e) => {
+                    // [MOD EXP-024] 清晰语义：至少保留一个部门；
+                    // 勾"全员"= 清其他（全员本就含于所有过滤结果）；
+                    // 取消"全员"允许（员工至少有一个部门即可）
+                    if (e.target.checked) {
+                      if (d === '全员') {
+                        setDeptSelection(['全员']);
+                      } else {
+                        setDeptSelection((prev) => [...new Set([...prev.filter((x) => x !== '全员'), d])]);
+                      }
+                    } else if (deptSelection.length > 1) {
+                      setDeptSelection((prev) => prev.filter((x) => x !== d));
+                    }
+                  }}
+                />
+                {d}
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeptTarget(null)}>取消</Button>
+            <Button
+              disabled={deptSelection.length === 0}
+              onClick={async () => {
+                if (!deptTarget) return;
+                await handleUpdate(deptTarget.username, { departments: deptSelection });
+                setDeptTarget(null);
+              }}
+            >
+              保存
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1006,6 +1006,17 @@ class RetrievalOrchestrator:
         )
         return await self.retriever.get_document_chunks(document_id)  # type: ignore[no-any-return]
 
+    async def update_documents_payload(
+        self, document_id: str, payload_patch: dict[str, Any]
+    ) -> int:
+        """[MOD EXP-024] 按 document_id 批量更新文档块 payload（部门归类管理）。"""
+        if not hasattr(self.retriever, "update_documents_payload"):
+            raise NotImplementedError(
+                f"Retriever {type(self.retriever).__name__}는 "
+                f"update_documents_payload를 지원하지 않습니다."
+            )
+        return await self.retriever.update_documents_payload(document_id, payload_patch)  # type: ignore[no-any-return]
+
     async def delete_document(self, document_id: str) -> bool:
         """
         문서와 관련된 모든 청크를 삭제 (Retriever 위임)

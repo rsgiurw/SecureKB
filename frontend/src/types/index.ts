@@ -18,6 +18,8 @@ export interface ApiDocument {
   chunk_count: number;
   processing_time?: number | null;
   error_message?: string | null;
+  // [MOD EXP-024] 文档部门归类（后端 payload 透传）
+  departments?: string[];
 }
 
 // 프론트엔드에서 사용하는 문서 타입
@@ -34,6 +36,8 @@ export interface Document {
     pageCount?: number;
     wordCount?: number;
   };
+  // [MOD EXP-024] 文档部门归类（管理端可调，影响检索可见范围）
+  departments?: string[] | undefined;
 }
 
 // 백엔드 /api/upload(및 chunked complete) 응답. 백엔드는 snake_case(job_id)를 반환하며,

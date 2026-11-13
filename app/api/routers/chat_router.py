@@ -1179,6 +1179,8 @@ async def admin_update_user(request: Request, username: str) -> dict[str, Any]:
         department=body.get("department"),
         password=body.get("password"),
         display_name=body.get("display_name"),
+        # [MOD EXP-024] 多选部门（列表优先；兼容旧单值 department）
+        departments=body.get("departments"),
     )
     if error:
         raise HTTPException(status_code=400, detail={"error": "修改失败", "message": error})
@@ -1188,7 +1190,7 @@ async def admin_update_user(request: Request, username: str) -> dict[str, Any]:
         actor_username=principal.get("username"),
         actor_role=principal.get("role"),
         result="ok",
-        detail={"target": username, "department": user["department"]},
+        detail={"target": username, "departments": user.get("departments")},
     )
     return {"user": user}
 
@@ -1253,3 +1255,39 @@ async def admin_delete_department(request: Request, name: str) -> dict[str, Any]
         detail={"name": name},
     )
     return {"departments": departments}
+
+
+@router.patch("/admin/documents/{document_id}/departments")
+async def admin_assign_document_departments(
+    request: Request, document_id: str
+) -> dict[str, Any]:
+    """[MOD EXP-024] 文档部门归类：调整文档的 departments 标签（影响检索可见范围）。"""
+    principal = _require_admin(request)
+    body = await request.json()
+    departments = body.get("departments")
+    if not isinstance(departments, list) or not departments:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "参数错误", "message": "departments 必须是非空列表"},
+        )
+    retrieval_module = chat_service.modules.get("retrieval")
+    if not retrieval_module:
+        raise HTTPException(status_code=500, detail="检索模块未初始化")
+    try:
+        updated = await retrieval_module.update_documents_payload(
+            document_id, {"departments": [str(d) for d in departments]}
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "未找到文档", "message": str(e)},
+        ) from e
+    get_secure_audit_service().record(
+        category="admin",
+        action="document.departments_assigned",
+        actor_username=principal.get("username"),
+        actor_role=principal.get("role"),
+        result="ok",
+        detail={"document_id": document_id, "departments": departments, "chunks": updated},
+    )
+    return {"document_id": document_id, "departments": departments, "chunks_updated": updated}

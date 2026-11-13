@@ -532,3 +532,28 @@ class HybridVectorStoreRetrieverBase(VectorStoreRetrieverBase):
             return query
 
         return processed
+
+    async def update_documents_payload(
+        self, document_id: str, payload_patch: dict[str, Any]
+    ) -> int:
+        """[MOD EXP-024] 按 document_id 批量更新该文档全部块的 payload 字段。
+
+        用途：文档部门归类管理（管理端调整文档 departments 标签）。
+        Store 需支持 fetch_objects + set_payload（duck typing，与
+        get_document_chunks/delete_document 同模式）。
+        """
+        if not hasattr(self.store, "fetch_objects"):
+            raise self._unsupported("fetch_objects")
+        if not hasattr(self.store, "update_documents_payload"):
+            raise self._unsupported("update_documents_payload")
+        raw_results = await self.store.fetch_objects(
+            collection=self._collection,
+            filters={"document_id": document_id},
+        )
+        if not raw_results:
+            raise ValueError(f"document not found: {document_id}")
+        return await self.store.update_documents_payload(
+            collection=self._collection,
+            filters={"document_id": document_id},
+            payload_patch=payload_patch,
+        )

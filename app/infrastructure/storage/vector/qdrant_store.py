@@ -561,3 +561,85 @@ class QdrantVectorStore(IVectorStore):
     def stats(self) -> dict[str, int]:
         """통계 정보 반환"""
         return self._stats.copy()
+
+    async def update_documents_payload(
+        self,
+        collection: str,
+        filters: dict[str, Any],
+        payload_patch: dict[str, Any],
+    ) -> int:
+        """[MOD EXP-024] 按 filter 批量更新匹配点的 payload 字段（文档部门归类用）。
+
+        仅合并 payload_patch 中的键（不覆盖其他字段）。返回更新的点数。
+        """
+        client = self._ensure_client()
+
+        from qdrant_client.models import Filter as _Filter, FieldCondition as _FieldCondition, MatchValue as _MatchValue
+
+        def _fetch_sync_inner(f: dict[str, Any]) -> list[dict[str, Any]]:
+            # 精简版过滤查询：仅支持 payload 字段精确匹配（document_id 场景）
+            qfilter = None
+            if f:
+                conds = [_FieldCondition(key=k, match=_MatchValue(value=v)) for k, v in f.items()]
+                qfilter = _Filter(must=conds)
+            output: list[dict[str, Any]] = []
+            offset: Any = None
+            while True:
+                records, offset = client.scroll(
+                    collection_name=collection,
+                    scroll_filter=qfilter,
+                    limit=256,
+                    offset=offset,
+                    with_payload=True,
+                    with_vectors=False,
+                )
+                output.extend(self._record_to_item(rec) for rec in records)
+                if offset is None:
+                    break
+            return output
+
+        def _update_sync() -> int:
+            # [FIX] 本地模式 set_payload 落盘不可靠（写后读回旧值）——
+            # 改用 read-modify-upsert：读全 payload → 合并 → upsert 覆盖
+            # （upsert 与 load_kb/add_documents 同路径，持久化已验证可靠）。
+            matched = _fetch_sync_inner(filters)
+            if not matched:
+                return 0
+            from qdrant_client.models import PointStruct
+
+            upsert_points = []
+            for item in matched:
+                pid = self._coerce_point_id(item["_id"])
+                payload = {k: v for k, v in item.items() if k not in ("_id", "content")}
+                payload.update(payload_patch)
+                upsert_points.append(
+                    PointStruct(id=pid, vector=[0.0], payload=payload)
+                )
+            # upsert 需要向量——零向量占位会破坏检索！改用 retrieve 拿原向量。
+            records = client.retrieve(
+                collection_name=collection,
+                ids=[p.id for p in upsert_points],
+                with_payload=True,
+                with_vectors=True,
+            )
+            final_points = []
+            for rec in records:
+                vec = rec.vector if hasattr(rec, "vector") else []
+                if not vec:
+                    continue
+                final_points.append(
+                    PointStruct(
+                        id=rec.id,
+                        vector=list(vec.values()) if isinstance(vec, dict) else list(vec),
+                        payload=dict(rec.payload or {}) | payload_patch,
+                    )
+                )
+            if not final_points:
+                return 0
+            client.upsert(collection_name=collection, points=final_points)
+            return len(final_points)
+
+        try:
+            return await asyncio.to_thread(_update_sync)
+        except Exception as e:
+            raise RuntimeError(f"payload 更新失败: {e}") from e

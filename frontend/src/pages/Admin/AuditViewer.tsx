@@ -5,7 +5,7 @@
  * category=feedback 即"回答反馈 bad case 列表"（README Roadmap 承诺闭环）。
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
@@ -85,6 +85,20 @@ export const AuditViewer: React.FC = () => {
           </select>
           <Button variant="outline" size="icon" onClick={() => void load(category)} title="刷新">
             <RefreshCw className="w-4 h-4" />
+          </Button>
+          {/* [MOD EXP-024] 审计导出：当前筛选结果 JSON 下载（展示不全的补齐手段） */}
+          <Button variant="outline" size="icon" title="导出当前记录(JSON)"
+            disabled={events.length === 0}
+            onClick={() => {
+              const blob = new Blob([JSON.stringify(events, null, 2)], { type: 'application/json; charset=utf-8' });
+              const url = window.URL.createObjectURL(blob);
+              const a = globalThis.document.createElement('a');
+              a.href = url;
+              a.download = `audit_${category || 'all'}_${new Date().toISOString().slice(0, 10)}.json`;
+              a.click();
+              window.URL.revokeObjectURL(url);
+            }}>
+            <Download className="w-4 h-4" />
           </Button>
         </div>
       </CardHeader>

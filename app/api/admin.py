@@ -12,7 +12,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
 from ..lib.admin_ai_settings_store import (
@@ -22,16 +22,34 @@ from ..lib.admin_ai_settings_store import (
 )
 from ..lib.auth import get_api_key, get_api_key_auth
 from ..lib.logger import get_logger
+from ..security.users import verify_token
 from .analytics_event_store import get_analytics_event_store
 from .services.openai_model_resolver import list_available_models, parse_model, resolve_model_config
 
 logger = get_logger(__name__)
 
 # v3.3.0: 라우터 수준에서 전역 인증 적용 (보안 강화)
+# [FIX 用户报告] 双通道鉴权：登录管理员 Bearer 令牌（SecureKB 登录体系）或
+# X-API-Key 兼容通道。原单通道 X-API-Key 把登录管理员挡在统计端点外
+# （前端 adminService 带 Bearer → 全 401 → 概览数据恒 0）。
+async def _resolve_admin(request: Request) -> None:
+    bearer = request.headers.get("Authorization", "")
+    if bearer.startswith("Bearer "):
+        user = verify_token(bearer[7:])
+        if user:
+            if user.get("role") == "admin":
+                return
+            raise HTTPException(status_code=403, detail="管理统计仅管理员可访问")
+    auth = get_api_key_auth()
+    api_key = request.headers.get("X-API-Key")
+    if auth.api_key and api_key and secrets.compare_digest(api_key, auth.api_key):
+        return
+    raise HTTPException(status_code=401, detail="请先登录管理员账户后使用")
+
 router = APIRouter(
     prefix="/api/admin",
     tags=["Admin"],
-    dependencies=[Depends(get_api_key)]
+    dependencies=[Depends(_resolve_admin)]
 )
 websocket_router = APIRouter(prefix="/api/admin", tags=["Admin"])
 

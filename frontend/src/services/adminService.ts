@@ -8,6 +8,7 @@ import { logger } from '../utils/logger';
 import { getOperatorApiBaseUrl, getOperatorWsBaseUrl } from '../config/operatorSettings';
 import {
   buildAdminWebSocketUrl,
+  getAdminApiKey,
   getRequiredAdminAuthHeaders,
   MissingAdminKeyError,
 } from './authHeaders';
@@ -108,10 +109,29 @@ class AdminService {
     logger.log('🌐 API 호출:', url);
 
     try {
-      const headers = {
-        ...getRequiredAdminAuthHeaders(),
+      // [FIX 用户报告] 双通道鉴权：登录 Bearer 令牌优先（SecureKB 登录体系），
+      // X-API-Key 有配置则附带。原 getRequiredAdminAuthHeaders 在本地无运营
+      // 密钥时抛 MissingAdminKeyError → 管理页全部请求失败 → 数据恒 0。
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
         ...((options?.headers as Record<string, string> | undefined) || {}),
       };
+      try {
+        const kbToken = localStorage.getItem('securekb_token');
+        if (kbToken) {
+          headers.Authorization = `Bearer ${kbToken}`;
+        }
+      } catch {
+        // localStorage 不可用静默跳过
+      }
+      try {
+        const apiKey = getAdminApiKey();
+        if (apiKey) {
+          headers['X-API-Key'] = apiKey;
+        }
+      } catch {
+        // 无运营密钥时跳过（Bearer 通道已足够）
+      }
       const response = await fetch(url, {
         ...options,
         headers,
