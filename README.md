@@ -35,6 +35,40 @@
 
 ![员工权限隔离](assets/demo-employee-isolation.png)
 
+**知识库文档管理（管理员）**——文档上传、部门标签归类（权限语义）、检索与删除一体：
+
+![知识库文档管理](assets/demo-doc-management.png)
+
+**评测运行记录**（真实输出节选，完整报告见 `evals/reports/`）：
+
+<details>
+<summary>忠实度拒答评测（faithfulness_gate-final）</summary>
+
+```json
+{
+  "label": "gate-final",
+  "拒答正确率(refuse)": "8/8",
+  "distractor抵抗": "4/4",
+  "正常应答(answer)": "4/6",
+  "总体": "16/18"
+}
+```
+
+</details>
+
+<details>
+<summary>HyDE 查询扩展评测（负收益实证 → 生产关停）</summary>
+
+```json
+{
+  "recall@1": 0.476,
+  "recall@3": 0.881,
+  "MRR": 0.690
+}
+```
+
+</details>
+
 ## 核心数据（实测）
 
 ### 检索质量（EXP-005/006，Golden 集 31 题）
