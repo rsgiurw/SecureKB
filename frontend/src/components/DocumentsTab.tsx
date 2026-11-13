@@ -5,7 +5,7 @@
  * 비즈니스 로직은 훅에, UI는 하위 컴포넌트에 위임하며
  * 이 파일은 조합과 배치만 담당합니다.
  */
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Search, RotateCw, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Document, ToastMessage } from '../types';
 import { documentAPI } from '../services/api';
@@ -148,13 +148,28 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
     }
   }, []);
   const readOnly = !isAdminUser;
+  // [MOD EXP-024] 部门筛选（文档列表按归属过滤）
+  const [deptFilter, setDeptFilter] = useState('');
+  // 部门选项动态收集（从当前列表）
+  const deptFilterOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of list.documents) {
+      for (const dept of d.departments || []) set.add(dept);
+    }
+    return Array.from(set).sort();
+  }, [list.documents]);
 
   // 콘텐츠 영역: 에러 → 로딩 → 빈 목록 → 문서 뷰
   const renderContent = () => {
     if (list.fetchError) return <ErrorState onRetry={list.fetchDocuments} messages={messages} />;
     if (list.loading) return <LoadingState messages={messages} />;
     if (list.documents.length === 0) return <EmptyState messages={messages} />;
-    const shared = { documents: list.documents, selectedDocuments: selection.selectedDocuments,
+    // [MOD EXP-024] 部门筛选（前端过滤 departments）
+    const visibleDocs = deptFilter
+      ? list.documents.filter((d) => (d.departments || []).includes(deptFilter))
+      : list.documents;
+    if (visibleDocs.length === 0) return <EmptyState messages={messages} />;
+    const shared = { documents: visibleDocs, selectedDocuments: selection.selectedDocuments,
       onToggleSelect: selection.toggleSelect, onViewDetails: selection.viewDetails, onDownload: download, onOpenInTab: openInTab, onDeleteSingle: deletion.handleDeleteSingle, readOnly };
     return (<>
       {list.viewMode === 'list'
@@ -169,9 +184,15 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
       <DocumentToolbar searchQuery={list.searchQuery} sortField={list.sortField} sortDirection={list.sortDirection}
         viewMode={list.viewMode} loading={list.loading} selectedCount={selection.selectedDocuments.size}
         onSearchChange={list.handleSearch} onSortFieldChange={list.handleSort} onSortDirectionToggle={list.handleSortDirection}
-        onViewModeChange={list.setViewMode} onRefresh={list.fetchDocuments} onBulkDelete={deletion.handleDeleteBulk} onDeleteAll={deletion.handleDeleteAll} readOnly={readOnly} />
+        onViewModeChange={list.setViewMode} onRefresh={list.fetchDocuments} onBulkDelete={deletion.handleDeleteBulk} onDeleteAll={deletion.handleDeleteAll} readOnly={readOnly}
+        deptFilterOptions={deptFilterOptions} deptFilterValue={deptFilter} onDeptFilterChange={setDeptFilter} />
       {renderContent()}
-      <DocumentDetailDialog open={selection.detailsOpen} document={selection.selectedDocument} onClose={selection.closeDetails} />
+      <DocumentDetailDialog
+        open={selection.detailsOpen}
+        document={selection.selectedDocument}
+        onClose={selection.closeDetails}
+        onDepartmentsSaved={() => list.fetchDocuments()}
+      />
       <DocumentDeleteDialog open={deletion.deleteConfirmOpen} loading={deletion.deleteLoading} onConfirm={deletion.confirmDeleteSingle} onCancel={deletion.handleDeleteCancel} />
       <DocumentBulkDeleteDialog open={deletion.bulkDeleteConfirmOpen} loading={deletion.bulkDeleteLoading}
         selectedCount={selection.selectedDocuments.size} onConfirm={() => deletion.confirmDeleteBulk(selection.selectedDocuments)} onCancel={deletion.handleBulkDeleteCancel} />

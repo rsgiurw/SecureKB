@@ -30,6 +30,8 @@ export interface DocumentDetailDialogProps {
   document: Document | null;
   /** 닫기 핸들러 */
   onClose: () => void;
+  /** [MOD EXP-024] 部门归类保存成功回调（父组件刷新列表） */
+  onDepartmentsSaved?: (documentId: string, departments: string[]) => void;
 }
 
 /**
@@ -67,6 +69,7 @@ export const DocumentDetailDialog: React.FC<DocumentDetailDialogProps> = ({
   open,
   document: doc,
   onClose,
+  onDepartmentsSaved,
 }) => {
   // i18n: 현재 로케일에 해당하는 번역 사전과 로케일 코드를 가져온다.
   const { messages, locale } = useMenuMessages();
@@ -96,9 +99,8 @@ export const DocumentDetailDialog: React.FC<DocumentDetailDialogProps> = ({
     setDeptSaving(true);
     try {
       await api.patch(`/api/admin/documents/${doc.id}/departments`, { departments: docDepts });
-      setDocDepts(docDepts);
-      // 更新本地列表显示
-      setDocDepts(docDepts);
+      // [FIX] 保存成功 → 通知父组件刷新列表（badges 即时反映新归属）
+      onDepartmentsSaved?.(doc.id, docDepts);
     } catch {
       setDocDepts(doc?.departments ?? []);
     } finally {

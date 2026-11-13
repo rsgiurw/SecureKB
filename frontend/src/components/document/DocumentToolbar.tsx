@@ -61,6 +61,9 @@ export interface DocumentToolbarProps {
   /** 전체 삭제 핸들러 */
   onDeleteAll: () => void;
   readOnly?: boolean;
+  deptFilterOptions?: string[];
+  deptFilterValue?: string;
+  onDeptFilterChange?: (value: string) => void;
 }
 
 /**
@@ -83,6 +86,9 @@ export const DocumentToolbar: React.FC<DocumentToolbarProps> = ({
   onBulkDelete,
   onDeleteAll,
   readOnly,
+  deptFilterOptions,
+  deptFilterValue,
+  onDeptFilterChange,
 }) => {
   // i18n: 현재 로케일에 해당하는 번역 사전을 가져온다.
   const { messages } = useMenuMessages();
@@ -102,6 +108,22 @@ export const DocumentToolbar: React.FC<DocumentToolbarProps> = ({
                 className="pl-10 rounded-xl border-border/60 focus-visible:ring-primary/20"
               />
             </div>
+            {/* [MOD EXP-024] 部门筛选（文档归类联动） */}
+            {(deptFilterOptions?.length ?? 0) > 0 && (
+              <div className="w-36 shrink-0">
+                <select
+                  aria-label="按部门筛选"
+                  className="h-9 w-full rounded-xl border border-border/60 bg-background px-2 text-sm font-bold"
+                  value={deptFilterValue ?? ''}
+                  onChange={(e) => onDeptFilterChange?.(e.target.value)}
+                >
+                  <option value="">全部部门</option>
+                  {(deptFilterOptions ?? []).map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="w-40 shrink-0">
               <Select value={sortField} onValueChange={(v: string) => onSortFieldChange(v as SortField)}>
                 <SelectTrigger aria-label={messages.docToolbar.sortFieldAria} className="rounded-xl border-border/60 font-bold">
