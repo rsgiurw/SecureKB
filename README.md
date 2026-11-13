@@ -35,7 +35,7 @@
 
 ![员工权限隔离](assets/demo-employee-isolation.png)
 
-**知识库文档管理（管理员）**——文档上传、部门标签归类（权限语义）、检索与删除一体：
+**知识库文档管理（管理员）**——多格式解析入库（PDF / Word / Excel / PPT / TXT / Markdown 等）、部门标签归类（权限语义）、检索与删除一体：
 
 ![知识库文档管理](assets/demo-doc-management.png)
 
