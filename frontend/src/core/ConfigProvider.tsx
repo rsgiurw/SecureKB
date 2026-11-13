@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect, ReactNode } from 'react';
 import { APP_CONFIG, mergeConfig, type AppConfig } from '../config';
-import { applyPreset } from '../config/presets';
+import { applyPreset, applyPresetCssVars, clearPresetCssVars } from '../config/presets';
 import { ConfigContext, type RuntimeConfig } from './ConfigContext';
 import { logger } from '../utils/logger';
 import {
@@ -80,6 +80,9 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
 
     // 색상 프리셋 적용
     if (runtime.preset) {
+      // [FIX 主题预设未生效] 合并进 Context 的 colors 此前无任何消费方——
+      // 真正让界面变色的是把预设写入 shadcn CSS 变量（--primary 等）。
+      applyPresetCssVars(runtime.preset);
       const presetColors = applyPreset(runtime.preset);
 
       if (presetColors) {
@@ -130,6 +133,8 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
       localStorage.removeItem('customSettings');
       setRuntimeConfig(null);
       setConfig(APP_CONFIG);
+      // [FIX 主题预设未生效] 重置时移除注入的预设 CSS 变量，回落底板配色
+      clearPresetCssVars();
       logger.debug('[ConfigProvider] 설정 초기화 完成');
     } catch (error) {
       logger.error('[ConfigProvider] 설정 초기화 失败:', error);

@@ -4,17 +4,64 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import hmac
 
-from ..lib.auth import get_api_key
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+
+from ..lib.auth import get_api_key_auth
 from ..lib.logger import get_logger
 from ..models.prompts import PromptCreate, PromptListResponse, PromptResponse, PromptUpdate
+from ..security.users import verify_token
 from .container_registry import ContainerRegistry
 
 logger = get_logger(__name__)
 # ✅ H2 보안 패치: GET(읽기)은 공개, POST/PUT/DELETE(쓰기)는 인증 필요
 # 라우터 레벨 인증 대신 개별 엔드포인트에 적용
 router = APIRouter(prefix="/api/prompts", tags=["Prompts"])
+
+
+def get_prompt_write_access(request: Request) -> str:
+    """[FIX 提示词加载失败] 提示词写端点的双通道鉴权（与 upload.get_upload_access 同款）。
+
+    背景：前端 PromptManager 首次加载发现多个激活提示词时会自动 PUT 停用多余项，
+    而原 Depends(get_api_key) 只认 X-API-Key——浏览器未配置运营密钥时前端在发请求
+    前就抛 MissingAdminKeyError，整个列表被判定"加载失败"。
+
+    凭证优先级：
+    1. SecureKB 登录令牌（Authorization: Bearer, role=admin）——服务端校验，角色不可伪造；
+    2. X-API-Key（FASTAPI_AUTH_KEY，脚本/Swagger 兼容通道）。
+
+    员工令牌返回 403（区别于 401，避免触发前端登录过期登出）；
+    无任何有效凭证返回 401（fail-closed）。
+    """
+    bearer = request.headers.get("Authorization", "")
+    if bearer.startswith("Bearer "):
+        user = verify_token(bearer[len("Bearer "):])
+        if user:
+            if user.get("role") == "admin":
+                return "login-admin"
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "error_code": "PROMPTS-403",
+                    "error": "权限不足",
+                    "message": "提示词管理需要管理员登录",
+                    "suggestion": "请使用管理员账户（admin）登录后重试",
+                },
+            )
+    auth = get_api_key_auth()
+    api_key = request.headers.get("X-API-Key")
+    if auth.api_key and api_key and hmac.compare_digest(api_key, auth.api_key):
+        return "api-key"
+    raise HTTPException(
+        status_code=401,
+        detail={
+            "error_code": "AUTH-001",
+            "error": "未登录",
+            "message": "请先以管理员身份登录",
+            "suggestion": "登录管理员账户后即可管理提示词",
+        },
+    )
 
 
 # 공유 DI 컨테이너 레지스트리 (main.py lifespan에서 set_container로 주입)
@@ -116,11 +163,11 @@ async def get_prompt_by_name(name: str):
     status_code=status.HTTP_201_CREATED,
     summary="프롬프트 생성",
     description="새 프롬프트를 생성합니다. /api/prompts 또는 /api/prompts/ 두 경로 모두 사용 가능합니다.",
-    dependencies=[Depends(get_api_key)],
+    dependencies=[Depends(get_prompt_write_access)],
 )
 @router.post(
     "/", response_model=PromptResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False,
-    dependencies=[Depends(get_api_key)],
+    dependencies=[Depends(get_prompt_write_access)],
 )
 async def create_prompt(prompt_data: PromptCreate):
     """
@@ -145,7 +192,7 @@ async def create_prompt(prompt_data: PromptCreate):
 
 
 # ✅ H2 보안 패치: PUT(수정) 인증 필요
-@router.put("/{prompt_id}", response_model=PromptResponse, dependencies=[Depends(get_api_key)])
+@router.put("/{prompt_id}", response_model=PromptResponse, dependencies=[Depends(get_prompt_write_access)])
 async def update_prompt(prompt_id: str, update_data: PromptUpdate):
     """
     프롬프트 업데이트
@@ -166,7 +213,7 @@ async def update_prompt(prompt_id: str, update_data: PromptUpdate):
 
 
 # ✅ H2 보안 패치: DELETE(삭제) 인증 필요
-@router.delete("/{prompt_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(get_api_key)])
+@router.delete("/{prompt_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(get_prompt_write_access)])
 async def delete_prompt(prompt_id: str):
     """
     프롬프트 삭제
@@ -201,7 +248,7 @@ async def export_prompts():
 
 
 # ✅ H2 보안 패치: import도 데이터 수정이므로 인증 필요
-@router.post("/import", dependencies=[Depends(get_api_key)])
+@router.post("/import", dependencies=[Depends(get_prompt_write_access)])
 async def import_prompts(
     data: dict, overwrite: bool = Query(False, description="기존 프롬프트 덮어쓰기 여부")
 ):

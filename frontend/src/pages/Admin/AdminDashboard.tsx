@@ -533,7 +533,10 @@ const AdminDashboard: React.FC = () => {
   }
 
   return (
-    <div className="p-4 space-y-6 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+    // [FIX 画面缩小] flex 父容器中 mx-auto（自动外边距）会禁用 cross-axis stretch，
+    // 根节点变成按内容收缩宽——切 Tab 时整个面板宽度跟着内容浮动（概览 945px、
+    // 性能 796px）。w-full 恢复占满，max-w+m x-auto 仅在超宽屏居中。
+    <div className="p-4 space-y-6 w-full max-w-[1600px] mx-auto animate-in fade-in duration-500">
       {/* 상태 헤더 */}
       <Card className="rounded-[28px] border-border/60 overflow-hidden shadow-lg bg-gradient-to-br from-background to-muted/20">
         <CardContent className="p-6">

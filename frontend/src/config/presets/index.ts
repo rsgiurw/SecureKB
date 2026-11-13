@@ -411,3 +411,126 @@ export function exportPresetAsJSON(presetId: string): string | null {
 
   return JSON.stringify(config, null, 2);
 }
+
+/* ==========================================================================
+ * [FIX 主题预设未生效] 预设 → shadcn CSS 变量接线
+ *
+ * 原状：SettingsPage 保存 preset 到 localStorage，ConfigProvider 把预设色合并进
+ * Context 的 config.colors —— 但全代码库无任何组件消费 config.colors，也没有一处
+ * setProperty。颜色令牌实际走 index.css 的 `--primary: "H S% L%"`（Tailwind
+ * hsl(var(--primary))）。预设因此"能选、能存、永远不变色"（已实现未接线）。
+ *
+ * 接线方式：注入一个 <style id="securekb-preset-vars">，包含 :root 与 .dark 两块，
+ * 追加在 head 末尾（晚于 index.css，同特异度下后者胜出）。重置时移除该节点即可
+ * 回落到底板配色。
+ * ========================================================================== */
+
+const PRESET_STYLE_ELEMENT_ID = 'securekb-preset-vars';
+
+/** hex(#rgb/#rrggbb) 或 rgba(r,g,b,a) → {r,g,b}；解析失败返回 null。 */
+function parseColorToRgb(input: string): { r: number; g: number; b: number } | null {
+  const value = input.trim().toLowerCase();
+  const hexMatch = /^#([0-9a-f]{3}|[0-9a-f]{6})$/.exec(value);
+  const hexRaw = hexMatch?.[1];
+  if (hexRaw) {
+    const hex = hexRaw.length === 3
+      ? hexRaw.split('').map((ch) => ch + ch).join('')
+      : hexRaw;
+    return {
+      r: parseInt(hex.slice(0, 2), 16),
+      g: parseInt(hex.slice(2, 4), 16),
+      b: parseInt(hex.slice(4, 6), 16),
+    };
+  }
+  const rgbaMatch = /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/.exec(value);
+  if (rgbaMatch?.[1] && rgbaMatch[2] && rgbaMatch[3]) {
+    return {
+      r: Number(rgbaMatch[1]),
+      g: Number(rgbaMatch[2]),
+      b: Number(rgbaMatch[3]),
+    };
+  }
+  return null;
+}
+
+/** RGB → shadcn 令牌格式 "H S% L%"（HSL 分量、无 hsl() 包裹）。 */
+function rgbToHslToken({ r, g, b }: { r: number; g: number; b: number }): string {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const l = (max + min) / 2;
+  let h = 0;
+  let s = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === rn) h = ((gn - bn) / d + (gn < bn ? 6 : 0)) / 6;
+    else if (max === gn) h = ((bn - rn) / d + 2) / 6;
+    else h = ((rn - gn) / d + 4) / 6;
+  }
+  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+
+/** 按相对亮度选前景色：亮底配深字、深底配白字。 */
+function contrastForegroundToken({ r, g, b }: { r: number; g: number; b: number }): string {
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return luminance > 0.55 ? '220.9 39.3% 11%' : '210 20% 98%';
+}
+
+/**
+ * 把预设品牌色注入 CSS 变量（--primary/--secondary/--accent/--ring 及其前景色）。
+ * light/dark 分别取预设的 light/dark 变体；无对应变体时跳过该项。
+ */
+export function applyPresetCssVars(presetId: string): boolean {
+  if (typeof document === 'undefined') return false;
+  const preset = getPreset(presetId);
+  if (!preset) return false;
+
+  const brand = preset.colors.brand as
+    | { primary?: Record<'light' | 'dark', string>; secondary?: Record<'light' | 'dark', string>; accent?: Record<'light' | 'dark', string> }
+    | undefined;
+  if (!brand) return false;
+
+  const buildBlock = (variant: 'light' | 'dark'): string => {
+    const decls: string[] = [];
+    const primary = brand.primary?.[variant] ? parseColorToRgb(brand.primary[variant]) : null;
+    if (primary) {
+      decls.push(`--primary: ${rgbToHslToken(primary)}`);
+      decls.push(`--primary-foreground: ${contrastForegroundToken(primary)}`);
+      decls.push(`--ring: ${rgbToHslToken(primary)}`);
+    }
+    const secondary = brand.secondary?.[variant] ? parseColorToRgb(brand.secondary[variant]) : null;
+    if (secondary) {
+      decls.push(`--secondary: ${rgbToHslToken(secondary)}`);
+      decls.push(`--secondary-foreground: ${contrastForegroundToken(secondary)}`);
+    }
+    const accent = brand.accent?.[variant] ? parseColorToRgb(brand.accent[variant]) : null;
+    if (accent) {
+      decls.push(`--accent: ${rgbToHslToken(accent)}`);
+      decls.push(`--accent-foreground: ${contrastForegroundToken(accent)}`);
+    }
+    return decls.join('; ');
+  };
+
+  const lightBlock = buildBlock('light');
+  const darkBlock = buildBlock('dark');
+  let styleEl = document.getElementById(PRESET_STYLE_ELEMENT_ID) as HTMLStyleElement | null;
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = PRESET_STYLE_ELEMENT_ID;
+    document.head.appendChild(styleEl);
+  }
+  styleEl.textContent = [
+    lightBlock ? `:root { ${lightBlock} }` : '',
+    darkBlock ? `.dark { ${darkBlock} }` : '',
+  ].filter(Boolean).join('\n');
+  return true;
+}
+
+/** 移除预设变量注入，回落到底板 index.css 配色（设置重置时调用）。 */
+export function clearPresetCssVars(): void {
+  if (typeof document === 'undefined') return;
+  document.getElementById(PRESET_STYLE_ELEMENT_ID)?.remove();
+}

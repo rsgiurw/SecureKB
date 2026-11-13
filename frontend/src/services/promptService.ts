@@ -6,7 +6,9 @@
  */
 
 import api from './api';
-import { getRequiredAdminAuthHeaders } from './authHeaders';
+// [FIX 提示词加载失败] 写操作改用可选运营密钥头：无 X-API-Key 时不再抛错，
+// 登录令牌由 api.ts 拦截器自动附加（Bearer），后端 get_prompt_write_access 双通道校验。
+import { getOptionalAdminAuthHeaders } from './authHeaders';
 
 // 하위 호환성을 위한 re-export (타입/상수는 types/prompt.ts에서 관리)
 export type {
@@ -58,7 +60,7 @@ class PromptService {
   // 新建提示词
   async createPrompt(promptData: CreatePromptRequest): Promise<Prompt> {
     const response = await api.post<Prompt>('/api/prompts', promptData, {
-      headers: getRequiredAdminAuthHeaders(),
+      headers: getOptionalAdminAuthHeaders(),
     });
     return response.data;
   }
@@ -66,7 +68,7 @@ class PromptService {
   // 프롬프트 수정
   async updatePrompt(id: string, promptData: UpdatePromptRequest): Promise<Prompt> {
     const response = await api.put<Prompt>(`/api/prompts/${id}`, promptData, {
-      headers: getRequiredAdminAuthHeaders(),
+      headers: getOptionalAdminAuthHeaders(),
     });
     return response.data;
   }
@@ -74,7 +76,7 @@ class PromptService {
   // 프롬프트 삭제
   async deletePrompt(id: string): Promise<void> {
     await api.delete(`/api/prompts/${id}`, {
-      headers: getRequiredAdminAuthHeaders(),
+      headers: getOptionalAdminAuthHeaders(),
     });
   }
 
@@ -94,7 +96,7 @@ class PromptService {
     const response = await api.post<{ message: string; imported: number }>(
       `/api/prompts/import?overwrite=${overwrite}`,
       data,
-      { headers: getRequiredAdminAuthHeaders() }
+      { headers: getOptionalAdminAuthHeaders() }
     );
     return response.data;
   }
