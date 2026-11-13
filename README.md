@@ -21,6 +21,20 @@
 
 > 本仓库在 OneRAG 基础上完成 **七项深度改造**，全部配有对比实验数据（见 [docs/experiments.md](docs/experiments.md)）。
 
+## 界面演示
+
+**提示注入拦截**——恶意指令被输入侧防护直接拒绝，RAG Trace 面板显示命中 `input_guard`：
+
+![提示注入拦截](assets/demo-injection-block.png)
+
+**检索溯源（管理员）**——回答引用知识库原文，右侧展示检索来源、相关度与 Top-K 候选：
+
+![管理员检索溯源](assets/demo-admin-retrieval.png)
+
+**部门权限隔离（普通员工）**——同一问题，员工无权限的文档内容不泄露，检索层服务端过滤：
+
+![员工权限隔离](assets/demo-employee-isolation.png)
+
 ## 核心数据（实测）
 
 ### 检索质量（EXP-005/006，Golden 集 31 题）
