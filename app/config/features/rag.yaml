@@ -28,8 +28,12 @@ rag:
   enabled: true
   use_rerank: false
   reranker_model: "jina"
-  top_k: 8
-  rerank_top_k: 8
+  top_k: 6
+  rerank_top_k: 6
+  # [MOD EXP-021] rerank 候选池 8→6：同池评测三项指标完全持平（recall@1 0.833/
+  # recall@3 1.000/MRR 0.9167），平均 rerank 耗时 4503ms→2970ms（首字延迟 -1.5s）。
+  # 池 5 退化（recall@3 0.976/MRR 0.8988）故取 6。实验报告
+  # evals/reports/rerank_k_eval_*.json（EXP-021）。
   relevance_threshold: 0.5
   # [MOD EXP-016] 检索相关性阈值 + 拒答联动：rerank 后 top1 分数低于阈值时跳过 LLM 生成，
   # 直接返回罐头拒答（根治"世界知识拼凑"——检索无据时 LLM 用内部知识编答案）。
