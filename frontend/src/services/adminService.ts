@@ -298,7 +298,7 @@ class AdminService {
     });
   }
 
-  async testAISettings(payload: { provider: string; model: string }) {
+  async testAISettings(payload: { provider: string; model: string; apiKey?: string }) {
     return this.apiCall('/ai-settings/test', {
       method: 'POST',
       body: JSON.stringify(payload),

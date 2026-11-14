@@ -124,6 +124,7 @@ class AIProviderKeyUpdate(BaseModel):
 class AISettingsTestRequest(BaseModel):
     provider: str
     model: str
+    api_key: str | None = None  # [MOD] 草稿密钥验证：只探测不落库（更换密钥前先验证）
 
 
 def get_memory_usage() -> dict[str, Any]:
@@ -514,21 +515,17 @@ async def replace_ai_provider_key(provider: str, payload: AIProviderKeyUpdate):
         raise HTTPException(status_code=500, detail="Failed to replace provider key") from error
 
 
-@router.post("/ai-settings/test")
-async def test_ai_settings(payload: AISettingsTestRequest):
-    """真实连通性探测：用已配置的密钥向该厂商发一个 max_tokens=5 的最小请求。
+def _probe_llm_provider(provider: str, model: str, api_key: str | None) -> dict[str, Any]:
+    """真实连通性探测。返回 {ok, state, message, latency_ms?}。
 
+    state 三态：ok=可用 / no_key=未配置密钥（中性提示，非错误） / error=配置了但连不通。
     [MOD] 旧版只做 dry-run（查密钥是否"已配置"），保存后用户无法得知密钥是否真的
     可用。现升级为 live probe：OpenAI 兼容厂商（含 google/openrouter 兼容端点）
-    真实调用一次 chat.completions（成本 ~0.0001 元），ollama 探活 /api/tags。
+    真实调用一次 chat.completions（max_tokens=5，成本 ~0.0001 元），ollama 探活。
     """
-    provider, model = _validate_ai_settings(payload.provider, payload.model)
-    store = get_admin_ai_settings_store()
-    key_metadata = store.get_key_metadata(provider)
-
     # ---- ollama：本地服务，探活即可（真实生成会拉起模型，耗时不可控）----
     if provider == "ollama":
-        base = (store.get_provider_key("ollama") or os.getenv("OLLAMA_BASE_URL") or "http://localhost:11434").rstrip("/")
+        base = (os.getenv("OLLAMA_BASE_URL") or "http://localhost:11434").rstrip("/")
         if not base.startswith("http"):
             base = f"http://{base}"
         try:
@@ -539,27 +536,23 @@ async def test_ai_settings(payload: AISettingsTestRequest):
             latency_ms = round((time.perf_counter() - t0) * 1000)
             ok = resp.status_code == 200
             return {
-                "provider": provider, "model": model, "ok": ok, "mode": "live_probe",
-                "latency_ms": latency_ms,
+                "ok": ok, "state": "ok" if ok else "error", "latency_ms": latency_ms,
                 "message": "Ollama 服务在线" if ok else f"Ollama 返回 {resp.status_code}",
-                "key": key_metadata, "timestamp": datetime.now().isoformat(),
             }
         except Exception as error:  # noqa: BLE001 - 探测失败必须转为可读结果而非 500
             return {
-                "provider": provider, "model": model, "ok": False, "mode": "live_probe",
+                "ok": False, "state": "error",
                 "message": f"无法访问 Ollama 服务（{base}）：确认已启动且地址正确",
-                "key": key_metadata, "timestamp": datetime.now().isoformat(),
             }
 
-    # ---- OpenAI 兼容厂商：真实最小生成请求 ----
-    api_key = store.get_provider_key(provider)
+    # ---- 未配置密钥：中性态（用户可能只是在浏览配置，不是错误）----
     if not api_key:
         return {
-            "provider": provider, "model": model, "ok": False, "mode": "live_probe",
-            "message": f"{provider} 的 API 密钥未配置：请在上方填入密钥并点击「更换密钥」",
-            "key": key_metadata, "timestamp": datetime.now().isoformat(),
+            "ok": False, "state": "no_key",
+            "message": f"{provider} 的 API 密钥未配置——当前不影响运行中的配置；填入密钥并验证通过后即可切换",
         }
 
+    # ---- OpenAI 兼容厂商：真实最小生成请求 ----
     if provider == "google":
         from app.modules.core.generation.generator import GOOGLE_OPENAI_COMPAT_URL
         base_url = GOOGLE_OPENAI_COMPAT_URL
@@ -589,13 +582,11 @@ async def test_ai_settings(payload: AISettingsTestRequest):
         )
         latency_ms = round((time.perf_counter() - t0) * 1000)
         return {
-            "provider": provider, "model": model, "ok": True, "mode": "live_probe",
-            "latency_ms": latency_ms,
+            "ok": True, "state": "ok", "latency_ms": latency_ms,
             "message": f"连接正常：{provider}/{model} 已成功返回响应（{latency_ms}ms）",
-            "key": key_metadata, "timestamp": datetime.now().isoformat(),
         }
     except AuthenticationError:
-        message = "认证失败：API 密钥无效或已过期"
+        message = "认证失败：API 密钥无效或已过期（密钥不会被保存）"
     except NotFoundError:
         message = f"模型不存在或端点路径错误：{model}（检查模型名拼写）"
     except RateLimitError:
@@ -607,9 +598,25 @@ async def test_ai_settings(payload: AISettingsTestRequest):
     except Exception as error:  # noqa: BLE001 - 探测失败必须转为可读结果而非 500
         message = f"连接失败：{type(error).__name__} {str(error)[:100]}"
 
+    return {"ok": False, "state": "error", "message": message}
+
+
+@router.post("/ai-settings/test")
+async def test_ai_settings(payload: AISettingsTestRequest):
+    """真实连通性探测。payload.api_key 提供时探测草稿密钥（不落库，供更换密钥前验证）。"""
+    provider, model = _validate_ai_settings(payload.provider, payload.model)
+    store = get_admin_ai_settings_store()
+    key_metadata = store.get_key_metadata(provider)
+    draft_key = (payload.api_key or "").strip()
+    api_key = draft_key or store.get_provider_key(provider)
+    probe = _probe_llm_provider(provider, model, api_key)
     return {
-        "provider": provider, "model": model, "ok": False, "mode": "live_probe",
-        "message": message, "key": key_metadata, "timestamp": datetime.now().isoformat(),
+        "provider": provider,
+        "model": model,
+        **probe,
+        "mode": "live_probe",
+        "key": key_metadata,
+        "timestamp": datetime.now().isoformat(),
     }
 
 

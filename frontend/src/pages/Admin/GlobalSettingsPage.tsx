@@ -74,18 +74,24 @@ export default function GlobalSettingsPage() {
   const [aiKeyDraft, setAIKeyDraft] = useState('');
   const [aiLoading, setAILoading] = useState(false);
   const [aiSettingsError, setAISettingsError] = useState(false);
-  const [connState, setConnState] = useState<{ ok: boolean; message: string; latencyMs?: number | undefined } | null>(null);
+  const [connState, setConnState] = useState<{ ok: boolean; message: string; state: 'ok' | 'error' | 'no_key'; latencyMs?: number | undefined } | null>(null);
   const [connChecking, setConnChecking] = useState(false);
 
-  const runConnectionTest = async (provider: string, model: string) => {
+  // draftKey 提供时探测草稿密钥（不落库）——更换密钥前先真连验证
+  const runConnectionTest = async (provider: string, model: string, draftKey?: string) => {
     setConnChecking(true);
     try {
-      const r = await adminService.testAISettings({ provider, model }) as { ok: boolean; message: string; latencyMs?: number };
-      setConnState({ ok: r.ok, message: r.message, latencyMs: r.latencyMs });
-      return r;
+      const payload: { provider: string; model: string; api_key?: string } = { provider, model };
+      if (draftKey) payload.api_key = draftKey;
+      const r = await adminService.testAISettings(payload) as { ok: boolean; message: string; state?: string; latencyMs?: number };
+      const state: 'ok' | 'error' | 'no_key' = r.state === 'ok' || r.state === 'no_key' ? r.state : 'error';
+      const next = { ok: r.ok, message: r.message, state, latencyMs: r.latencyMs };
+      setConnState(next);
+      return next;
     } catch {
-      setConnState({ ok: false, message: '检测请求失败：请检查服务器是否在线' });
-      return { ok: false, message: '检测请求失败' };
+      const next = { ok: false, message: '检测请求失败：请检查服务器是否在线', state: 'error' as const, latencyMs: undefined };
+      setConnState(next);
+      return next;
     } finally {
       setConnChecking(false);
     }
@@ -117,15 +123,21 @@ export default function GlobalSettingsPage() {
     try {
       const response = await adminService.updateAISettings({ provider: aiProvider, model: aiModel }) as AISettingsResponse;
       setAISettings(response);
-      // 保存后立即真实连通性探测，结果直接进 toast——不让用户猜配置是否可用
+      // 保存后立即真实连通性探测：ok=绿色确认 / no_key=中性提示（浏览配置不是错误） / error=红色原因
       const test = await runConnectionTest(aiProvider, aiModel);
-      toast({
-        title: test.ok ? 'AI 设置保存成功，连接正常' : 'AI 设置已保存，但连接检测未通过',
-        description: test.ok
-          ? `已保存并生效（响应 ${test.latencyMs ?? '?'}ms）${response.restartRequired ? '；提供商变更需重启后完全生效。' : ''}`
-          : `保存成功，但连通失败：${test.message}`,
-        variant: test.ok ? 'default' : 'destructive',
-      });
+      if (test.state === 'no_key') {
+        toast({
+          title: 'AI 设置已保存',
+          description: `该厂商（${aiProvider}）尚未配置密钥——当前运行中的配置不受影响；填入密钥并点「更换密钥」验证通过后即可切换。`,
+        });
+      } else if (test.state === 'error') {
+        toast({ title: 'AI 设置已保存，但连通检测未通过', description: test.message, variant: 'destructive' });
+      } else {
+        toast({
+          title: 'AI 设置保存成功，连接正常',
+          description: `已保存并生效（响应 ${test.latencyMs ?? '?'}ms）${response.restartRequired ? '；提供商变更需重启后完全生效。' : ''}`,
+        });
+      }
       await loadAISettings();
     } catch {
       toast({ title: 'AI 设置保存失败', description: '请检查管理员登录状态与服务器状态。', variant: 'destructive' });
@@ -138,17 +150,22 @@ export default function GlobalSettingsPage() {
     if (!aiKeyDraft.trim()) return;
     setAILoading(true);
     try {
+      // 先用草稿密钥真连一次——验证不通过的密钥一律不落库（防止假密钥污染配置）
+      const probe = await runConnectionTest(aiProvider, aiModel, aiKeyDraft.trim());
+      if (!probe.ok || probe.state !== 'ok') {
+        toast({
+          title: '密钥验证未通过，未保存',
+          description: probe.message,
+          variant: 'destructive',
+        });
+        return;
+      }
       await adminService.replaceAIProviderKey(aiProvider, aiKeyDraft);
       setAIKeyDraft('');
       await loadAISettings();
-      // 换钥后同样自动探测——密钥错不希望等到聊天时才发现
-      const test = await runConnectionTest(aiProvider, aiModel);
       toast({
-        title: test.ok ? 'API 密钥更换成功，连接正常' : '密钥已保存，但连接检测未通过',
-        description: test.ok
-          ? `新密钥已生效（响应 ${test.latencyMs ?? '?'}ms）`
-          : `连通失败：${test.message}`,
-        variant: test.ok ? 'default' : 'destructive',
+        title: 'API 密钥更换成功，连接正常',
+        description: `新密钥已通过真实连通验证（响应 ${probe.latencyMs ?? '?'}ms）`,
       });
     } catch {
       toast({ title: 'API 密钥更换失败', description: '请检查密钥格式或管理员认证。', variant: 'destructive' });
@@ -565,13 +582,25 @@ export default function GlobalSettingsPage() {
               </div>
 
               {connState && (
-                <Alert className={connState.ok ? 'rounded-2xl border-primary/30 bg-primary/5' : 'rounded-2xl border-destructive/30 bg-destructive/5'}>
-                  <AlertDescription className={connState.ok ? 'font-medium text-primary/90' : 'font-medium text-destructive'}>
-                    {connState.ok
-                      ? `✅ 连接正常${connState.latencyMs ? `（响应 ${connState.latencyMs}ms）` : ''} · ${aiProvider}/${aiModel}`
-                      : `❌ ${connState.message}`}
-                  </AlertDescription>
-                </Alert>
+                connState.state === 'ok' ? (
+                  <Alert className="rounded-2xl border-primary/30 bg-primary/5">
+                    <AlertDescription className="font-medium text-primary/90">
+                      ✅ 连接正常{connState.latencyMs ? `（响应 ${connState.latencyMs}ms）` : ''} · {aiProvider}/{aiModel}
+                    </AlertDescription>
+                  </Alert>
+                ) : connState.state === 'no_key' ? (
+                  <Alert className="rounded-2xl border-border/60 bg-muted/30">
+                    <AlertDescription className="font-medium text-muted-foreground">
+                      ⚪ {connState.message}
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <Alert className="rounded-2xl border-destructive/30 bg-destructive/5">
+                    <AlertDescription className="font-medium text-destructive">
+                      ❌ {connState.message}
+                    </AlertDescription>
+                  </Alert>
+                )
               )}
             </CardContent>
           </Card>
