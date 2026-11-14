@@ -516,24 +516,100 @@ async def replace_ai_provider_key(provider: str, payload: AIProviderKeyUpdate):
 
 @router.post("/ai-settings/test")
 async def test_ai_settings(payload: AISettingsTestRequest):
-    """Dry-run validate provider/model/key availability without echoing secrets."""
+    """真实连通性探测：用已配置的密钥向该厂商发一个 max_tokens=5 的最小请求。
+
+    [MOD] 旧版只做 dry-run（查密钥是否"已配置"），保存后用户无法得知密钥是否真的
+    可用。现升级为 live probe：OpenAI 兼容厂商（含 google/openrouter 兼容端点）
+    真实调用一次 chat.completions（成本 ~0.0001 元），ollama 探活 /api/tags。
+    """
     provider, model = _validate_ai_settings(payload.provider, payload.model)
     store = get_admin_ai_settings_store()
     key_metadata = store.get_key_metadata(provider)
-    requires_key = provider != "ollama"
-    configured = bool(key_metadata.get("configured")) or not requires_key
+
+    # ---- ollama：本地服务，探活即可（真实生成会拉起模型，耗时不可控）----
+    if provider == "ollama":
+        base = (store.get_provider_key("ollama") or os.getenv("OLLAMA_BASE_URL") or "http://localhost:11434").rstrip("/")
+        if not base.startswith("http"):
+            base = f"http://{base}"
+        try:
+            import httpx
+
+            t0 = time.perf_counter()
+            resp = httpx.get(f"{base}/api/tags", timeout=6)
+            latency_ms = round((time.perf_counter() - t0) * 1000)
+            ok = resp.status_code == 200
+            return {
+                "provider": provider, "model": model, "ok": ok, "mode": "live_probe",
+                "latency_ms": latency_ms,
+                "message": "Ollama 服务在线" if ok else f"Ollama 返回 {resp.status_code}",
+                "key": key_metadata, "timestamp": datetime.now().isoformat(),
+            }
+        except Exception as error:  # noqa: BLE001 - 探测失败必须转为可读结果而非 500
+            return {
+                "provider": provider, "model": model, "ok": False, "mode": "live_probe",
+                "message": f"无法访问 Ollama 服务（{base}）：确认已启动且地址正确",
+                "key": key_metadata, "timestamp": datetime.now().isoformat(),
+            }
+
+    # ---- OpenAI 兼容厂商：真实最小生成请求 ----
+    api_key = store.get_provider_key(provider)
+    if not api_key:
+        return {
+            "provider": provider, "model": model, "ok": False, "mode": "live_probe",
+            "message": f"{provider} 的 API 密钥未配置：请在上方填入密钥并点击「更换密钥」",
+            "key": key_metadata, "timestamp": datetime.now().isoformat(),
+        }
+
+    if provider == "google":
+        from app.modules.core.generation.generator import GOOGLE_OPENAI_COMPAT_URL
+        base_url = GOOGLE_OPENAI_COMPAT_URL
+    elif provider == "openrouter":
+        from app.modules.core.generation.generator import OPENROUTER_BASE_URL
+        base_url = OPENROUTER_BASE_URL
+    else:
+        from app.modules.core.generation.generator import OPENAI_COMPATIBLE_PROVIDERS
+        base_url = OPENAI_COMPATIBLE_PROVIDERS[provider]["base_url"]
+
+    try:
+        import httpx
+        from openai import (
+            APIConnectionError, AuthenticationError, BadRequestError,
+            NotFoundError, OpenAI, RateLimitError,
+        )
+
+        client = OpenAI(
+            api_key=api_key, base_url=base_url, timeout=25, max_retries=0,
+            http_client=httpx.Client(timeout=httpx.Timeout(25, connect=10.0)),
+        )
+        t0 = time.perf_counter()
+        client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": "ping"}],
+            max_tokens=5,
+        )
+        latency_ms = round((time.perf_counter() - t0) * 1000)
+        return {
+            "provider": provider, "model": model, "ok": True, "mode": "live_probe",
+            "latency_ms": latency_ms,
+            "message": f"连接正常：{provider}/{model} 已成功返回响应（{latency_ms}ms）",
+            "key": key_metadata, "timestamp": datetime.now().isoformat(),
+        }
+    except AuthenticationError:
+        message = "认证失败：API 密钥无效或已过期"
+    except NotFoundError:
+        message = f"模型不存在或端点路径错误：{model}（检查模型名拼写）"
+    except RateLimitError:
+        message = "触发限流或配额不足：账户余额/频率限制（稍后重试或充值）"
+    except APIConnectionError:
+        message = "网络连接失败：服务器无法访问该厂商端点（检查网络/防火墙）"
+    except BadRequestError as error:
+        message = f"请求被拒绝：{str(error)[:120]}"
+    except Exception as error:  # noqa: BLE001 - 探测失败必须转为可读结果而非 500
+        message = f"连接失败：{type(error).__name__} {str(error)[:100]}"
+
     return {
-        "provider": provider,
-        "model": model,
-        "ok": configured,
-        "mode": "dry_run",
-        "message": (
-            "Provider key is configured"
-            if configured
-            else "Provider key is not configured"
-        ),
-        "key": key_metadata,
-        "timestamp": datetime.now().isoformat(),
+        "provider": provider, "model": model, "ok": False, "mode": "live_probe",
+        "message": message, "key": key_metadata, "timestamp": datetime.now().isoformat(),
     }
 
 

@@ -74,6 +74,22 @@ export default function GlobalSettingsPage() {
   const [aiKeyDraft, setAIKeyDraft] = useState('');
   const [aiLoading, setAILoading] = useState(false);
   const [aiSettingsError, setAISettingsError] = useState(false);
+  const [connState, setConnState] = useState<{ ok: boolean; message: string; latencyMs?: number | undefined } | null>(null);
+  const [connChecking, setConnChecking] = useState(false);
+
+  const runConnectionTest = async (provider: string, model: string) => {
+    setConnChecking(true);
+    try {
+      const r = await adminService.testAISettings({ provider, model }) as { ok: boolean; message: string; latencyMs?: number };
+      setConnState({ ok: r.ok, message: r.message, latencyMs: r.latencyMs });
+      return r;
+    } catch {
+      setConnState({ ok: false, message: '检测请求失败：请检查服务器是否在线' });
+      return { ok: false, message: '检测请求失败' };
+    } finally {
+      setConnChecking(false);
+    }
+  };
 
   const loadAISettings = async () => {
     try {
@@ -101,13 +117,18 @@ export default function GlobalSettingsPage() {
     try {
       const response = await adminService.updateAISettings({ provider: aiProvider, model: aiModel }) as AISettingsResponse;
       setAISettings(response);
+      // 保存后立即真实连通性探测，结果直接进 toast——不让用户猜配置是否可用
+      const test = await runConnectionTest(aiProvider, aiModel);
       toast({
-        title: 'AI 设置保存成功',
-        description: response.restartRequired ? '提供商变更将在服务器重启后完全生效。' : '模型设置将在后续聊天请求中生效。',
+        title: test.ok ? 'AI 设置保存成功，连接正常' : 'AI 设置已保存，但连接检测未通过',
+        description: test.ok
+          ? `已保存并生效（响应 ${test.latencyMs ?? '?'}ms）${response.restartRequired ? '；提供商变更需重启后完全生效。' : ''}`
+          : `保存成功，但连通失败：${test.message}`,
+        variant: test.ok ? 'default' : 'destructive',
       });
       await loadAISettings();
     } catch {
-      toast({ title: 'AI 设置保存失败', description: '请检查管理员 API 密钥与服务器状态。', variant: 'destructive' });
+      toast({ title: 'AI 设置保存失败', description: '请检查管理员登录状态与服务器状态。', variant: 'destructive' });
     } finally {
       setAILoading(false);
     }
@@ -120,9 +141,14 @@ export default function GlobalSettingsPage() {
       await adminService.replaceAIProviderKey(aiProvider, aiKeyDraft);
       setAIKeyDraft('');
       await loadAISettings();
+      // 换钥后同样自动探测——密钥错不希望等到聊天时才发现
+      const test = await runConnectionTest(aiProvider, aiModel);
       toast({
-        title: 'API 密钥更换成功',
-        description: '密钥原文已从页面状态中移除。客户端重新初始化可能需要重启服务器。',
+        title: test.ok ? 'API 密钥更换成功，连接正常' : '密钥已保存，但连接检测未通过',
+        description: test.ok
+          ? `新密钥已生效（响应 ${test.latencyMs ?? '?'}ms）`
+          : `连通失败：${test.message}`,
+        variant: test.ok ? 'default' : 'destructive',
       });
     } catch {
       toast({ title: 'API 密钥更换失败', description: '请检查密钥格式或管理员认证。', variant: 'destructive' });
@@ -132,17 +158,12 @@ export default function GlobalSettingsPage() {
   };
 
   const handleTestAISettings = async () => {
-    setAILoading(true);
-    try {
-      const response = await adminService.testAISettings({ provider: aiProvider, model: aiModel }) as { ok: boolean; message: string };
-      toast({
-        title: response.ok ? 'AI 设置检查通过' : '需要检查 AI 设置',
-        description: response.message,
-        variant: response.ok ? 'default' : 'destructive',
-      });
-    } finally {
-      setAILoading(false);
-    }
+    const r = await runConnectionTest(aiProvider, aiModel);
+    toast({
+      title: r.ok ? '连接正常' : '连接检测未通过',
+      description: r.message,
+      variant: r.ok ? 'default' : 'destructive',
+    });
   };
 
   const configPreview = useMemo(() => {
@@ -527,8 +548,8 @@ export default function GlobalSettingsPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" variant="outline" className="rounded-xl font-bold" disabled={aiLoading} onClick={handleTestAISettings}>
-                  连通性检测
+                <Button type="button" variant="outline" className="rounded-xl font-bold" disabled={aiLoading || connChecking} onClick={handleTestAISettings}>
+                  {connChecking ? '检测中…' : '连通性检测'}
                 </Button>
                 <Button type="button" className="rounded-xl font-bold" disabled={aiLoading || !selectedAIProvider} onClick={handleSaveAISettings}>
                   保存服务器设置
@@ -542,6 +563,16 @@ export default function GlobalSettingsPage() {
                   </Badge>
                 )}
               </div>
+
+              {connState && (
+                <Alert className={connState.ok ? 'rounded-2xl border-primary/30 bg-primary/5' : 'rounded-2xl border-destructive/30 bg-destructive/5'}>
+                  <AlertDescription className={connState.ok ? 'font-medium text-primary/90' : 'font-medium text-destructive'}>
+                    {connState.ok
+                      ? `✅ 连接正常${connState.latencyMs ? `（响应 ${connState.latencyMs}ms）` : ''} · ${aiProvider}/${aiModel}`
+                      : `❌ ${connState.message}`}
+                  </AlertDescription>
+                </Alert>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
