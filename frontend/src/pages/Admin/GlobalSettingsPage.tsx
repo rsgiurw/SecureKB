@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Brain, Database, Image as ImageIcon, KeyRound, RotateCcw, Save, Settings2, SlidersHorizontal, Sparkles, Upload as UploadIcon, X as XIcon } from 'lucide-react';
+import { Brain, Database, Image as ImageIcon, KeyRound, RotateCcw, Save, Settings2, Sparkles, Upload as UploadIcon, X as XIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -337,15 +337,12 @@ export default function GlobalSettingsPage() {
       </Alert>
 
       <Tabs defaultValue="brand" className="space-y-6">
-        <TabsList className="grid grid-cols-5 h-12 p-1 bg-muted/50 rounded-2xl gap-1">
+        <TabsList className="grid grid-cols-4 h-12 p-1 bg-muted/50 rounded-2xl gap-1">
           <TabsTrigger value="brand" className="rounded-xl font-bold">
             <ImageIcon className="w-4 h-4 mr-2" /> {messages.adminSettings.tabBrand}
           </TabsTrigger>
           <TabsTrigger value="connection" className="rounded-xl font-bold">
             <Database className="w-4 h-4 mr-2" /> {messages.globalSettings.tabConnection}
-          </TabsTrigger>
-          <TabsTrigger value="rag" className="rounded-xl font-bold">
-            <SlidersHorizontal className="w-4 h-4 mr-2" /> {messages.globalSettings.tabRagDefaults}
           </TabsTrigger>
           <TabsTrigger value="ai" className="rounded-xl font-bold">
             <Brain className="w-4 h-4 mr-2" /> AI
@@ -440,45 +437,6 @@ export default function GlobalSettingsPage() {
                   className="min-h-28 rounded-2xl"
                 />
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="rag" className="space-y-4">
-          <Card className="rounded-[28px] border-border/60">
-            <CardHeader>
-              <CardTitle className="text-lg font-black">{messages.globalSettings.ragCardTitle}</CardTitle>
-              <CardDescription>{messages.globalSettings.ragCardDescription}</CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="font-bold">{messages.globalSettings.defaultModelLabel}</Label>
-                <Select value={settings.defaultModel} onValueChange={(value) => update('defaultModel', value)}>
-                  <SelectTrigger className="rounded-2xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="gemini">Gemini</SelectItem>
-                    <SelectItem value="openai">OpenAI</SelectItem>
-                    <SelectItem value="claude">Claude</SelectItem>
-                    <SelectItem value="openrouter">OpenRouter</SelectItem>
-                    <SelectItem value="ollama">Ollama</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="font-bold">{messages.globalSettings.ragProfileLabel}</Label>
-                <Select value={settings.ragProfile} onValueChange={(value) => update('ragProfile', value as OperatorSettings['ragProfile'])}>
-                  <SelectTrigger className="rounded-2xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="basic">Basic RAG</SelectItem>
-                    <SelectItem value="hybrid">Hybrid Search</SelectItem>
-                    <SelectItem value="hybrid-reranker">Hybrid + Reranker</SelectItem>
-                    <SelectItem value="graph-rag">GraphRAG</SelectItem>
-                    <SelectItem value="agent">Agent Mode</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <SettingsNumber label="Chunk Size" value={settings.chunkSize} onChange={(value) => update('chunkSize', value)} />
-              <SettingsNumber label="Chunk Overlap" value={settings.chunkOverlap} onChange={(value) => update('chunkOverlap', value)} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -620,7 +578,9 @@ export default function GlobalSettingsPage() {
             <CardContent className="space-y-2">
               <FeatureSwitch label={messages.globalSettings.featureStreaming} checked={settings.enableStreaming} onChange={(value) => update('enableStreaming', value)} />
               <FeatureSwitch label={messages.globalSettings.featureDocumentUpload} checked={settings.enableDocumentUpload} onChange={(value) => update('enableDocumentUpload', value)} />
-              <FeatureSwitch label={messages.globalSettings.featurePhoneMasking} checked={settings.enablePhoneMasking} onChange={(value) => update('enablePhoneMasking', value)} />
+              <p className="text-xs text-muted-foreground px-1 pt-1">
+                电话号码遮罩由服务器端统一强制执行（入口脱敏），不提供前端开关。
+              </p>
             </CardContent>
           </Card>
 
@@ -646,15 +606,6 @@ function SettingsInput({ label, value, placeholder, onChange }: { label: string;
     <div className="space-y-2">
       <Label className="font-bold">{label}</Label>
       <Input value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} className="rounded-2xl" />
-    </div>
-  );
-}
-
-function SettingsNumber({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
-  return (
-    <div className="space-y-2">
-      <Label className="font-bold">{label}</Label>
-      <Input type="number" value={value} onChange={(event) => onChange(Number(event.target.value))} className="rounded-2xl" />
     </div>
   );
 }

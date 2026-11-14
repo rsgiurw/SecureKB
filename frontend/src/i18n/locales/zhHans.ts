@@ -578,7 +578,7 @@ export const zhHans: MenuMessages = {
     pageSubtitle: "在单一画面中管理 API 连接、默认模型、RAG 配置及功能开关。",
     resetButton: "重置",
     saveButton: "保存",
-    mvpNotice: "此分支为管理员设置 UX 的前端 MVP。实际操作保存可在日后连接后端设置 API。",
+    mvpNotice: "以下设置均真实生效：品牌、连接地址、AI 模型与密钥、功能开关（WebSocket 流式 / 文档上传）。分块大小等 RAG 核心参数由服务器配置统一管理，不在此处调整。",
     tabConnection: "连接",
     tabRagDefaults: "RAG 默认值",
     tabFeatureToggle: "功能开关",
