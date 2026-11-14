@@ -27,6 +27,10 @@ PROVIDER_ENV_KEYS = {
     "openai": "OPENAI_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
     "ollama": "OLLAMA_BASE_URL",
+    "zhipu": "ZHIPU_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
+    "qwen": "DASHSCOPE_API_KEY",
+    "kimi": "MOONSHOT_API_KEY",
 }
 
 PROVIDER_ALIASES = {

@@ -310,7 +310,10 @@ async def get_config_info():
         raise HTTPException(status_code=500, detail="Failed to retrieve configuration") from error
 
 
-SUPPORTED_GENERATION_PROVIDERS = {"google", "openai", "openrouter", "ollama"}
+SUPPORTED_GENERATION_PROVIDERS = {
+    "google", "openai", "openrouter", "ollama",
+    "zhipu", "deepseek", "qwen", "kimi",
+}
 
 
 def _build_ai_catalog() -> dict[str, Any]:
@@ -327,7 +330,11 @@ def _build_ai_catalog() -> dict[str, Any]:
                     "google": "Google Gemini",
                     "openai": "OpenAI",
                     "openrouter": "OpenRouter",
-                    "ollama": "Ollama",
+                    "ollama": "Ollama 本地",
+                    "zhipu": "智谱 GLM",
+                    "deepseek": "DeepSeek",
+                    "qwen": "通义千问 Qwen",
+                    "kimi": "Kimi 月之暗面",
                 }.get(provider, provider),
                 "models": models,
                 "key": store.get_key_metadata(provider),

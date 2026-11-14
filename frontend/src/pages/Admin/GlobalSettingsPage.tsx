@@ -103,7 +103,7 @@ export default function GlobalSettingsPage() {
       setAISettings(response);
       toast({
         title: 'AI 设置保存成功',
-        description: response.restartRequired ? '提供商变更将在服务器重启后完全生效。' : '모델 설정이 채팅 요청에 반영됩니다.',
+        description: response.restartRequired ? '提供商变更将在服务器重启后完全生效。' : '模型设置将在后续聊天请求中生效。',
       });
       await loadAISettings();
     } catch {
@@ -447,23 +447,23 @@ export default function GlobalSettingsPage() {
           <Card className="rounded-[28px] border-border/60">
             <CardHeader>
               <CardTitle className="text-lg font-black flex items-center gap-2">
-                <Brain className="w-5 h-5 text-primary" /> 서버 AI 모델 설정
+                <Brain className="w-5 h-5 text-primary" /> 服务器 AI 模型设置
               </CardTitle>
               <CardDescription>
-                실제 채팅 생성에 사용할 provider/model을 서버에 저장합니다. API 키는 브라우저 저장소에 남기지 않습니다.
+                保存实际用于聊天生成的服务商与模型到服务器。API 密钥不会留在浏览器存储中。
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               {aiSettingsError && (
                 <Alert className="rounded-2xl border-destructive/20 bg-destructive/5">
                   <AlertDescription className="font-medium text-destructive">
-                    AI 설정을 불러오지 못했습니다. 관리자 API 키와 서버 상태를 확인하세요.
+                    AI 设置加载失败。请检查管理员登录状态与服务器是否在线。
                   </AlertDescription>
                 </Alert>
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="font-bold">Provider</Label>
+                  <Label className="font-bold">服务商</Label>
                   <Select
                     value={aiProvider}
                     onValueChange={(value) => {
@@ -484,7 +484,7 @@ export default function GlobalSettingsPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="font-bold">Model</Label>
+                  <Label className="font-bold">模型</Label>
                   <Select value={aiModel} onValueChange={setAIModel}>
                     <SelectTrigger className="rounded-2xl"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -499,7 +499,7 @@ export default function GlobalSettingsPage() {
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3 items-end">
                 <div className="space-y-2">
                   <Label className="font-bold flex items-center gap-2">
-                    <KeyRound className="w-4 h-4 text-primary" /> Provider API key
+                    <KeyRound className="w-4 h-4 text-primary" /> 服务商 API 密钥
                   </Label>
                   <Input
                     type="password"
@@ -510,7 +510,7 @@ export default function GlobalSettingsPage() {
                     autoComplete="off"
                   />
                   <p className="text-xs text-muted-foreground">
-                    현재 상태: {selectedAIProvider?.key?.configured ? `configured (${selectedAIProvider.key.storage})` : 'not configured'}
+                    当前状态：{selectedAIProvider?.key?.configured ? `已配置 (${selectedAIProvider.key.storage})` : '未配置'}
                     {selectedAIProvider?.key?.persisted === false ? ' · runtime-only' : ''}
                     {!aiSettings?.settings.configured ? ' · 请先保存服务器设置' : ''}
                   </p>
@@ -522,23 +522,23 @@ export default function GlobalSettingsPage() {
                   disabled={aiLoading || !aiKeyDraft.trim() || !aiSettings?.settings.configured}
                   onClick={handleReplaceAIKey}
                 >
-                  <KeyRound className="w-4 h-4 mr-2" /> 키 교체
+                  <KeyRound className="w-4 h-4 mr-2" /> 更换密钥
                 </Button>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 <Button type="button" variant="outline" className="rounded-xl font-bold" disabled={aiLoading} onClick={handleTestAISettings}>
-                  설정 점검
+                  连通性检测
                 </Button>
                 <Button type="button" className="rounded-xl font-bold" disabled={aiLoading || !selectedAIProvider} onClick={handleSaveAISettings}>
-                  서버 설정 저장
+                  保存服务器设置
                 </Button>
                 <Badge variant={aiSettings?.restartRequired ? 'destructive' : 'secondary'} className="rounded-full">
-                  {aiSettings?.restartRequired ? 'restart required' : 'request override active'}
+                  {aiSettings?.restartRequired ? '需重启生效' : '请求级覆盖已生效'}
                 </Badge>
                 {aiSettings?.running?.provider && (
                   <Badge variant="outline" className="rounded-full">
-                    running: {aiSettings.running.provider}/{aiSettings.running.model || 'unknown'}
+                    运行中：{aiSettings.running.provider}/{aiSettings.running.model || 'unknown'}
                   </Badge>
                 )}
               </div>

@@ -172,3 +172,4 @@ ko_visible_strings.txt
 data/*.sqlite3-shm
 data/*.sqlite3-wal
 data/chat_snapshot.json
+easy_start/.qdrant_data_eval/

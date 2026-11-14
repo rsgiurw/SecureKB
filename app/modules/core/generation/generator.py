@@ -43,7 +43,20 @@ logger = get_logger(__name__)
 # LLM Provider별 API URL
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 GOOGLE_OPENAI_COMPAT_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
-RUNTIME_ADMIN_GENERATION_PROVIDERS = {"google", "openai", "openrouter", "ollama"}
+RUNTIME_ADMIN_GENERATION_PROVIDERS = {
+    "google", "openai", "openrouter", "ollama",
+    "zhipu", "deepseek", "qwen", "kimi",
+}
+
+# OpenAI 兼容厂商注册表：这些厂商全部提供 OpenAI 兼容端点，共用同一初始化路径，
+# 仅 base_url / 环境变量名不同。新增厂商只需在此登记。
+OPENAI_COMPATIBLE_PROVIDERS: dict[str, dict[str, str]] = {
+    "openai": {"base_url": "https://api.openai.com/v1", "env": "OPENAI_API_KEY"},
+    "zhipu": {"base_url": "https://open.bigmodel.cn/api/paas/v4", "env": "ZHIPU_API_KEY"},
+    "deepseek": {"base_url": "https://api.deepseek.com/v1", "env": "DEEPSEEK_API_KEY"},
+    "qwen": {"base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1", "env": "DASHSCOPE_API_KEY"},
+    "kimi": {"base_url": "https://api.moonshot.cn/v1", "env": "MOONSHOT_API_KEY"},
+}
 
 # ============================================================================
 # 다국어 응답 프로파일 (GAP #2) — config 외부화
@@ -477,6 +490,26 @@ class GenerationModule:
                 "default_model",
                 self.gen_config.get("default_model", "gpt-4.1"),
             )
+        elif self.provider == "zhipu":
+            self.default_model = self.provider_config.get(
+                "default_model",
+                self.gen_config.get("default_model", "glm-4-flash"),
+            )
+        elif self.provider == "deepseek":
+            self.default_model = self.provider_config.get(
+                "default_model",
+                self.gen_config.get("default_model", "deepseek-chat"),
+            )
+        elif self.provider == "qwen":
+            self.default_model = self.provider_config.get(
+                "default_model",
+                self.gen_config.get("default_model", "qwen-plus"),
+            )
+        elif self.provider == "kimi":
+            self.default_model = self.provider_config.get(
+                "default_model",
+                self.gen_config.get("default_model", "moonshot-v1-8k"),
+            )
         elif self.provider == "ollama":
             self.default_model = self.provider_config.get(
                 "default_model",
@@ -561,8 +594,8 @@ class GenerationModule:
         #  직접 호출이 불가하므로 OpenRouter 경유를 권장한다 — openrouter/anthropic/claude-*)
         if self.provider == "google":
             self._initialize_google_client()
-        elif self.provider == "openai":
-            self._initialize_openai_client()
+        elif self.provider in OPENAI_COMPATIBLE_PROVIDERS:
+            self._initialize_openai_client(self.provider)
         elif self.provider == "ollama":
             self._initialize_ollama_client()
         else:
@@ -610,25 +643,28 @@ class GenerationModule:
             ),
         )
 
-    def _initialize_openai_client(self) -> None:
-        """OpenAI 네이티브 API 클라이언트 초기화 (OpenAI 호환 — 직접 지원)"""
+    def _initialize_openai_client(self, provider_id: str = "openai") -> None:
+        """OpenAI 兼容客户端初始化（openai/zhipu/deepseek/qwen/kimi 共用此路径）"""
         import httpx
         from openai import OpenAI
 
+        provider_defaults = OPENAI_COMPATIBLE_PROVIDERS.get(
+            provider_id, OPENAI_COMPATIBLE_PROVIDERS["openai"]
+        )
         api_key = (
             self.provider_config.get("api_key")
-            or self._load_admin_provider_key("openai")
-            or os.getenv("OPENAI_API_KEY")
+            or self._load_admin_provider_key(provider_id)
+            or os.getenv(provider_defaults["env"])
         )
         if not api_key:
             raise ValueError(
-                "OpenAI API 키가 설정되지 않았습니다. "
-                "해결 방법: 1) 환경변수 OPENAI_API_KEY를 설정하거나, "
-                "2) config의 generation.openai.api_key를 추가하세요."
+                f"{provider_id} 的 API 密钥未配置。"
+                "解决方法：1) 在运行设置的 AI 页签填入密钥，或 "
+                f"2) 设置环境变量 {provider_defaults['env']}。"
             )
 
         timeout = self.provider_config.get("timeout", 120)
-        base_url = self.provider_config.get("base_url", "https://api.openai.com/v1")
+        base_url = self.provider_config.get("base_url", provider_defaults["base_url"])
 
         self.client = OpenAI(
             base_url=base_url,
