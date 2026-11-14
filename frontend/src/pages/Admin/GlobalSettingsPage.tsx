@@ -74,22 +74,22 @@ export default function GlobalSettingsPage() {
   const [aiKeyDraft, setAIKeyDraft] = useState('');
   const [aiLoading, setAILoading] = useState(false);
   const [aiSettingsError, setAISettingsError] = useState(false);
-  const [connState, setConnState] = useState<{ ok: boolean; message: string; state: 'ok' | 'error' | 'no_key'; latencyMs?: number | undefined } | null>(null);
+  const [connState, setConnState] = useState<{ ok: boolean; message: string; state: 'ok' | 'error' | 'no_key'; latencyMs?: number | undefined; usedDraft: boolean } | null>(null);
   const [connChecking, setConnChecking] = useState(false);
 
-  // draftKey 提供时探测草稿密钥（不落库）——更换密钥前先真连验证
+  // draftKey 提供时探测草稿密钥（不落库）——连通性检测与更换密钥都优先用输入框里的密钥
   const runConnectionTest = async (provider: string, model: string, draftKey?: string) => {
     setConnChecking(true);
     try {
       const payload: { provider: string; model: string; api_key?: string } = { provider, model };
       if (draftKey) payload.api_key = draftKey;
-      const r = await adminService.testAISettings(payload) as { ok: boolean; message: string; state?: string; latencyMs?: number };
+      const r = await adminService.testAISettings(payload) as { ok: boolean; message: string; state?: string; latencyMs?: number; keySource?: string };
       const state: 'ok' | 'error' | 'no_key' = r.state === 'ok' || r.state === 'no_key' ? r.state : 'error';
-      const next = { ok: r.ok, message: r.message, state, latencyMs: r.latencyMs };
+      const next = { ok: r.ok, message: r.message, state, latencyMs: r.latencyMs, usedDraft: draftKey !== undefined && draftKey.length > 0 };
       setConnState(next);
       return next;
     } catch {
-      const next = { ok: false, message: '检测请求失败：请检查服务器是否在线', state: 'error' as const, latencyMs: undefined };
+      const next = { ok: false, message: '检测请求失败：请检查服务器是否在线', state: 'error' as const, latencyMs: undefined, usedDraft: false };
       setConnState(next);
       return next;
     } finally {
@@ -175,9 +175,11 @@ export default function GlobalSettingsPage() {
   };
 
   const handleTestAISettings = async () => {
-    const r = await runConnectionTest(aiProvider, aiModel);
+    // 输入框里有密钥就测你填的（不落库），留空才测服务器已配置的密钥
+    const draft = aiKeyDraft.trim();
+    const r = await runConnectionTest(aiProvider, aiModel, draft || undefined);
     toast({
-      title: r.ok ? '连接正常' : '连接检测未通过',
+      title: r.ok ? (r.usedDraft ? '你填写的密钥连接正常' : '已配置密钥连接正常') : '连接检测未通过',
       description: r.message,
       variant: r.ok ? 'default' : 'destructive',
     });
@@ -551,6 +553,8 @@ export default function GlobalSettingsPage() {
                     当前状态：{selectedAIProvider?.key?.configured ? `已配置 (${selectedAIProvider.key.storage})` : '未配置'}
                     {selectedAIProvider?.key?.persisted === false ? ' · runtime-only' : ''}
                     {!aiSettings?.settings.configured ? ' · 请先保存服务器设置' : ''}
+                    <br />
+                    点「连通性检测」或「更换密钥」时优先使用上面填写的密钥；留空则检测服务器已配置的密钥。
                   </p>
                 </div>
                 <Button
@@ -586,6 +590,7 @@ export default function GlobalSettingsPage() {
                   <Alert className="rounded-2xl border-primary/30 bg-primary/5">
                     <AlertDescription className="font-medium text-primary/90">
                       ✅ 连接正常{connState.latencyMs ? `（响应 ${connState.latencyMs}ms）` : ''} · {aiProvider}/{aiModel}
+                      {connState.usedDraft ? ' · 使用你填写的密钥' : ' · 使用服务器已配置的密钥'}
                     </AlertDescription>
                   </Alert>
                 ) : connState.state === 'no_key' ? (

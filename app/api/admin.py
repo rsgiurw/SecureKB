@@ -615,6 +615,7 @@ async def test_ai_settings(payload: AISettingsTestRequest):
         "model": model,
         **probe,
         "mode": "live_probe",
+        "key_source": "draft" if draft_key else "stored",
         "key": key_metadata,
         "timestamp": datetime.now().isoformat(),
     }
