@@ -129,7 +129,7 @@
 
 - Python 3.11+（开发环境 3.12）
 - Node.js 20+（官方前端）
-- [智谱开放平台](https://open.bigmodel.cn) API Key（glm-4-flash 免费；embedding-3 约 0.5 元/百万 token）
+- API Key
 
 ### 启动
 
