@@ -15,11 +15,11 @@
 
 ---
 
-**SecureKB** 是基于 [OneRAG](https://github.com/notadev-iamaura/OneRAG)（MIT）深度改造的中文企业知识库问答系统：
+**SecureKB** 是面向中文企业场景的安全知识库问答系统：
 员工用中文提问，系统在**权限范围内**检索知识库（混合检索 + 权限过滤），由大模型生成**带引用溯源**的回答，
 并对输入/检索/输出全链路做**提示注入防护**。
 
-> 本仓库在 OneRAG 基础上完成 **七项深度改造**，全部配有对比实验数据（见 [docs/experiments.md](docs/experiments.md)）。
+> 系统完成 **七项深度改造**，全部配有对比实验数据（见 [docs/experiments.md](docs/experiments.md)）。
 
 ## 界面演示
 
@@ -197,7 +197,7 @@ PyPI 清华 / npm npmmirror）· nginx same-origin 反代（无跨域）。
 - **输出合规规则引擎**（`app/security/output_compliance.py`）：提示词泄漏 block、
   注入回声/密钥形态/PII 片段 mask，分级处置 + 审计。
 
-## 与上游的主要差异
+## 关键工程差异点
 
 - 智谱 GLM 全链路接入（生成 + 嵌入，OpenAI 兼容端点），schema/校验器适配
 - jieba 中文分词替换 kiwipiepy；检索评测器 `run_retrieval_eval.py` 新增
@@ -218,12 +218,6 @@ PyPI 清华 / npm npmmirror）· nginx same-origin 反代（无跨域）。
 - [ ] 反馈按钮（👍/👎）→ bad case 自动进入评测集
 - [ ] 忠实度拒答联动评测（distractor / 世界知识拼凑 bad case）
 
-## 致谢
-
-- [OneRAG](https://github.com/notadev-iamaura/OneRAG)（MIT）——本项目的基础框架，
-  检索编排、多向量库支持、生成评测（RAGAS）、WebSocket 等核心能力来自上游。
-- 依赖的上游组件（LangChain 文本切分、rank-bm25、jieba 等）按各自协议使用。
-
 ## License
 
-MIT（继承自上游 OneRAG）
+MIT
